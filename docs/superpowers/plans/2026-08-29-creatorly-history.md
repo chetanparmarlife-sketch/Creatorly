@@ -79,7 +79,7 @@
 - [x] Push Convex functions to development and production, then deploy Vercel production.
 - [x] Smoke-test `/history` and confirm the production bundle still points to the production Convex deployment.
 - [x] Record exact outcomes and remaining browser-automation limitation in README and CHANGELOG.
-- [ ] Commit and push the completed History slice.
+- [x] Commit and push the completed History slice.
 
 ## Self-review
 
