@@ -4,6 +4,7 @@ import type { Platform } from "../types";
 export type AppRoute =
   | { name: "search"; query: string; platform?: Platform }
   | { name: "history" }
+  | { name: "admin" }
   | { name: "creator"; creatorId: string };
 
 function readRoute(): AppRoute {
@@ -13,6 +14,7 @@ function readRoute(): AppRoute {
     return { name: "creator", creatorId: decodeURIComponent(creatorMatch[1]) };
   }
   if (path === "/history") return { name: "history" };
+  if (path === "/admin") return { name: "admin" };
   const params = new URLSearchParams(window.location.search);
   const platform = params.get("platform");
   return {
@@ -37,6 +39,8 @@ export function useRoute() {
       ? `/creator/${encodeURIComponent(next.creatorId)}`
       : next.name === "history"
         ? "/history"
+        : next.name === "admin"
+          ? "/admin"
         : `/search${next.query ? `?${new URLSearchParams({
           q: next.query,
           ...(next.platform ? { platform: next.platform } : {}),

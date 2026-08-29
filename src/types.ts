@@ -64,4 +64,45 @@ export type SignUpInput = {
   password: string;
 };
 
+export type ContactRequestInput = {
+  platform: Platform;
+  handle: string;
+  notes?: string;
+};
+
+export type ContactRequestResult = {
+  status: "created" | "already_pending";
+  requestId: string;
+};
+
+export type AdminContactRequest = {
+  id: string;
+  requestedHandle: string;
+  requestedPlatform: Platform;
+  notes?: string;
+  requestDate: number;
+  requester: { name: string; email: string; companyName: string };
+};
+
+export type FulfillRequestInput = {
+  requestId: string;
+  creator: {
+    platform: Platform;
+    handle: string;
+    displayName: string;
+    followerCount: number;
+    location?: string;
+    isVerified: boolean;
+  };
+  contact: {
+    contactType: CreatorContact["contactType"];
+    name: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+    contextualNotes?: string;
+    accessTier: "basic" | "pro";
+  };
+};
+
 export type DataMode = "convex" | "demo";

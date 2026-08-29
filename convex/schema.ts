@@ -113,7 +113,9 @@ export default defineSchema({
   contactRequests: defineTable({
     userId: v.id("users"),
     requestedHandle: v.string(),
+    normalizedHandle: v.optional(v.string()),
     requestedPlatform: platform,
+    notes: v.optional(v.string()),
     status: v.union(
       v.literal("pending"),
       v.literal("fulfilled"),
@@ -123,5 +125,7 @@ export default defineSchema({
     fulfilledDate: v.optional(v.number()),
     notificationSent: v.boolean(),
     associatedCreatorId: v.optional(v.id("creators")),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"]),
 });

@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-29 — M4 Contact request and admin fulfillment slice
+
+### Added
+
+- Missing-result Request Contact dialog with platform, handle, optional notes, pending, error, duplicate, and success states.
+- Normalized per-user duplicate suppression for pending creator requests.
+- Server-guarded `/admin` fulfillment queue with creator and role-labelled contact creation.
+- Matching pending requests are fulfilled together and linked to the repository creator.
+- CLI-only `admin:promoteByEmail` command; local demo uses `admin@creatorly.test` for verification.
+- Admin screen is lazy-loaded as a separate 6.4 KB JavaScript chunk.
+
+### Verified
+
+- Unit and UI integration tests: 12 passing, including request submission and admin fulfillment journeys.
+- Production request creation returned `created`; its duplicate returned `already_pending` with the same request ID.
+- Production non-admin queue access returned `Admin access required.`
+- Development admin verification promoted a QA account, fulfilled one request, removed it from the queue, and made the creator searchable.
+- Vercel production `/admin` returns HTTP 200 and its bundle points to production Convex.
+- No automated email is claimed: fulfilled requests retain `notificationSent: false` until a provider is connected.
+- ESLint, frontend build, Convex TypeScript, extension syntax, and dependency audit: pass; 0 known vulnerabilities.
+
 ## 2026-08-29 — M4 History slice
 
 ### Added

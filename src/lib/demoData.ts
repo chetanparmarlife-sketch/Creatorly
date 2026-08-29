@@ -1,8 +1,12 @@
 import { normalizeCreatorQuery, rankCreatorMatch } from "./creatorMatching";
 import type {
+  AdminContactRequest,
+  ContactRequestInput,
+  ContactRequestResult,
   CreatorContact,
   CreatorDetailData,
   CreatorSearchResult,
+  FulfillRequestInput,
   Platform,
   SignUpInput,
   UnlockHistoryItem,
@@ -109,6 +113,8 @@ const DEMO_CREATORS: DemoCreator[] = [
 const USER_KEY = "creatorly.demo.user.v1";
 const SESSION_KEY = "creatorly.demo.session.v1";
 const UNLOCK_KEY = "creatorly.demo.unlocks.v1";
+const REQUEST_KEY = "creatorly.demo.requests.v1";
+const CUSTOM_CREATORS_KEY = "creatorly.demo.custom-creators.v1";
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -125,6 +131,24 @@ function readUser() {
 
 function saveUser(user: Viewer) {
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+type DemoRequest = AdminContactRequest & {
+  userId: string;
+  normalizedHandle: string;
+  status: "pending" | "fulfilled";
+};
+
+function getRequests() {
+  return readJson<DemoRequest[]>(REQUEST_KEY, []);
+}
+
+function getCustomCreators() {
+  return readJson<DemoCreator[]>(CUSTOM_CREATORS_KEY, []);
+}
+
+function allCreators() {
+  return [...DEMO_CREATORS, ...getCustomCreators()];
 }
 
 type DemoUnlockRecord = {
@@ -158,7 +182,7 @@ export const demoData = {
       name: input.name,
       email: input.email.trim().toLowerCase(),
       companyName: input.companyName,
-      role: "user",
+      role: input.email.trim().toLowerCase() === "admin@creatorly.test" ? "admin" : "user",
       currentPlanTier: "free",
       creditBalance: 25,
     };
@@ -182,7 +206,7 @@ export const demoData = {
   },
   async search(query: string, platform?: Platform) {
     await latency();
-    return DEMO_CREATORS.flatMap((creator) => {
+    return allCreators().flatMap((creator) => {
       if (platform && creator.platform !== platform) return [];
       const matchScore = rankCreatorMatch(query, creator);
       if (matchScore === null) return [];
@@ -202,7 +226,7 @@ export const demoData = {
   },
   async detail(creatorId: string): Promise<CreatorDetailData | null> {
     await latency();
-    const creator = DEMO_CREATORS.find((item) => item.id === creatorId);
+    const creator = allCreators().find((item) => item.id === creatorId);
     const user = readUser();
     if (!creator || !user) return null;
     const expiresAt = getUnlocks()[creatorId]?.expiresAt ?? null;
@@ -252,7 +276,7 @@ export const demoData = {
     const now = Date.now();
     return Object.entries(getUnlocks())
       .flatMap(([creatorId, record]) => {
-        const creator = DEMO_CREATORS.find((item) => item.id === creatorId);
+        const creator = allCreators().find((item) => item.id === creatorId);
         if (!creator) return [];
         return [{
           id: `demo-${creatorId}-${record.unlockedAt}`,
@@ -271,6 +295,96 @@ export const demoData = {
         }];
       })
       .sort((a, b) => b.unlockedAt - a.unlockedAt);
+  },
+  async requestContact(input: ContactRequestInput): Promise<ContactRequestResult> {
+    await latency();
+    const user = readUser();
+    if (!user) throw new Error("Sign in to request a contact.");
+    const handle = input.handle.trim().replace(/^@+/, "");
+    const normalizedHandle = normalizeCreatorQuery(handle);
+    if (normalizedHandle.length < 2) throw new Error("Enter a valid creator handle.");
+    const requests = getRequests();
+    const existing = requests.find((request) =>
+      request.userId === user.id
+      && request.status === "pending"
+      && request.requestedPlatform === input.platform
+      && request.normalizedHandle === normalizedHandle
+    );
+    if (existing) return { status: "already_pending", requestId: existing.id };
+    const request: DemoRequest = {
+      id: `request-${Date.now()}`,
+      userId: user.id,
+      normalizedHandle,
+      requestedHandle: `@${handle}`,
+      requestedPlatform: input.platform,
+      notes: input.notes?.trim() || undefined,
+      requestDate: Date.now(),
+      requester: { name: user.name, email: user.email, companyName: user.companyName },
+      status: "pending",
+    };
+    window.localStorage.setItem(REQUEST_KEY, JSON.stringify([request, ...requests]));
+    return { status: "created", requestId: request.id };
+  },
+  async listAdminRequests(): Promise<AdminContactRequest[]> {
+    await latency();
+    const user = readUser();
+    if (!user || user.role !== "admin") throw new Error("Admin access required.");
+    return getRequests()
+      .filter((request) => request.status === "pending")
+      .sort((a, b) => b.requestDate - a.requestDate);
+  },
+  async fulfillRequest(input: FulfillRequestInput): Promise<{ creatorId: string; fulfilledCount: number }> {
+    await latency();
+    const user = readUser();
+    if (!user || user.role !== "admin") throw new Error("Admin access required.");
+    const requests = getRequests();
+    const selected = requests.find((request) => request.id === input.requestId && request.status === "pending");
+    if (!selected) throw new Error("Pending request not found.");
+    const normalizedHandle = normalizeCreatorQuery(input.creator.handle);
+    if (selected.requestedPlatform !== input.creator.platform || selected.normalizedHandle !== normalizedHandle) {
+      throw new Error("Creator platform and handle must match the request.");
+    }
+    const existing = allCreators().find((creator) =>
+      creator.platform === input.creator.platform && creator.normalizedHandle === normalizedHandle
+    );
+    const creatorId = existing?.id ?? `custom-${normalizedHandle}`;
+    if (!existing) {
+      const customCreator: DemoCreator = {
+        id: creatorId,
+        platform: input.creator.platform,
+        handle: input.creator.handle.startsWith("@") ? input.creator.handle : `@${input.creator.handle}`,
+        normalizedHandle,
+        displayName: input.creator.displayName,
+        followerCount: input.creator.followerCount,
+        location: input.creator.location,
+        isVerified: input.creator.isVerified,
+        isDemo: true,
+        contacts: [{
+          id: `contact-${Date.now()}`,
+          contactType: input.contact.contactType,
+          name: input.contact.name,
+          email: input.contact.email,
+          phone: input.contact.phone,
+          whatsapp: input.contact.whatsapp,
+          contextualNotes: input.contact.contextualNotes,
+          verificationStatus: "verified",
+          lastVerifiedAt: Date.now(),
+          isDemo: true,
+          accessTier: input.contact.accessTier,
+        }],
+      };
+      window.localStorage.setItem(CUSTOM_CREATORS_KEY, JSON.stringify([...getCustomCreators(), customCreator]));
+    }
+    let fulfilledCount = 0;
+    const updated = requests.map((request) => {
+      if (request.status === "pending" && request.requestedPlatform === input.creator.platform && request.normalizedHandle === normalizedHandle) {
+        fulfilledCount += 1;
+        return { ...request, status: "fulfilled" as const };
+      }
+      return request;
+    });
+    window.localStorage.setItem(REQUEST_KEY, JSON.stringify(updated));
+    return { creatorId, fulfilledCount };
   },
   normalizeCreatorQuery,
 };

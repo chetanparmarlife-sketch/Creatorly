@@ -14,9 +14,13 @@ import {
 } from "convex/server";
 import { demoData } from "../lib/demoData";
 import type {
+  AdminContactRequest,
+  ContactRequestInput,
+  ContactRequestResult,
   CreatorDetailData,
   CreatorSearchResult,
   DataMode,
+  FulfillRequestInput,
   Platform,
   SignUpInput,
   UnlockHistoryItem,
@@ -33,6 +37,9 @@ type AppData = {
   search(query: string, platform?: Platform): Promise<CreatorSearchResult[]>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
+  requestContact(input: ContactRequestInput): Promise<ContactRequestResult>;
+  listAdminRequests(): Promise<AdminContactRequest[]>;
+  fulfillRequest(input: FulfillRequestInput): Promise<{ creatorId: string; fulfilledCount: number }>;
   unlock(creatorId: string): Promise<void>;
 };
 
@@ -65,6 +72,9 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     search: demoData.search,
     getDetail: demoData.detail,
     getHistory: demoData.history,
+    requestContact: demoData.requestContact,
+    listAdminRequests: demoData.listAdminRequests,
+    fulfillRequest: demoData.fulfillRequest,
     unlock: demoData.unlock,
   }), [authenticated]);
 
@@ -89,6 +99,15 @@ const unlockRef = makeFunctionReference<"mutation">("unlocks:unlock") as Functio
 >;
 const historyRef = makeFunctionReference<"query">("unlocks:listHistory") as FunctionReference<
   "query", "public", EmptyArgs, UnlockHistoryItem[]
+>;
+const requestContactRef = makeFunctionReference<"mutation">("contactRequests:create") as FunctionReference<
+  "mutation", "public", ContactRequestInput, ContactRequestResult
+>;
+const adminRequestsRef = makeFunctionReference<"query">("admin:listRequests") as FunctionReference<
+  "query", "public", EmptyArgs, AdminContactRequest[]
+>;
+const fulfillRequestRef = makeFunctionReference<"mutation">("admin:fulfillRequest") as FunctionReference<
+  "mutation", "public", FulfillRequestInput, { creatorId: string; fulfilledCount: number }
 >;
 
 export function ConvexDataProvider({
@@ -129,6 +148,9 @@ export function ConvexDataProvider({
     search: (query, platform) => convex.query(searchRef, { query, platform }),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
     getHistory: () => convex.query(historyRef, {}),
+    requestContact: (input) => convex.mutation(requestContactRef, input),
+    listAdminRequests: () => convex.query(adminRequestsRef, {}),
+    fulfillRequest: (input) => convex.mutation(fulfillRequestRef, input),
     unlock: async (creatorId) => {
       await convex.mutation(unlockRef, { creatorId });
     },

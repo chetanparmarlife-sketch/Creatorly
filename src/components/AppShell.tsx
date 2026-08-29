@@ -1,4 +1,4 @@
-import { History, LogOut, Search } from "lucide-react";
+import { History, LogOut, Search, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Viewer } from "../types";
 import { Logo } from "./Logo";
@@ -8,13 +8,17 @@ export function AppShell({
   activePage,
   onSearch,
   onHistory,
+  onAdmin,
+  showAdmin,
   onSignOut,
   children,
 }: {
   viewer: Viewer | null;
-  activePage: "search" | "history";
+  activePage: "search" | "history" | "admin";
   onSearch(): void;
   onHistory(): void;
+  onAdmin(): void;
+  showAdmin: boolean;
   onSignOut(): void;
   children: ReactNode;
 }) {
@@ -31,6 +35,9 @@ export function AppShell({
           <button className={`nav-item ${activePage === "history" ? "is-active" : ""}`} onClick={onHistory} aria-current={activePage === "history" ? "page" : undefined}>
             <History size={17} aria-hidden="true" /> History
           </button>
+          {showAdmin ? <button className={`nav-item ${activePage === "admin" ? "is-active" : ""}`} onClick={onAdmin} aria-current={activePage === "admin" ? "page" : undefined}>
+            <ShieldCheck size={17} aria-hidden="true" /> Admin
+          </button> : null}
         </nav>
         <div className="account-strip">
           <div className="credit-pill" title="Credits available">

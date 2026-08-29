@@ -29,3 +29,9 @@ The signature is the **contact signal rail**: profile matched → record checked
 - Creator detail focal point: unlock decision when locked, actual contact values when open
 - Color carries meaning; most structure remains neutral
 - Desktop working width: 1160px; mobile gutters: 14px
+
+## Request and admin patterns
+
+- Missing-contact dialog: 560px paper surface over a dimmed canvas; the requested handle stays the focal field and success switches to verified green.
+- Admin fulfillment: 300px request queue beside a flexible paper work panel; the selected handle anchors the form and coral is reserved for queue/action signals.
+- Admin forms reuse 46–48px inset controls, 8px control radius, 11px fieldset radius, and the existing 4px spacing grid.

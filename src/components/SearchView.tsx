@@ -4,6 +4,7 @@ import { useAppData } from "../data/AppData";
 import type { AppRoute } from "../hooks/useRoute";
 import type { CreatorSearchResult, Platform } from "../types";
 import { CreatorResult } from "./CreatorResult";
+import { RequestContactModal } from "./RequestContactModal";
 
 export function SearchView({
   initialQuery,
@@ -21,6 +22,7 @@ export function SearchView({
   const [results, setResults] = useState<CreatorSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [requestOpen, setRequestOpen] = useState(false);
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -112,7 +114,8 @@ export function SearchView({
           <div className="search-empty">
             <span className="empty-orbit" aria-hidden="true">?</span>
             <h3>No contact in this demo set</h3>
-            <p>Try another spelling or clear the platform filter. Contact requests arrive after M1.</p>
+            <p>Try another spelling or ask our research queue to find the right contact.</p>
+            <button className="button button-primary request-empty-action" onClick={() => setRequestOpen(true)}>Request contact</button>
           </div>
         ) : null}
         {visibleResults.length > 0 ? (
@@ -128,6 +131,7 @@ export function SearchView({
           </div>
         ) : null}
       </section>
+      {requestOpen ? <RequestContactModal initialHandle={query} initialPlatform={platform ?? "instagram"} onClose={() => setRequestOpen(false)} /> : null}
     </main>
   );
 }

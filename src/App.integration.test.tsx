@@ -103,4 +103,55 @@ describe("Creatorly M1 user journey", () => {
     await waitFor(() => expect(screen.getByText("20")).toBeInTheDocument());
     expect(screen.getByRole("tab", { name: /active 1/i })).toHaveAttribute("aria-selected", "true");
   });
+
+  it("submits a missing creator request with its platform and notes", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+
+    await user.type(await screen.findByLabelText("Creator name or handle"), "@new.creator");
+    await user.click(await screen.findByRole("button", { name: /request contact/i }));
+    expect(screen.getByRole("dialog", { name: /request a creator contact/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Creator handle")).toHaveValue("@new.creator");
+    await user.selectOptions(screen.getByLabelText("Platform"), "instagram");
+    await user.type(screen.getByLabelText("Notes (optional)"), "Need the campaign manager.");
+    await user.click(screen.getByRole("button", { name: /^submit request$/i }));
+
+    expect(await screen.findByRole("heading", { name: /request received/i })).toBeInTheDocument();
+    expect(screen.getByText(/email when this contact is added/i)).toBeInTheDocument();
+  });
+
+  it("lets a demo admin fulfill a pending request", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+
+    await user.type(screen.getByLabelText("Full name"), "Creatorly Admin");
+    await user.type(screen.getByLabelText("Agency name"), "Creatorly");
+    await user.type(screen.getByLabelText("Work email"), "admin@creatorly.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+
+    await user.type(await screen.findByLabelText("Creator name or handle"), "@new.creator");
+    await user.click(await screen.findByRole("button", { name: /request contact/i }));
+    await user.click(screen.getByRole("button", { name: /^submit request$/i }));
+    await user.click(await screen.findByRole("button", { name: /^close$/i }));
+    await user.click(screen.getByRole("button", { name: /^admin$/i }));
+
+    expect(await screen.findByRole("heading", { name: /fulfillment queue/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /@new.creator/i })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Creator display name"), "New Creator");
+    await user.type(screen.getByLabelText("Follower count"), "125000");
+    await user.type(screen.getByLabelText("Location"), "Mumbai, India");
+    await user.type(screen.getByLabelText("Contact name"), "Nina Manager");
+    await user.type(screen.getByLabelText("Contact email"), "nina.manager@example.test");
+    await user.click(screen.getByRole("button", { name: /mark fulfilled/i }));
+
+    expect(await screen.findByText(/fulfilled 1 matching request/i)).toBeInTheDocument();
+    expect(await screen.findByText(/queue is clear/i)).toBeInTheDocument();
+  });
 });

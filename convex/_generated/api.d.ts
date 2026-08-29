@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as contactRequests from "../contactRequests.js";
 import type * as creators from "../creators.js";
 import type * as http from "../http.js";
 import type * as lib_matching from "../lib/matching.js";
@@ -23,7 +25,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   auth: typeof auth;
+  contactRequests: typeof contactRequests;
   creators: typeof creators;
   http: typeof http;
   "lib/matching": typeof lib_matching;
