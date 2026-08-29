@@ -98,7 +98,7 @@
 - [x] Verify non-admin production access is rejected.
 - [x] Deploy Vercel and smoke-test `/admin` plus the production Convex bundle target.
 - [x] Record exact outcomes and admin-promotion instructions.
-- [ ] Commit and push the completed slice.
+- [x] Commit and push the completed slice.
 
 ## Self-review
 
