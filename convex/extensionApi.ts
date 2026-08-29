@@ -29,7 +29,39 @@ export const profile = query({
     const isPro = account.user.currentPlanTier === "pro";
     const permitted = contacts.filter(item => item.isActive && (item.accessTier === "basic" || isPro));
     const hiddenProContactCount = contacts.filter(item => item.isActive && item.accessTier === "pro" && !isPro).length;
-    return { authenticated: true as const, found: true as const, creator: { id: creator._id, handle: creator.handle, displayName: creator.displayName, platform: creator.platform, isDemo: creator.isDemo }, creditBalance: account.user.creditBalance ?? 0, currentPlanTier: account.user.currentPlanTier ?? "free", availableContactCount: permitted.length, hiddenProContactCount, isUnlocked: Boolean(active), expiresAt: active?.expiresAt, contacts: active ? permitted.map(item => ({ id:item._id, name:item.name, contactType:item.contactType,email:item.email,phone:item.phone,whatsapp:item.whatsapp,contextualNotes:item.contextualNotes,verificationStatus:item.verificationStatus,lastVerifiedAt:item.lastVerifiedAt,isDemo:item.isDemo })) : [] };
+    return {
+      authenticated: true as const,
+      found: true as const,
+      creator: {
+        id: creator._id,
+        handle: creator.handle,
+        displayName: creator.displayName,
+        platform: creator.platform,
+        followerCount: creator.followerCount,
+        location: creator.location,
+        categories: creator.categories,
+        isVerified: creator.isVerified,
+        isDemo: creator.isDemo,
+      },
+      creditBalance: account.user.creditBalance ?? 0,
+      currentPlanTier: account.user.currentPlanTier ?? "free",
+      availableContactCount: permitted.length,
+      hiddenProContactCount,
+      isUnlocked: Boolean(active),
+      expiresAt: active?.expiresAt,
+      contacts: active ? permitted.map(item => ({
+        id: item._id,
+        name: item.name,
+        contactType: item.contactType,
+        email: item.email,
+        phone: item.phone,
+        whatsapp: item.whatsapp,
+        contextualNotes: item.contextualNotes,
+        verificationStatus: item.verificationStatus,
+        lastVerifiedAt: item.lastVerifiedAt,
+        isDemo: item.isDemo,
+      })) : [],
+    };
   },
 });
 

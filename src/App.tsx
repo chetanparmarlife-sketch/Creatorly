@@ -35,11 +35,12 @@ export function App() {
     return () => { active = false; };
   }, [data]);
 
+  if (route.name === "landing") return <LandingPage navigate={navigate}/>;
+
   if (!data.authenticated) {
     if (route.name === "login") return <AuthScreen initialMode="signin" navigate={navigate}/>;
     if (route.name === "signup") return <AuthScreen initialMode="signup" navigate={navigate} showVerificationAfterSignup/>;
     if (route.name === "pricing") return <PricingView viewer={null} navigate={navigate} refresh={() => {}}/>;
-    if (route.name === "landing") return <LandingPage navigate={navigate}/>;
     return <AuthScreen initialMode="signup" navigate={navigate}/>;
   }
 

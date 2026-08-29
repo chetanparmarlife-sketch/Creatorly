@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { AppRoute } from "../hooks/useRoute";
 import { Logo } from "./Logo";
+import "./LandingPage.css";
 
 const workflowSteps = [
   { number: "01", label: "Profile matched", detail: "Maya Kapoor · 842K followers", icon: Search },
@@ -38,62 +39,62 @@ const benefits = [
 
 export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
   return (
-    <main className="landing-page">
-      <header className="landing-nav">
+    <main className="home-page">
+      <header className="home-nav">
         <Logo />
         <nav aria-label="Landing navigation">
           <a href="#how-it-works">How it works</a>
           <button onClick={() => navigate({ name: "pricing" })}>Pricing</button>
         </nav>
-        <div className="landing-nav-actions">
+        <div className="home-nav-actions">
           <button className="text-button" onClick={() => navigate({ name: "login" })}>Sign in</button>
           <button className="button button-primary" onClick={() => navigate({ name: "signup" })}>Find a contact</button>
         </div>
       </header>
 
-      <section className="landing-hero">
-        <div className="landing-copy">
+      <section className="home-hero">
+        <div className="home-copy">
           <p className="eyebrow">Creator contacts, without the guesswork</p>
           <h1>Go from shortlist to the right inbox in 5 minutes.</h1>
           <p>
             Search 17,709 creator profiles, see who handles partnerships, and
             unlock a verified contact with the role and context your outreach needs.
           </p>
-          <div className="landing-actions">
+          <div className="home-actions">
             <button className="button button-primary button-large" onClick={() => navigate({ name: "signup" })}>
               Find my first contact <ArrowRight size={18} aria-hidden="true" />
             </button>
             <a className="button button-secondary button-large" href="#how-it-works">See how it works</a>
           </div>
-          <div className="landing-assurances" aria-label="Free account details">
+          <div className="home-assurances" aria-label="Free account details">
             <span><Check size={14} aria-hidden="true" /> 25 credits included</span>
             <span><Check size={14} aria-hidden="true" /> No card needed</span>
             <span><Check size={14} aria-hidden="true" /> 5 free unlocks</span>
           </div>
         </div>
 
-        <div className="landing-signal" aria-label="Creatorly contact workflow preview">
-          <div className="landing-signal-head">
+        <div className="home-signal" aria-label="Creatorly contact workflow preview">
+          <div className="home-signal-head">
             <span>Contact path</span>
             <small><i /> Live repository</small>
           </div>
-          <div className="signal-search">
+          <div className="home-query">
             <Search size={18} aria-hidden="true" />
             <span>@maya_creates</span>
             <kbd>Matched</kbd>
           </div>
-          <div className="landing-workflow">
+          <div className="home-workflow">
             {workflowSteps.map(({ number, label, detail, icon: Icon }) => (
-              <div className="landing-workflow-step" key={number}>
-                <span className="workflow-number">{number}</span>
-                <span className="workflow-icon"><Icon size={16} aria-hidden="true" /></span>
-                <span className="workflow-copy"><strong>{label}</strong><small>{detail}</small></span>
+              <div className="home-workflow-step" key={number}>
+                <span className="home-workflow-number">{number}</span>
+                <span className="home-workflow-icon"><Icon size={16} aria-hidden="true" /></span>
+                <span className="home-workflow-copy"><strong>{label}</strong><small>{detail}</small></span>
                 <CheckCircle2 size={17} aria-hidden="true" />
               </div>
             ))}
           </div>
-          <div className="landing-contact">
-            <div className="landing-contact-head">
+          <div className="home-contact">
+            <div className="home-contact-head">
               <p><BadgeCheck size={15} aria-hidden="true" /> VERIFIED CONTACT</p>
               <span>PRO ACCESS</span>
             </div>
@@ -104,13 +105,13 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
         </div>
       </section>
 
-      <section className="landing-problem" aria-label="Why Creatorly">
-        <div className="landing-problem-copy">
+      <section className="home-problem" aria-label="Why Creatorly">
+        <div className="home-problem-copy">
           <p className="eyebrow">The outreach gap</p>
           <h2>A creator profile tells you who they are. It rarely tells you who handles the deal.</h2>
         </div>
-        <div className="landing-proof-card">
-          <span className="landing-proof-icon"><ShieldCheck size={20} aria-hidden="true" /></span>
+        <div className="home-proof-card">
+          <span className="home-proof-icon"><ShieldCheck size={20} aria-hidden="true" /></span>
           <div>
             <strong>Creatorly adds the missing context.</strong>
             <p>Contact role, verification state, access tier, and notes appear before you start writing the email.</p>
@@ -118,7 +119,7 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
         </div>
       </section>
 
-      <section className="landing-process" id="how-it-works">
+      <section className="home-process" id="how-it-works">
         <header>
           <div>
             <p className="eyebrow">How it works</p>
@@ -126,10 +127,10 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
           </div>
           <p>Start from a creator name or profile. Finish with the contact responsible for partnerships.</p>
         </header>
-        <div className="landing-features">
+        <div className="home-steps">
           {benefits.map(({ icon: Icon, title, body }, index) => (
             <article key={title}>
-              <span className="landing-feature-number">0{index + 1}</span>
+              <span className="home-step-number">0{index + 1}</span>
               <Icon size={20} aria-hidden="true" />
               <h3>{title}</h3>
               <p>{body}</p>
@@ -138,7 +139,7 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
         </div>
       </section>
 
-      <section className="landing-final">
+      <section className="home-final">
         <span><BadgeCheck size={17} aria-hidden="true" /> 17,709 creator profiles ready to search</span>
         <h2>Your shortlist is ready. Find the person behind it.</h2>
         <p>Create a free workspace with 25 credits and unlock up to five contacts.</p>
@@ -147,7 +148,7 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
         </button>
       </section>
 
-      <footer className="landing-footer">
+      <footer className="home-footer">
         <Logo />
         <span>© 2026 Creatorly · Demo environment</span>
         <nav aria-label="Footer navigation">
