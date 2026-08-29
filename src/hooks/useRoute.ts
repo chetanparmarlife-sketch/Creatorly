@@ -3,6 +3,7 @@ import type { Platform } from "../types";
 
 export type AppRoute =
   | { name: "search"; query: string; platform?: Platform }
+  | { name: "history" }
   | { name: "creator"; creatorId: string };
 
 function readRoute(): AppRoute {
@@ -11,6 +12,7 @@ function readRoute(): AppRoute {
   if (creatorMatch) {
     return { name: "creator", creatorId: decodeURIComponent(creatorMatch[1]) };
   }
+  if (path === "/history") return { name: "history" };
   const params = new URLSearchParams(window.location.search);
   const platform = params.get("platform");
   return {
@@ -33,7 +35,9 @@ export function useRoute() {
   const navigate = useCallback((next: AppRoute) => {
     const url = next.name === "creator"
       ? `/creator/${encodeURIComponent(next.creatorId)}`
-      : `/search${next.query ? `?${new URLSearchParams({
+      : next.name === "history"
+        ? "/history"
+        : `/search${next.query ? `?${new URLSearchParams({
           q: next.query,
           ...(next.platform ? { platform: next.platform } : {}),
         })}` : ""}`;

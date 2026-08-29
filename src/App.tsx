@@ -5,6 +5,7 @@ import type { Viewer } from "./types";
 import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
 import { CreatorDetail } from "./components/CreatorDetail";
+import { HistoryView } from "./components/HistoryView";
 import { SearchView } from "./components/SearchView";
 
 export function App() {
@@ -31,7 +32,9 @@ export function App() {
   return (
     <AppShell
       viewer={viewer}
+      activePage={route.name === "history" ? "history" : "search"}
       onSearch={() => navigate({ name: "search", query: "" })}
+      onHistory={() => navigate({ name: "history" })}
       onSignOut={async () => {
         await data.signOut();
         navigate({ name: "search", query: "" });
@@ -40,6 +43,8 @@ export function App() {
       {data.mode === "demo" ? <div className="workspace-mode">Local demo · connect Convex for shared data</div> : null}
       {route.name === "creator" ? (
         <CreatorDetail creatorId={route.creatorId} navigate={navigate} onBalanceChange={loadViewer} />
+      ) : route.name === "history" ? (
+        <HistoryView navigate={navigate} onBalanceChange={loadViewer} />
       ) : (
         <SearchView initialQuery={route.query} initialPlatform={route.platform} navigate={navigate} />
       )}

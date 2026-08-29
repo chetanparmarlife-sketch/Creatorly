@@ -1,9 +1,57 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 
 const UNLOCK_COST = 5;
 const ACCESS_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+export const listHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const records = await ctx.db
+      .query("unlockRecords")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .collect();
+    const newestByCreator = new Map<string, (typeof records)[number]>();
+    for (const record of records) {
+      const key = record.creatorId.toString();
+      if (!newestByCreator.has(key)) newestByCreator.set(key, record);
+    }
+
+    const now = Date.now();
+    const history = await Promise.all(
+      [...newestByCreator.values()].map(async (record) => {
+        const creator = await ctx.db.get(record.creatorId);
+        if (!creator) return null;
+        return {
+          id: record._id,
+          creator: {
+            id: creator._id,
+            platform: creator.platform,
+            handle: creator.handle,
+            displayName: creator.displayName,
+            followerCount: creator.followerCount,
+            location: creator.location,
+            isVerified: creator.isVerified,
+            isDemo: creator.isDemo,
+          },
+          unlockedAt: record.unlockedAt,
+          expiresAt: record.expiresAt,
+          creditsSpent: record.creditsSpent,
+          status: record.expiresAt > now ? "active" as const : "expired" as const,
+        };
+      }),
+    );
+
+    return history
+      .filter((item) => item !== null)
+      .sort((a, b) => b.unlockedAt - a.unlockedAt);
+  },
+});
 
 export const unlock = mutation({
   args: { creatorId: v.id("creators") },

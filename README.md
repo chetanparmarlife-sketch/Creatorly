@@ -12,6 +12,7 @@ Creatorly is a creator-contact discovery prototype for influencer marketing agen
 - Atomic Convex unlock mutation with a 30-day access record and credit audit transaction
 - Basic/Free versus Pro contact gating without leaking restricted values
 - Responsive search, locked, insufficient-access, and revealed contact states
+- Unlock History with Active/Expired/All filters, creator search, no-charge active re-access, and five-credit renewal
 - Manifest V3 Chrome extension that detects Instagram and YouTube `@handle` profile pages
 
 Demo emails use the reserved `example.test` domain. They are not real creator contacts.
@@ -52,10 +53,10 @@ npx tsc -p convex/tsconfig.json
 npm audit
 ```
 
-The integration test covers signup → smart search → creator detail → unlock → remount → persistent access and unchanged 20-credit balance. A production-backend check also passed signup, sign-in, normalized search, contact reveal, and repeat-unlock protection. Its `codex.qa.*@example.test` record is automated QA and must not be counted as a real signup.
+The integration tests cover signup → smart search → creator detail → unlock → remount → persistent access, active History re-access without another charge, and expired History renewal for 5 credits. A production-backend check also passed signup, normalized search, history retrieval, and repeat-unlock protection. Its `codex.qa.*@example.test` records are automated QA and must not be counted as real signups.
 
 Automated visual browser checking was unavailable because the installed browser helper points to a missing older runtime file. HTTP checks and the full UI integration test pass, but desktop/mobile visual review and loading the unpacked extension still need a manual Chrome check.
 
 ## Scope
 
-The extracted M1 specification is in [docs/specs/creatorly-m1.md](docs/specs/creatorly-m1.md). Pricing, payments, history, settings, contact requests, admin fulfillment, notifications, email verification, and the full dataset are deliberately deferred.
+The extracted M1 specification is in [docs/specs/creatorly-m1.md](docs/specs/creatorly-m1.md). Pricing, payments, settings, contact requests, admin fulfillment, notifications, email verification, and the full dataset remain deferred.

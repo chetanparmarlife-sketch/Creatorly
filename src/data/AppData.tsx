@@ -19,6 +19,7 @@ import type {
   DataMode,
   Platform,
   SignUpInput,
+  UnlockHistoryItem,
   Viewer,
 } from "../types";
 
@@ -31,6 +32,7 @@ type AppData = {
   getViewer(): Promise<Viewer | null>;
   search(query: string, platform?: Platform): Promise<CreatorSearchResult[]>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
+  getHistory(): Promise<UnlockHistoryItem[]>;
   unlock(creatorId: string): Promise<void>;
 };
 
@@ -62,6 +64,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     getViewer: demoData.viewer,
     search: demoData.search,
     getDetail: demoData.detail,
+    getHistory: demoData.history,
     unlock: demoData.unlock,
   }), [authenticated]);
 
@@ -83,6 +86,9 @@ const detailRef = makeFunctionReference<"query">("creators:getById") as Function
 >;
 const unlockRef = makeFunctionReference<"mutation">("unlocks:unlock") as FunctionReference<
   "mutation", "public", DetailArgs, unknown
+>;
+const historyRef = makeFunctionReference<"query">("unlocks:listHistory") as FunctionReference<
+  "query", "public", EmptyArgs, UnlockHistoryItem[]
 >;
 
 export function ConvexDataProvider({
@@ -122,6 +128,7 @@ export function ConvexDataProvider({
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, platform) => convex.query(searchRef, { query, platform }),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
+    getHistory: () => convex.query(historyRef, {}),
     unlock: async (creatorId) => {
       await convex.mutation(unlockRef, { creatorId });
     },

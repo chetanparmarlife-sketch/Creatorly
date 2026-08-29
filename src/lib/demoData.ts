@@ -5,6 +5,7 @@ import type {
   CreatorSearchResult,
   Platform,
   SignUpInput,
+  UnlockHistoryItem,
   Viewer,
 } from "../types";
 
@@ -126,8 +127,20 @@ function saveUser(user: Viewer) {
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-function getUnlocks() {
-  return readJson<Record<string, number>>(UNLOCK_KEY, {});
+type DemoUnlockRecord = {
+  unlockedAt: number;
+  expiresAt: number;
+  creditsSpent: number;
+};
+
+function getUnlocks(): Record<string, DemoUnlockRecord> {
+  const stored = readJson<Record<string, number | DemoUnlockRecord>>(UNLOCK_KEY, {});
+  return Object.fromEntries(Object.entries(stored).map(([creatorId, value]) => [
+    creatorId,
+    typeof value === "number"
+      ? { unlockedAt: value - 30 * 24 * 60 * 60 * 1000, expiresAt: value, creditsSpent: 5 }
+      : value,
+  ]));
 }
 
 function latency() {
@@ -192,7 +205,7 @@ export const demoData = {
     const creator = DEMO_CREATORS.find((item) => item.id === creatorId);
     const user = readUser();
     if (!creator || !user) return null;
-    const expiresAt = getUnlocks()[creatorId] ?? null;
+    const expiresAt = getUnlocks()[creatorId]?.expiresAt ?? null;
     const isUnlocked = Boolean(expiresAt && expiresAt > Date.now());
     const permitted = creator.contacts.filter(
       (contact) => contact.accessTier === "basic" || user.currentPlanTier === "pro",
@@ -222,12 +235,42 @@ export const demoData = {
     const user = readUser();
     if (!user) throw new Error("Sign in to unlock this contact.");
     const unlocks = getUnlocks();
-    if (unlocks[creatorId] && unlocks[creatorId] > Date.now()) return;
+    if (unlocks[creatorId] && unlocks[creatorId].expiresAt > Date.now()) return;
     if (user.creditBalance < 5) throw new Error("You need 5 credits to unlock this contact.");
+    const unlockedAt = Date.now();
     user.creditBalance -= 5;
-    unlocks[creatorId] = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    unlocks[creatorId] = {
+      unlockedAt,
+      expiresAt: unlockedAt + 30 * 24 * 60 * 60 * 1000,
+      creditsSpent: 5,
+    };
     saveUser(user);
     window.localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlocks));
+  },
+  async history(): Promise<UnlockHistoryItem[]> {
+    await latency();
+    const now = Date.now();
+    return Object.entries(getUnlocks())
+      .flatMap(([creatorId, record]) => {
+        const creator = DEMO_CREATORS.find((item) => item.id === creatorId);
+        if (!creator) return [];
+        return [{
+          id: `demo-${creatorId}-${record.unlockedAt}`,
+          creator: {
+            id: creator.id,
+            platform: creator.platform,
+            handle: creator.handle,
+            displayName: creator.displayName,
+            followerCount: creator.followerCount,
+            location: creator.location,
+            isVerified: creator.isVerified,
+            isDemo: creator.isDemo,
+          },
+          ...record,
+          status: record.expiresAt > now ? "active" as const : "expired" as const,
+        }];
+      })
+      .sort((a, b) => b.unlockedAt - a.unlockedAt);
   },
   normalizeCreatorQuery,
 };

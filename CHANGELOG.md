@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-08-29 — M4 History slice
+
+### Added
+
+- Responsive `/history` dashboard with Active, Expired, and All status filters plus creator-name search.
+- Joined Convex history query that keeps the newest unlock window per creator and derives expiration at read time.
+- No-charge return to active contact cards and direct five-credit renewal for expired records.
+- Backwards-compatible local demo history records with unlock and expiration timestamps.
+
+### Verified
+
+- Unit and UI integration tests: 10 passing, including active re-access and expired renewal journeys.
+- Production Convex check returned one active `@maya_creates` record with valid unlock/expiry dates and `creditsSpent: 5`.
+- Production repeat unlock returned `already_unlocked`; balance remained 20.
+- Vercel production `/history` route returns HTTP 200 and its bundle points to the production Convex deployment.
+- ESLint, frontend build, Convex TypeScript, extension syntax, and dependency audit: pass; 0 known vulnerabilities.
+
 ## 2026-08-29 — M0 foundation and M1 core slice
 
 ### Added
@@ -17,7 +34,7 @@
 ### Verified
 
 - ESLint: pass.
-- Unit and UI integration tests: 8 passing.
+- Unit and UI integration tests at M1 release: 8 passing.
 - Frontend TypeScript and production Vite build: pass.
 - Convex function TypeScript check: pass.
 - Extension JavaScript syntax checks: pass.

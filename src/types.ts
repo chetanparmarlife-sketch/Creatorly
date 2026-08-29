@@ -48,6 +48,15 @@ export type CreatorDetailData = {
   contacts: CreatorContact[];
 };
 
+export type UnlockHistoryItem = {
+  id: string;
+  creator: Omit<CreatorSearchResult, "contactCount" | "matchScore">;
+  unlockedAt: number;
+  expiresAt: number;
+  creditsSpent: number;
+  status: "active" | "expired";
+};
+
 export type SignUpInput = {
   name: string;
   companyName: string;
