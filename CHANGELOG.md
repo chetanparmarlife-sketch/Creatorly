@@ -23,8 +23,9 @@
 - Extension JavaScript syntax checks: pass.
 - Dependency audit: 0 known vulnerabilities after upgrading `@convex-dev/auth` to `0.0.95`.
 - Local server: `/` and `/creator/maya-creates` return HTTP 200.
-- Vercel production deployment: Ready; `/` and `/creator/maya-creates` both return HTTP 200 at `https://my-build-week-project.vercel.app`.
+- Vercel production deployment: Ready; `/` and `/creator/maya-creates` both return HTTP 200. Branded alias: `https://creatorly-build-week.vercel.app`.
 - Vercel error scan: no runtime errors found after smoke requests.
+- Public GitHub repository connected to Vercel: `https://github.com/chetanparmarlife-sketch/Creatorly`.
 - Browser automation: not completed because the installed browser plugin points to a missing older runtime file. No visual browser claim is made.
 
 ### Blocked account steps

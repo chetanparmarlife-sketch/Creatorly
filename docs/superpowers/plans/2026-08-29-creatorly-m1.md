@@ -32,11 +32,11 @@
 **Interfaces:**
 - Produces: `normalizeCreatorQuery(value: string): string` and `rankCreatorMatch(query, creator): number | null`.
 
-- [ ] Initialize Git and install React, Vite, Vitest, Convex, Convex Auth, Lucide, and testing dependencies.
-- [ ] Write tests proving suffix stripping, punctuation removal, exact ranking, normalized ranking, fuzzy name ranking, and no-match behavior.
-- [ ] Implement the two matching helpers until those tests pass.
-- [ ] Add strict TypeScript, Vite, and Vitest configuration.
-- [ ] Run `npm test -- --run` and `npm run build`.
+- [x] Initialize Git and install React, Vite, Vitest, Convex, Convex Auth, Lucide, and testing dependencies.
+- [x] Write tests proving suffix stripping, punctuation removal, exact ranking, normalized ranking, fuzzy name ranking, and no-match behavior.
+- [x] Implement the two matching helpers until those tests pass.
+- [x] Add strict TypeScript, Vite, and Vitest configuration.
+- [x] Run `npm test -- --run` and `npm run build`.
 
 ### Task 2: Convex schema, password auth, and seed data
 
@@ -49,12 +49,12 @@
 - `api.creators.getById` returns public creator data, unlock state, permitted contacts, hidden-contact count, credit balance, and expiry.
 - `api.unlocks.unlock({ creatorId })` returns `{ status: "unlocked" | "already_unlocked", expiresAt, creditBalance }` or throws a clear insufficient-credit error.
 
-- [ ] Define indexed tables for users, creators, contacts, unlock records, credit transactions, and contact requests.
-- [ ] Configure `@convex-dev/auth` with the Password provider and required `auth.config.ts`.
-- [ ] Create the current app user on first authenticated read with Free tier, 25 credits, and an initial signup credit transaction.
-- [ ] Implement search ranking and public-safe result projection.
-- [ ] Implement an atomic unlock mutation that reuses active records and charges only once.
-- [ ] Seed at least six varied Instagram/YouTube creators and clearly fictional `example.test` contact values.
+- [x] Define indexed tables for users, creators, contacts, unlock records, credit transactions, and contact requests.
+- [x] Configure `@convex-dev/auth` with the Password provider and required `auth.config.ts`.
+- [x] Create the current app user on first authenticated read with Free tier, 25 credits, and an initial signup credit transaction.
+- [x] Implement search ranking and public-safe result projection.
+- [x] Implement an atomic unlock mutation that reuses active records and charges only once.
+- [x] Seed at least six varied Instagram/YouTube creators and clearly fictional `example.test` contact values.
 - [ ] Create a real Convex development deployment, generate auth keys headlessly, set deployment variables, run code generation, and seed it.
 
 ### Task 3: Authentication shell
@@ -67,9 +67,9 @@
 - `AuthScreen` switches between sign-up and sign-in while using `useAuthActions().signIn("password", FormData)`.
 - `AppShell` receives the current route and renders the credit balance and plan badge.
 
-- [ ] Build sign-up fields for name, agency, work email, and password with browser validation.
-- [ ] Build sign-in fields for email and password with a visible error state.
-- [ ] Route authenticated people to search and signed-out people to the auth screen.
+- [x] Build sign-up fields for name, agency, work email, and password with browser validation.
+- [x] Build sign-in fields for email and password with a visible error state.
+- [x] Route authenticated people to search and signed-out people to the auth screen.
 - [ ] Verify a real signup/sign-out/sign-in round trip against Convex.
 
 ### Task 4: Search and creator detail core flow
@@ -84,12 +84,12 @@
 - `useRoute()` maps `/search` and `/creator/:id` without adding a router dependency.
 - `CreatorDetail` calls `api.unlocks.unlock`, then reacts to the updated query result.
 
-- [ ] Build the debounced search field and All/Instagram/YouTube filter.
-- [ ] Render ranked results, best-match state, creator metadata, and informative empty/loading states.
-- [ ] Build locked preview with exact price and balance, including a disabled insufficient-credit action.
-- [ ] Build unlocked role-labelled contact cards, expiry countdown, safe contact links, and copy feedback.
-- [ ] Show Pro-only contact count without leaking restricted contact values.
-- [ ] Verify unlock persistence and that repeated clicks do not double-charge.
+- [x] Build the debounced search field and All/Instagram/YouTube filter.
+- [x] Render ranked results, best-match state, creator metadata, and informative empty/loading states.
+- [x] Build locked preview with exact price and balance, including a disabled insufficient-credit action.
+- [x] Build unlocked role-labelled contact cards, expiry countdown, safe contact links, and copy feedback.
+- [x] Show Pro-only contact count without leaking restricted contact values.
+- [x] Verify unlock persistence and that repeated clicks do not double-charge.
 
 ### Task 5: Chrome extension companion
 
@@ -101,10 +101,10 @@
 - The content script answers `{ type: "CREATORLY_PROFILE" }` with `{ platform, handle } | null`.
 - The popup opens `${dashboardUrl}/search?q=${encodeURIComponent(handle)}&platform=${platform}`.
 
-- [ ] Detect supported Instagram profile and YouTube handle/channel URLs while excluding feeds and settings pages.
-- [ ] Build detecting, profile-found, and wrong-page popup states.
-- [ ] Store a configurable dashboard URL and open the matching dashboard search.
-- [ ] Document developer-mode installation and the M1 auth limitation honestly.
+- [x] Detect supported Instagram profile and YouTube handle/channel URLs while excluding feeds and settings pages.
+- [x] Build detecting, profile-found, and wrong-page popup states.
+- [x] Store a configurable dashboard URL and open the matching dashboard search.
+- [x] Document developer-mode installation and the M1 auth limitation honestly.
 
 ### Task 6: Verification, release notes, and deployment
 
@@ -115,9 +115,9 @@
 **Interfaces:**
 - Produces a public Vercel URL, a linked Git repository when GitHub CLI access exists, and documented extension install steps.
 
-- [ ] Run unit tests, TypeScript checks, production build, and lint.
+- [x] Run unit tests, TypeScript checks, production build, and lint.
 - [ ] Start the app and verify signup, search, detail, unlock, refresh, sign-out, and sign-in in a real browser.
 - [ ] Capture and inspect desktop and mobile screenshots; fix layout or contrast defects.
 - [ ] Load the unpacked extension and verify detection on supported and unsupported pages if local Chrome automation permits it.
-- [ ] Add exact test outcomes and known limitations to CHANGELOG and README.
+- [x] Add exact test outcomes and known limitations to CHANGELOG and README.
 - [ ] Deploy Convex production functions and Vercel, then smoke-test the public URL logged out.
