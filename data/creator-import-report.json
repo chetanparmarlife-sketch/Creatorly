@@ -1,0 +1,26 @@
+{
+  "sourceFile": "List 1_Age_18_24 - 20K - 10000-20000 (2).csv.csv",
+  "sourceRows": 20001,
+  "acceptedSourceRows": 19327,
+  "creatorProfiles": 17709,
+  "contactRecords": 19166,
+  "exactDuplicateRowsMerged": 1618,
+  "categoryNamesReplacedWithHandle": 13790,
+  "invalidNonblankEmails": 43,
+  "invalidNonblankWhatsApp": 0,
+  "rejectedRows": 674,
+  "rejectedByReason": {
+    "invalid_instagram_handle": 60,
+    "no_valid_contact": 614
+  },
+  "contactVerificationStatus": "pending_verification",
+  "productionImportStatus": "completed",
+  "importedCreatorProfiles": 17709,
+  "importedContactRecords": 19166,
+  "temporaryStagingCleared": true,
+  "youtubeImportStatus": "deferred_pending_channel_mapping",
+  "profilesWithCategory": 13650,
+  "followerCountMaximum": 9996,
+  "followerCountZeroOrMissing": 5023,
+  "sourceFilenameRangeMismatch": true
+}

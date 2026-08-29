@@ -1,19 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Creatorly Contact Finder",
-  "version": "0.1.0",
-  "description": "Detect creator profiles and continue the contact search in Creatorly.",
+  "version": "1.0.0",
+  "description": "Detect creator profiles and unlock Creatorly contacts while you browse.",
   "permissions": ["activeTab", "tabs", "storage"],
   "host_permissions": [
     "https://www.instagram.com/*",
     "https://instagram.com/*",
     "https://www.youtube.com/*",
-    "https://youtube.com/*"
+    "https://youtube.com/*",
+    "https://effervescent-toucan-379.convex.site/*"
   ],
   "action": {
     "default_title": "Creatorly",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_badge_background_color": "#237355"
   },
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": [

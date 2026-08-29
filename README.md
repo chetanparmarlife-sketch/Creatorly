@@ -1,6 +1,6 @@
 # Creatorly
 
-Creatorly is a creator-contact discovery prototype for influencer marketing agencies. M1 proves one loop: create an account, search a creator, spend 5 of 25 starter credits, and keep access to the role-labelled contact card for 30 days.
+Creatorly is a creator-contact discovery product for influencer marketing agencies. The current build covers the complete demo journey from landing and onboarding through search, plan selection, unlock, history, settings, request fulfilment, and the Chrome extension.
 
 ## What works
 
@@ -8,7 +8,7 @@ Creatorly is a creator-contact discovery prototype for influencer marketing agen
 - Separate seeded Convex development and production deployments
 - Local demo fallback when Convex is not configured
 - Smart handle matching: exact, punctuation/suffix-normalized, display name, and partial name
-- Instagram/YouTube filter and six clearly fictional demo records
+- Instagram/YouTube filter, six clearly fictional demo records, and 17,709 imported Instagram creator profiles
 - Atomic Convex unlock mutation with a 30-day access record and credit audit transaction
 - Basic/Free versus Pro contact gating without leaking restricted values
 - Responsive search, locked, insufficient-access, and revealed contact states
@@ -16,8 +16,29 @@ Creatorly is a creator-contact discovery prototype for influencer marketing agen
 - Missing-contact request dialog with normalized duplicate suppression
 - Server-guarded admin fulfillment queue that creates role-labelled creator contacts and fulfills every matching request
 - Manifest V3 Chrome extension that detects Instagram and YouTube `@handle` profile pages
+- Marketing landing page, simulated verification, and plan onboarding
+- Pricing and credit packs through clearly labelled DemoPay simulation
+- Profile, notification, cancellation, and extension connection settings
+- In-app fulfilment and payment notifications
+- Mobile navigation, advanced History filters, expiration warnings, and admin user summaries
+- Embedded extension availability, unlock, contact reveal, copy, upgrade, and request states
 
-Demo emails use the reserved `example.test` domain. They are not real creator contacts.
+The imported repository contains 19,166 contact records. Imported contacts are labelled **Pending verification** until independently checked; only fictional records use the **Demo verified** label.
+
+## Real creator import
+
+The supplied 20,001-row CSV was cleaned and imported into production without committing private contact values to Git. The private intermediate file lives under ignored `data/private/`.
+
+- 17,709 creator profiles and 19,166 contact records imported
+- 1,618 exact duplicate rows merged
+- 13,790 category-like names replaced with the exact Instagram handle
+- 43 malformed email values removed
+- 674 unusable rows rejected: 60 invalid Instagram handles and 614 rows without a valid contact
+- 13,650 profiles have category data available for discovery filters
+- The source filename says 10K–20K, but every supplied follower count is below 10K; 5,023 are zero or missing
+- Every imported contact is marked `pending_verification`; the import does not claim the data is verified
+
+The non-sensitive audit is in [data/creator-import-report.json](data/creator-import-report.json). YouTube URLs were not turned into creator records because the source uses mixed channel URL formats; that mapping remains pending rather than guessing identities.
 
 ## Run locally
 
@@ -43,7 +64,7 @@ The authentication keys and `SITE_URL` are already configured separately on deve
 
 ## Chrome extension
 
-See [extension/README.md](extension/README.md). M1 detects the profile and opens a matching dashboard search. Embedded contact reveal and shared extension authentication remain deferred from M1.
+See [extension/README.md](extension/README.md). Connect it with a revocable key created in Dashboard → Settings. The popup can query availability, unlock contacts, show credit state, copy contact values, and link to pricing or contact requests.
 
 ## Admin access
 
@@ -55,7 +76,7 @@ npx convex run admin:promoteByEmail '{"email":"you@creatorly.com"}' --prod
 
 Sign out and back in to refresh the navigation. Local demo mode uses `admin@creatorly.test` as its test-only admin account.
 
-Fulfillment updates the request and repository immediately. Email delivery is not connected yet, so fulfilled records keep `notificationSent: false` and the admin interface reports notifications as pending.
+Fulfillment updates the request and repository immediately and sends an in-app notification. External email delivery is simulated because no email provider has been supplied.
 
 ## Quality checks
 
@@ -73,4 +94,4 @@ Automated visual browser checking was unavailable because the installed browser 
 
 ## Scope
 
-The extracted M1 specification is in [docs/specs/creatorly-m1.md](docs/specs/creatorly-m1.md). Pricing, payments, settings, automated notifications, email verification, and the full dataset remain deferred.
+The extracted M1 specification is in [docs/specs/creatorly-m1.md](docs/specs/creatorly-m1.md). Real payment processing, outbound email, independent verification of imported contacts, YouTube channel mapping, and Chrome Web Store publishing remain pending. Team workspaces remain out of scope.

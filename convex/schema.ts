@@ -26,6 +26,11 @@ export default defineSchema({
         v.literal("trial"),
       ),
     ),
+    subscriptionRenewalDate: v.optional(v.number()),
+    cancellationRequestedAt: v.optional(v.number()),
+    onboardingCompleted: v.optional(v.boolean()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
     creditBalance: v.optional(v.number()),
     monthlyCreditsIncluded: v.optional(v.number()),
     monthlyCreditsResetDate: v.optional(v.number()),
@@ -48,6 +53,9 @@ export default defineSchema({
     displayName: v.string(),
     followerCount: v.number(),
     location: v.optional(v.string()),
+    categories: v.optional(v.array(v.string())),
+    primaryCategory: v.optional(v.string()),
+    categorySearch: v.optional(v.string()),
     profileImageUrl: v.optional(v.string()),
     isVerified: v.boolean(),
     isDemo: v.boolean(),
@@ -55,7 +63,20 @@ export default defineSchema({
     lastUpdatedAt: v.number(),
   })
     .index("by_platform", ["platform"])
-    .index("by_normalized_handle", ["normalizedHandle"]),
+    .index("by_followers", ["followerCount"])
+    .index("by_platform_followers", ["platform", "followerCount"])
+    .index("by_verified_followers", ["isVerified", "followerCount"])
+    .index("by_platform_verified_followers", ["platform", "isVerified", "followerCount"])
+    .index("by_primary_category", ["primaryCategory"])
+    .index("by_category_followers", ["primaryCategory", "followerCount"])
+    .index("by_platform_category_followers", ["platform", "primaryCategory", "followerCount"])
+    .index("by_category_verified_followers", ["primaryCategory", "isVerified", "followerCount"])
+    .index("by_platform_category_verified_followers", ["platform", "primaryCategory", "isVerified", "followerCount"])
+    .index("by_normalized_handle", ["normalizedHandle"])
+    .searchIndex("search_normalized_handle", { searchField: "normalizedHandle", filterFields: ["platform"] })
+    .searchIndex("search_display_name", { searchField: "displayName", filterFields: ["platform"] })
+    .searchIndex("search_location", { searchField: "location", filterFields: ["platform", "isVerified"] })
+    .searchIndex("search_category", { searchField: "categorySearch", filterFields: ["platform", "isVerified"] }),
   contacts: defineTable({
     creatorId: v.id("creators"),
     contactType: v.union(
@@ -128,4 +149,47 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_status", ["status"]),
+  notifications: defineTable({
+    userId: v.id("users"),
+    type: v.union(
+      v.literal("request_fulfilled"),
+      v.literal("low_balance"),
+      v.literal("expiration_warning"),
+      v.literal("weekly_summary"),
+      v.literal("payment"),
+      v.literal("system"),
+    ),
+    title: v.string(),
+    message: v.string(),
+    href: v.optional(v.string()),
+    readAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+  extensionTokens: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_token", ["token"]),
+  creatorImportStaging: defineTable({
+    sourceKey: v.string(),
+    handle: v.string(),
+    normalizedHandle: v.string(),
+    displayName: v.string(),
+    followerCount: v.number(),
+    location: v.optional(v.string()),
+    isVerified: v.boolean(),
+    categories: v.array(v.string()),
+    youtubeUrl: v.optional(v.string()),
+    contacts: v.array(v.object({
+      email: v.optional(v.string()),
+      whatsapp: v.optional(v.string()),
+    })),
+    processed: v.optional(v.boolean()),
+  })
+    .index("by_source_key", ["sourceKey"])
+    .index("by_processed", ["processed"]),
 });

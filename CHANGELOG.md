@@ -1,5 +1,58 @@
 # Changelog
 
+## 2026-08-29 — Real Instagram creator import
+
+### Added
+
+- Cleaned and imported 17,709 Instagram creator profiles with 19,166 contact records into production Convex.
+- Replaced the demo-first search empty state with real creator discovery and initial results.
+- Added category, follower range, location, platform, and verified-profile filters.
+- Matched follower bands to the supplied values after confirming the filename's 10K–20K range is inaccurate; the maximum supplied count is 9,996 and 5,023 counts are zero or missing.
+- Restart-safe private staging import and cleanup scripts, plus a non-sensitive quality report.
+- Indexed creator handle and display-name search so the larger repository does not require a full database scan.
+- Honest contact labels: imported records show `Pending verification`; fictional demo records show `Demo verified`.
+
+### Data quality
+
+- Merged 1,618 exact duplicate rows and preserved distinct contact methods.
+- Replaced 13,790 unreliable category-like creator names with their exact Instagram handle.
+- Removed 43 malformed email values and rejected 674 unusable rows.
+- Kept private email and phone values out of tracked files; `data/private/` is ignored by Git.
+- Deferred YouTube creator creation because the supplied channel URLs need a separate identity-mapping pass.
+
+### Verified
+
+- Production import totals match the cleanup report exactly.
+- Four non-sensitive production samples returned the expected handles, follower counts, locations, and only `pending_verification` contacts.
+- Temporary production staging is empty after the completed import.
+
+## 2026-08-29 — Full demo product flow
+
+### Added
+
+- Marketing homepage, login/signup routes, simulated verification, and four-step onboarding.
+- Pricing page with Free, Basic, and Pro plans plus 50/100-credit packs through DemoPay.
+- Atomic plan allocations and credit purchases with transaction audit records.
+- Profile, notification, cancellation, and extension connection settings.
+- In-app payment and fulfilled-request notifications.
+- Mobile navigation, low-credit state, History filters, expiry warnings, and admin user summaries.
+- Revocable extension keys and full popup lookup, unlock, reveal, copy, upgrade, request, and badge states.
+
+### Verified
+
+- ESLint, frontend and Convex TypeScript builds, and Vite production build pass.
+- 14 unit and UI integration tests pass.
+- Extension popup, content script, and service worker syntax checks pass.
+- Dependency audit reports 0 known vulnerabilities.
+- Visual browser verification remains blocked by the installed browser helper referencing a missing older runtime file.
+
+### External dependencies still required
+
+- Real payments need Stripe or Razorpay credentials.
+- Real outbound email needs an email provider.
+- Imported contacts still need independent verification before they can be labelled verified.
+- Chrome Web Store publishing and final unpacked-extension interaction checks need manual Chrome access.
+
 ## 2026-08-29 — M4 Contact request and admin fulfillment slice
 
 ### Added

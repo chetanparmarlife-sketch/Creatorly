@@ -6,6 +6,12 @@ import { AppShell } from "./components/AppShell";
 import { AuthScreen } from "./components/AuthScreen";
 import { CreatorDetail } from "./components/CreatorDetail";
 import { HistoryView } from "./components/HistoryView";
+import { LandingPage } from "./components/LandingPage";
+import { OnboardingView } from "./components/OnboardingView";
+import { PaymentResultView } from "./components/PaymentResultView";
+import { PricingView } from "./components/PricingView";
+import { SettingsView } from "./components/SettingsView";
+import { VerificationView } from "./components/VerificationView";
 
 const AdminView = lazy(() => import("./components/AdminView").then((module) => ({ default: module.AdminView })));
 import { SearchView } from "./components/SearchView";
@@ -29,23 +35,41 @@ export function App() {
     return () => { active = false; };
   }, [data]);
 
-  if (!data.authenticated) return <AuthScreen />;
+  if (!data.authenticated) {
+    if (route.name === "login") return <AuthScreen initialMode="signin" navigate={navigate}/>;
+    if (route.name === "signup") return <AuthScreen initialMode="signup" navigate={navigate} showVerificationAfterSignup/>;
+    if (route.name === "pricing") return <PricingView viewer={null} navigate={navigate} refresh={() => {}}/>;
+    if (route.name === "landing") return <LandingPage navigate={navigate}/>;
+    return <AuthScreen initialMode="signup" navigate={navigate}/>;
+  }
+
+  if (viewer === null) return <main className="workspace detail-skeleton"><span/><span/><span/></main>;
+  if (!viewer.onboardingCompleted && route.name !== "verification" && route.name !== "onboarding") {
+    return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
+  }
+  if (route.name === "verification") return <VerificationView navigate={navigate}/>;
+  if (route.name === "onboarding") return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
 
   return (
     <AppShell
       viewer={viewer}
-      activePage={route.name === "history" ? "history" : route.name === "admin" ? "admin" : "search"}
+      activePage={route.name === "history" ? "history" : route.name === "pricing" ? "pricing" : route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
+      navigate={navigate}
       onSearch={() => navigate({ name: "search", query: "" })}
       onHistory={() => navigate({ name: "history" })}
       onAdmin={() => navigate({ name: "admin" })}
       showAdmin={viewer?.role === "admin"}
       onSignOut={async () => {
         await data.signOut();
-        navigate({ name: "search", query: "" });
+        setViewer(null);
+        navigate({ name: "landing" });
       }}
     >
       {data.mode === "demo" ? <div className="workspace-mode">Local demo · connect Convex for shared data</div> : null}
-      {route.name === "creator" ? (
+      {route.name === "pricing" ? <PricingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>
+      : route.name === "settings" ? <SettingsView viewer={viewer} refresh={loadViewer}/>
+      : route.name === "payment" ? <PaymentResultView status={route.status} navigate={navigate}/>
+      : route.name === "creator" ? (
         <CreatorDetail creatorId={route.creatorId} navigate={navigate} onBalanceChange={loadViewer} />
       ) : route.name === "history" ? (
         <HistoryView navigate={navigate} onBalanceChange={loadViewer} />
@@ -54,7 +78,7 @@ export function App() {
           : viewer.role === "admin" ? <Suspense fallback={<main className="workspace detail-skeleton"><span /><span /><span /></main>}><AdminView /></Suspense>
             : <main className="workspace admin-denied"><p className="eyebrow">Restricted</p><h1>Admin access required</h1><p>This queue is only available to Creatorly administrators.</p></main>
       ) : (
-        <SearchView initialQuery={route.query} initialPlatform={route.platform} navigate={navigate} />
+        <SearchView initialQuery={route.name === "search" ? route.query : ""} initialPlatform={route.name === "search" ? route.platform : undefined} navigate={navigate} />
       )}
     </AppShell>
   );

@@ -5,9 +5,9 @@ import type {
   ContactRequestResult,
   CreatorContact,
   CreatorDetailData,
+  CreatorSearchFilters,
   CreatorSearchResult,
   FulfillRequestInput,
-  Platform,
   SignUpInput,
   UnlockHistoryItem,
   Viewer,
@@ -29,6 +29,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Maya Kapoor",
     followerCount: 842000,
     location: "Mumbai, India",
+    categories: ["Lifestyle", "Fashion"],
     isVerified: true,
     isDemo: true,
     contacts: [
@@ -44,6 +45,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Rishi Verma",
     followerCount: 1240000,
     location: "Bengaluru, India",
+    categories: ["Gadgets & Tech"],
     isVerified: true,
     isDemo: true,
     contacts: [
@@ -59,6 +61,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Aanchal Mehta",
     followerCount: 376000,
     location: "Delhi, India",
+    categories: ["Fitness", "Lifestyle"],
     isVerified: false,
     isDemo: true,
     contacts: [
@@ -73,6 +76,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Kabir Arora",
     followerCount: 695000,
     location: "Pune, India",
+    categories: ["Food"],
     isVerified: true,
     isDemo: true,
     contacts: [
@@ -87,6 +91,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Noor Khan",
     followerCount: 518000,
     location: "Hyderabad, India",
+    categories: ["Travel", "Photography"],
     isVerified: true,
     isDemo: true,
     contacts: [
@@ -102,6 +107,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Money Made Clear",
     followerCount: 289000,
     location: "Chennai, India",
+    categories: ["Business", "Education"],
     isVerified: false,
     isDemo: true,
     contacts: [
@@ -115,6 +121,8 @@ const SESSION_KEY = "creatorly.demo.session.v1";
 const UNLOCK_KEY = "creatorly.demo.unlocks.v1";
 const REQUEST_KEY = "creatorly.demo.requests.v1";
 const CUSTOM_CREATORS_KEY = "creatorly.demo.custom-creators.v1";
+const TRANSACTION_KEY = "creatorly.demo.transactions.v1";
+const NOTIFICATION_KEY = "creatorly.demo.notifications.v1";
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -185,6 +193,10 @@ export const demoData = {
       role: input.email.trim().toLowerCase() === "admin@creatorly.test" ? "admin" : "user",
       currentPlanTier: "free",
       creditBalance: 25,
+      subscriptionStatus: "active",
+      onboardingCompleted: true,
+      isEmailVerified: true,
+      notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
     };
     saveUser(user);
     window.localStorage.setItem(SESSION_KEY, "active");
@@ -204,11 +216,69 @@ export const demoData = {
     await latency();
     return readUser();
   },
-  async search(query: string, platform?: Platform) {
+  async updateProfile(input: { name: string; companyName: string; phone?: string }) {
+    await latency();
+    const user = readUser();
+    if (!user) throw new Error("Sign in to manage your account.");
+    saveUser({ ...user, name: input.name.trim(), companyName: input.companyName.trim() });
+  },
+  async updateNotifications(preferences: import("../types").NotificationPreferences) {
+    const user = readUser();
+    if (!user) throw new Error("Sign in to manage notifications.");
+    saveUser({ ...user, notificationPreferences: preferences });
+  },
+  async completeOnboarding() {
+    const user = readUser();
+    if (user) saveUser({ ...user, onboardingCompleted: true });
+  },
+  async requestCancellation() {
+    const user = readUser();
+    if (!user || user.currentPlanTier === "free") throw new Error("The Free plan has no subscription to cancel.");
+    saveUser({ ...user, subscriptionStatus: "cancelled", cancellationRequestedAt: Date.now() });
+  },
+  async changePlan(tier: import("../types").PlanTier, billingCycle: "monthly" | "annual", demoPaymentId: string) {
+    await latency();
+    const user = readUser();
+    if (!user) throw new Error("Sign in to manage billing.");
+    const credits = tier === "pro" ? 250 : tier === "basic" ? 100 : 0;
+    const next = { ...user, currentPlanTier: tier, creditBalance: user.creditBalance + credits, subscriptionStatus: "active" as const, subscriptionRenewalDate: tier === "free" ? undefined : Date.now() + (billingCycle === "annual" ? 365 : 30) * 86400000 };
+    saveUser(next);
+    const transactions = readJson<import("../types").CreditTransaction[]>(TRANSACTION_KEY, []);
+    if (credits) window.localStorage.setItem(TRANSACTION_KEY, JSON.stringify([{ _id: demoPaymentId, amount: credits, transactionType: "subscription_allocation", description: `DemoPay ${tier} plan allocation`, referenceId: demoPaymentId, createdAt: Date.now() }, ...transactions]));
+    return { tier, creditsAdded: credits, creditBalance: next.creditBalance, renewalDate: next.subscriptionRenewalDate };
+  },
+  async purchaseCredits(credits: 50 | 100, demoPaymentId: string) {
+    await latency();
+    const user = readUser();
+    if (!user) throw new Error("Sign in to manage billing.");
+    saveUser({ ...user, creditBalance: user.creditBalance + credits });
+    const transactions = readJson<import("../types").CreditTransaction[]>(TRANSACTION_KEY, []);
+    window.localStorage.setItem(TRANSACTION_KEY, JSON.stringify([{ _id: demoPaymentId, amount: credits, transactionType: "purchase", description: `DemoPay ${credits}-credit pack`, referenceId: demoPaymentId, createdAt: Date.now() }, ...transactions]));
+    return { creditsAdded: credits, creditBalance: user.creditBalance + credits };
+  },
+  async listTransactions() { return readJson<import("../types").CreditTransaction[]>(TRANSACTION_KEY, []); },
+  async listNotifications() { return readJson<import("../types").AppNotification[]>(NOTIFICATION_KEY, []); },
+  async markNotificationRead(id: string) {
+    const items = readJson<import("../types").AppNotification[]>(NOTIFICATION_KEY, []);
+    window.localStorage.setItem(NOTIFICATION_KEY, JSON.stringify(items.map(item => item._id === id ? { ...item, readAt: Date.now() } : item)));
+  },
+  async listAdminUsers() {
+    const user = readUser();
+    return user ? [user] : [];
+  },
+  async search(query: string, filters: CreatorSearchFilters = {}) {
     await latency();
     return allCreators().flatMap((creator) => {
-      if (platform && creator.platform !== platform) return [];
-      const matchScore = rankCreatorMatch(query, creator);
+      if (filters.platform && creator.platform !== filters.platform) return [];
+      if (filters.verifiedOnly && !creator.isVerified) return [];
+      if (filters.location && !creator.location?.toLowerCase().includes(filters.location.toLowerCase())) return [];
+      if (filters.category && !creator.categories?.some(category => category.toLowerCase() === filters.category?.toLowerCase())) return [];
+      const followers = creator.followerCount;
+      if (filters.followerBand === "not_reported" && followers !== 0) return [];
+      if (filters.followerBand === "under_1k" && (followers < 1 || followers >= 1_000)) return [];
+      if (filters.followerBand === "1k_5k" && (followers < 1_000 || followers >= 5_000)) return [];
+      if (filters.followerBand === "5k_10k" && (followers < 5_000 || followers >= 10_000)) return [];
+      const matchScore = query.trim() ? rankCreatorMatch(query, creator) : 0;
       if (matchScore === null) return [];
       return [{
         id: creator.id,
@@ -217,6 +287,7 @@ export const demoData = {
         displayName: creator.displayName,
         followerCount: creator.followerCount,
         location: creator.location,
+        categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,
         contactCount: creator.contacts.length,
@@ -242,6 +313,7 @@ export const demoData = {
         displayName: creator.displayName,
         followerCount: creator.followerCount,
         location: creator.location,
+        categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,
       },

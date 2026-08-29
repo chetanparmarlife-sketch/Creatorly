@@ -2,6 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { Platform } from "../types";
 
 export type AppRoute =
+  | { name: "landing" }
+  | { name: "login" }
+  | { name: "signup" }
+  | { name: "onboarding" }
+  | { name: "verification" }
+  | { name: "pricing" }
+  | { name: "settings" }
+  | { name: "payment"; status: "success" | "failure" }
   | { name: "search"; query: string; platform?: Platform }
   | { name: "history" }
   | { name: "admin" }
@@ -9,6 +17,15 @@ export type AppRoute =
 
 function readRoute(): AppRoute {
   const path = window.location.pathname;
+  if (path === "/") return { name: "landing" };
+  if (path === "/login") return { name: "login" };
+  if (path === "/signup") return { name: "signup" };
+  if (path === "/onboarding") return { name: "onboarding" };
+  if (path === "/verify") return { name: "verification" };
+  if (path === "/pricing") return { name: "pricing" };
+  if (path === "/settings") return { name: "settings" };
+  if (path === "/payment/success") return { name: "payment", status: "success" };
+  if (path === "/payment/failure") return { name: "payment", status: "failure" };
   const creatorMatch = path.match(/^\/creator\/([^/]+)$/);
   if (creatorMatch) {
     return { name: "creator", creatorId: decodeURIComponent(creatorMatch[1]) };
@@ -41,6 +58,14 @@ export function useRoute() {
         ? "/history"
         : next.name === "admin"
           ? "/admin"
+        : next.name === "landing" ? "/"
+        : next.name === "login" ? "/login"
+        : next.name === "signup" ? "/signup"
+        : next.name === "onboarding" ? "/onboarding"
+        : next.name === "verification" ? "/verify"
+        : next.name === "pricing" ? "/pricing"
+        : next.name === "settings" ? "/settings"
+        : next.name === "payment" ? `/payment/${next.status}`
         : `/search${next.query ? `?${new URLSearchParams({
           q: next.query,
           ...(next.platform ? { platform: next.platform } : {}),

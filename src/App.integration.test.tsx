@@ -31,9 +31,14 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("button", { name: /create free account/i }));
 
     expect(await screen.findByRole("heading", { name: /who do you need to reach/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /browse lifestyle creators/i })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Creator name or handle"), "maya.creates.official");
-    await user.click(await screen.findByRole("button", { name: /Maya Kapoor/i }));
+    const mayaResult = await screen.findByRole("button", { name: /Maya Kapoor/i });
+    expect(mayaResult).toHaveTextContent("Lifestyle");
+    await user.click(mayaResult);
 
+    expect(await screen.findByRole("heading", { name: /creator profile/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /similar creators/i })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /reveal 1 contact/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /unlock for 5 credits/i }));
 
@@ -153,5 +158,41 @@ describe("Creatorly M1 user journey", () => {
 
     expect(await screen.findByText(/fulfilled 1 matching request/i)).toBeInTheDocument();
     expect(await screen.findByText(/queue is clear/i)).toBeInTheDocument();
+  });
+
+  it("upgrades to Pro through DemoPay and adds plan credits", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+    await user.click(await screen.findByRole("button", { name: /^pricing$/i }));
+    await user.click(screen.getByRole("button", { name: /choose pro/i }));
+    expect(screen.getByRole("dialog", { name: /pro plan/i })).toHaveTextContent(/no real money/i);
+    await user.click(screen.getByRole("button", { name: /confirm demo payment/i }));
+    expect(await screen.findByRole("heading", { name: /demo payment complete/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /return to search/i }));
+    await waitFor(() => expect(screen.getByTitle("Credits available")).toHaveTextContent("275"));
+  });
+
+  it("updates profile and notification settings", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+    await user.click(await screen.findByRole("button", { name: /^settings$/i }));
+    const company = screen.getByDisplayValue("Northstar Agency");
+    await user.clear(company);
+    await user.type(company, "Northstar Studio");
+    await user.click(screen.getByRole("button", { name: /save profile/i }));
+    expect(await screen.findByText("Profile saved.")).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: /weekly usage summary/i }));
+    await user.click(screen.getByRole("button", { name: /save notifications/i }));
+    expect(await screen.findByText("Notification preferences saved.")).toBeInTheDocument();
   });
 });

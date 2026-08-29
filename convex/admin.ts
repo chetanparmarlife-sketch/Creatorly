@@ -134,10 +134,37 @@ export const fulfillRequest = mutation({
       status: "fulfilled",
       fulfilledDate: now,
       associatedCreatorId: creatorId,
-      notificationSent: false,
+      notificationSent: true,
+    })));
+
+    await Promise.all(matching.map((item) => ctx.db.insert("notifications", {
+      userId: item.userId,
+      type: "request_fulfilled",
+      title: `${args.creator.displayName} is now available`,
+      message: `The contact you requested for @${handle} has been added.`,
+      href: `/creator/${creatorId}`,
+      createdAt: now,
     })));
 
     return { creatorId, fulfilledCount: matching.length };
+  },
+});
+
+export const listUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const users = await ctx.db.query("users").order("desc").take(100);
+    return users.map(user => ({
+      id: user._id,
+      name: user.name ?? "Creatorly user",
+      email: user.email ?? "",
+      companyName: user.companyName ?? "Agency",
+      role: user.role ?? "user",
+      currentPlanTier: user.currentPlanTier ?? "free",
+      creditBalance: user.creditBalance ?? 0,
+      subscriptionStatus: user.subscriptionStatus ?? "active",
+    }));
   },
 });
 

@@ -31,6 +31,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             weeklySummary: false,
           },
           isEmailVerified: true,
+          onboardingCompleted: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         };
       },
     }),

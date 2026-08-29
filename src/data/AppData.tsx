@@ -15,13 +15,19 @@ import {
 import { demoData } from "../lib/demoData";
 import type {
   AdminContactRequest,
+  AdminUser,
+  AppNotification,
+  CreditTransaction,
   ContactRequestInput,
   ContactRequestResult,
   CreatorDetailData,
+  CreatorSearchFilters,
   CreatorSearchResult,
   DataMode,
   FulfillRequestInput,
   Platform,
+  NotificationPreferences,
+  PlanTier,
   SignUpInput,
   UnlockHistoryItem,
   Viewer,
@@ -34,13 +40,24 @@ type AppData = {
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
-  search(query: string, platform?: Platform): Promise<CreatorSearchResult[]>;
+  search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
   requestContact(input: ContactRequestInput): Promise<ContactRequestResult>;
   listAdminRequests(): Promise<AdminContactRequest[]>;
   fulfillRequest(input: FulfillRequestInput): Promise<{ creatorId: string; fulfilledCount: number }>;
   unlock(creatorId: string): Promise<void>;
+  updateProfile(input: { name: string; companyName: string; phone?: string }): Promise<void>;
+  updateNotifications(input: NotificationPreferences): Promise<void>;
+  completeOnboarding(): Promise<void>;
+  requestCancellation(): Promise<void>;
+  changePlan(tier: PlanTier, billingCycle: "monthly" | "annual", demoPaymentId: string): Promise<{ tier: PlanTier; creditsAdded: number; creditBalance: number; renewalDate?: number }>;
+  purchaseCredits(credits: 50 | 100, demoPaymentId: string): Promise<{ creditsAdded: number; creditBalance: number }>;
+  listTransactions(): Promise<CreditTransaction[]>;
+  listNotifications(): Promise<AppNotification[]>;
+  markNotificationRead(id: string): Promise<void>;
+  listAdminUsers(): Promise<AdminUser[]>;
+  createExtensionToken(): Promise<{ token: string }>;
 };
 
 const AppDataContext = createContext<AppData | null>(null);
@@ -76,13 +93,24 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     listAdminRequests: demoData.listAdminRequests,
     fulfillRequest: demoData.fulfillRequest,
     unlock: demoData.unlock,
+    updateProfile: demoData.updateProfile,
+    updateNotifications: demoData.updateNotifications,
+    completeOnboarding: demoData.completeOnboarding,
+    requestCancellation: demoData.requestCancellation,
+    changePlan: demoData.changePlan,
+    purchaseCredits: demoData.purchaseCredits,
+    listTransactions: demoData.listTransactions,
+    listNotifications: demoData.listNotifications,
+    markNotificationRead: demoData.markNotificationRead,
+    listAdminUsers: demoData.listAdminUsers,
+    createExtensionToken: async () => ({ token: `crx_demo_${Date.now()}` }),
   }), [authenticated]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 }
 
 type EmptyArgs = Record<string, never>;
-type SearchArgs = { query: string; platform?: Platform };
+type SearchArgs = { query: string; platform?: Platform; followerBand?: CreatorSearchFilters["followerBand"]; category?: string; location?: string; verifiedOnly?: boolean };
 type DetailArgs = { creatorId: string };
 
 const viewerRef = makeFunctionReference<"query">("users:viewer") as FunctionReference<
@@ -109,6 +137,17 @@ const adminRequestsRef = makeFunctionReference<"query">("admin:listRequests") as
 const fulfillRequestRef = makeFunctionReference<"mutation">("admin:fulfillRequest") as FunctionReference<
   "mutation", "public", FulfillRequestInput, { creatorId: string; fulfilledCount: number }
 >;
+const updateProfileRef = makeFunctionReference<"mutation">("users:updateProfile") as FunctionReference<"mutation", "public", { name: string; companyName: string; phone?: string }, unknown>;
+const updateNotificationsRef = makeFunctionReference<"mutation">("users:updateNotifications") as FunctionReference<"mutation", "public", NotificationPreferences, unknown>;
+const completeOnboardingRef = makeFunctionReference<"mutation">("users:completeOnboarding") as FunctionReference<"mutation", "public", EmptyArgs, unknown>;
+const requestCancellationRef = makeFunctionReference<"mutation">("users:requestCancellation") as FunctionReference<"mutation", "public", EmptyArgs, unknown>;
+const changePlanRef = makeFunctionReference<"mutation">("billing:changePlan") as FunctionReference<"mutation", "public", { tier: PlanTier; billingCycle: "monthly" | "annual"; demoPaymentId: string }, { tier: PlanTier; creditsAdded: number; creditBalance: number; renewalDate?: number }>;
+const purchaseCreditsRef = makeFunctionReference<"mutation">("billing:purchaseCredits") as FunctionReference<"mutation", "public", { credits: 50 | 100; demoPaymentId: string }, { creditsAdded: number; creditBalance: number }>;
+const transactionsRef = makeFunctionReference<"query">("billing:listTransactions") as FunctionReference<"query", "public", EmptyArgs, CreditTransaction[]>;
+const notificationsRef = makeFunctionReference<"query">("notifications:listMine") as FunctionReference<"query", "public", EmptyArgs, AppNotification[]>;
+const markReadRef = makeFunctionReference<"mutation">("notifications:markRead") as FunctionReference<"mutation", "public", { notificationId: string }, unknown>;
+const adminUsersRef = makeFunctionReference<"query">("admin:listUsers") as FunctionReference<"query", "public", EmptyArgs, AdminUser[]>;
+const extensionTokenRef = makeFunctionReference<"mutation">("users:createExtensionToken") as FunctionReference<"mutation", "public", EmptyArgs, { token: string }>;
 
 export function ConvexDataProvider({
   authenticated,
@@ -145,7 +184,7 @@ export function ConvexDataProvider({
     signIn,
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
-    search: (query, platform) => convex.query(searchRef, { query, platform }),
+    search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
     getHistory: () => convex.query(historyRef, {}),
     requestContact: (input) => convex.mutation(requestContactRef, input),
@@ -154,6 +193,17 @@ export function ConvexDataProvider({
     unlock: async (creatorId) => {
       await convex.mutation(unlockRef, { creatorId });
     },
+    updateProfile: async (input) => { await convex.mutation(updateProfileRef, input); },
+    updateNotifications: async (input) => { await convex.mutation(updateNotificationsRef, input); },
+    completeOnboarding: async () => { await convex.mutation(completeOnboardingRef, {}); },
+    requestCancellation: async () => { await convex.mutation(requestCancellationRef, {}); },
+    changePlan: (tier, billingCycle, demoPaymentId) => convex.mutation(changePlanRef, { tier, billingCycle, demoPaymentId }),
+    purchaseCredits: (credits, demoPaymentId) => convex.mutation(purchaseCreditsRef, { credits, demoPaymentId }),
+    listTransactions: () => convex.query(transactionsRef, {}),
+    listNotifications: () => convex.query(notificationsRef, {}),
+    markNotificationRead: async (notificationId) => { await convex.mutation(markReadRef, { notificationId }); },
+    listAdminUsers: () => convex.query(adminUsersRef, {}),
+    createExtensionToken: () => convex.mutation(extensionTokenRef, {}),
   }), [authenticated, authSignOut, convex, signIn, signUp]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

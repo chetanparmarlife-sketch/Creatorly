@@ -1,10 +1,19 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
-import { Search, Sparkles } from "lucide-react";
+import { Clapperboard, Dumbbell, MapPin, Palette, Plane, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import type { AppRoute } from "../hooks/useRoute";
-import type { CreatorSearchResult, Platform } from "../types";
+import type { CreatorSearchResult, FollowerBand, Platform } from "../types";
 import { CreatorResult } from "./CreatorResult";
 import { RequestContactModal } from "./RequestContactModal";
+
+const CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
+const CATEGORY_SHORTCUTS = [
+  { label: "Lifestyle", icon: Sparkles },
+  { label: "Entertainment", icon: Clapperboard },
+  { label: "Fitness", icon: Dumbbell },
+  { label: "Travel", icon: Plane },
+  { label: "Art", icon: Palette },
+] as const;
 
 export function SearchView({
   initialQuery,
@@ -19,22 +28,27 @@ export function SearchView({
   const [query, setQuery] = useState(initialQuery);
   const deferredQuery = useDeferredValue(query.trim());
   const [platform, setPlatform] = useState<Platform | undefined>(initialPlatform);
+  const [followerBand, setFollowerBand] = useState<FollowerBand>("any");
+  const [category, setCategory] = useState("");
+  const [location, setLocation] = useState("");
+  const deferredLocation = useDeferredValue(location.trim());
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [results, setResults] = useState<CreatorSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(() => new URLSearchParams(window.location.search).get("request") === "1");
   const requestId = useRef(0);
 
   useEffect(() => {
     const currentRequest = ++requestId.current;
-    if (deferredQuery.length < 2) {
+    if (deferredQuery.length === 1) {
       return;
     }
     const timer = window.setTimeout(() => {
       setLoading(true);
       setError("");
       setResults([]);
-      data.search(deferredQuery, platform)
+      data.search(deferredQuery, { platform, followerBand, category: category || undefined, location: deferredLocation || undefined, verifiedOnly })
         .then((nextResults) => {
           if (currentRequest === requestId.current) setResults(nextResults);
         })
@@ -46,11 +60,20 @@ export function SearchView({
         });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [data, deferredQuery, platform]);
+  }, [category, data, deferredLocation, deferredQuery, followerBand, platform, verifiedOnly]);
 
-  const visibleResults = deferredQuery.length >= 2 ? results : [];
-  const isSearching = deferredQuery.length >= 2 && loading;
-  const visibleError = deferredQuery.length >= 2 ? error : "";
+  const visibleResults = deferredQuery.length === 1 ? [] : results;
+  const isSearching = deferredQuery.length !== 1 && loading;
+  const visibleError = deferredQuery.length !== 1 ? error : "";
+  const hasFilters = Boolean(platform || followerBand !== "any" || category || location || verifiedOnly);
+
+  function clearFilters() {
+    setPlatform(undefined);
+    setFollowerBand("any");
+    setCategory("");
+    setLocation("");
+    setVerifiedOnly(false);
+  }
 
   return (
     <main className="workspace search-workspace">
@@ -58,11 +81,11 @@ export function SearchView({
         <div>
           <p className="eyebrow">Creator discovery</p>
           <h1>Who do you need to reach?</h1>
-          <p>Search a handle or name. We’ll match common profile variations.</p>
+          <p>Search directly or narrow the repository into a campaign-ready shortlist.</p>
         </div>
         <div className="search-proof">
           <Sparkles size={17} aria-hidden="true" />
-          <span><strong>6 demo creators</strong> ready to test</span>
+          <span><strong>17,709 real profiles</strong> ready to discover</span>
         </div>
       </section>
 
@@ -75,10 +98,24 @@ export function SearchView({
             aria-label="Creator name or handle"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Try @maya_creates or Rishi Verma"
+            placeholder="Search @handle or creator name"
           />
           {isSearching ? <span className="spinner" aria-label="Searching" /> : <kbd>⌘ K</kbd>}
         </label>
+        <div className="discovery-categories" aria-label="Browse creator categories">
+          {CATEGORY_SHORTCUTS.map(({ label, icon: Icon }) => (
+            <button
+              key={label}
+              className={category === label ? "is-active" : ""}
+              aria-label={`Browse ${label} creators`}
+              aria-pressed={category === label}
+              onClick={() => setCategory(current => current === label ? "" : label)}
+            >
+              <span><Icon size={21} aria-hidden="true" /></span>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="platform-tabs" aria-label="Filter by platform">
           {[
             [undefined, "All"],
@@ -94,31 +131,64 @@ export function SearchView({
             </button>
           ))}
         </div>
+        <div className="discovery-filters" aria-label="Discovery filters">
+          <span className="filter-heading"><SlidersHorizontal size={15} /> Filters</span>
+          <label className="filter-control">
+            <span>Primary category</span>
+            <select value={category} onChange={(event) => setCategory(event.target.value)}>
+              <option value="">All categories</option>
+              {CATEGORIES.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="filter-control">
+            <span>Followers</span>
+            <select value={followerBand} onChange={(event) => setFollowerBand(event.target.value as FollowerBand)}>
+              <option value="any">Any audience</option>
+              <option value="not_reported">Count not supplied</option>
+              <option value="under_1k">Under 1K</option>
+              <option value="1k_5k">1K–5K</option>
+              <option value="5k_10k">5K–10K</option>
+            </select>
+          </label>
+          <label className="filter-control filter-location">
+            <span>Location</span>
+            <span className="filter-input"><MapPin size={14} /><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City or state" /></span>
+          </label>
+          <label className="verified-filter">
+            <input type="checkbox" checked={verifiedOnly} onChange={(event) => setVerifiedOnly(event.target.checked)} />
+            Verified profiles
+          </label>
+          {hasFilters ? <button className="clear-filters" onClick={clearFilters}><X size={14} /> Clear</button> : null}
+        </div>
       </section>
 
       <section className="results-section" aria-live="polite">
         <div className="results-heading">
-          <h2>{deferredQuery.length >= 2 ? `${visibleResults.length} ${visibleResults.length === 1 ? "match" : "matches"}` : "Start with a creator"}</h2>
-          {visibleResults.length > 0 ? <span>Ranked by profile match</span> : null}
+          <h2>{deferredQuery.length >= 2 ? `${visibleResults.length} ${visibleResults.length === 1 ? "match" : "matches"}` : `Discover creators${visibleResults.length ? ` · ${visibleResults.length}` : ""}`}</h2>
+          {visibleResults.length > 0 ? <span>{deferredQuery.length >= 2 ? "Ranked by profile match" : "Highest reach first"}</span> : null}
         </div>
 
         {visibleError ? <div className="state-card state-error">{visibleError}</div> : null}
-        {!visibleError && deferredQuery.length < 2 ? (
-          <div className="search-empty">
-            <span className="empty-orbit" aria-hidden="true"><Search size={23} /></span>
-            <h3>Search the working set</h3>
-            <p>Try Maya Kapoor, Tech Rishi, Aanchal, Kabir, Noor, or Money Made Clear.</p>
+        {!visibleError && deferredQuery.length === 1 ? (
+          <div className="search-empty compact-empty">
+            <h3>Type one more character</h3>
+            <p>Two characters are enough to start matching handles and names.</p>
           </div>
         ) : null}
-        {!visibleError && !isSearching && deferredQuery.length >= 2 && visibleResults.length === 0 ? (
+        {!visibleError && isSearching ? (
+          <div className="creator-list discovery-loading" aria-label="Loading creators">
+            {[0, 1, 2, 3].map(item => <span key={item} />)}
+          </div>
+        ) : null}
+        {!visibleError && !isSearching && deferredQuery.length !== 1 && visibleResults.length === 0 ? (
           <div className="search-empty">
             <span className="empty-orbit" aria-hidden="true">?</span>
-            <h3>No contact in this demo set</h3>
-            <p>Try another spelling or ask our research queue to find the right contact.</p>
-            <button className="button button-primary request-empty-action" onClick={() => setRequestOpen(true)}>Request contact</button>
+            <h3>{deferredQuery.length >= 2 ? "No creator found" : "No creators match these filters"}</h3>
+            <p>{deferredQuery.length >= 2 ? "Try another spelling or ask our research queue to find the right contact." : "Widen the audience, category, or location to see more creators."}</p>
+            {deferredQuery.length >= 2 ? <button className="button button-primary request-empty-action" onClick={() => setRequestOpen(true)}>Request contact</button> : <button className="button button-primary request-empty-action" onClick={clearFilters}>Clear filters</button>}
           </div>
         ) : null}
-        {visibleResults.length > 0 ? (
+        {!isSearching && visibleResults.length > 0 ? (
           <div className="creator-list">
             {visibleResults.map((creator, index) => (
               <CreatorResult

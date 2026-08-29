@@ -27,6 +27,10 @@ export function HistoryView({
   const [items, setItems] = useState<UnlockHistoryItem[]>([]);
   const [filter, setFilter] = useState<HistoryFilter>("active");
   const [query, setQuery] = useState("");
+  const [platform, setPlatform] = useState<"all" | "instagram" | "youtube">("all");
+  const [period, setPeriod] = useState<"all" | "30" | "90">("all");
+  const [sort, setSort] = useState<"newest" | "name">("newest");
+  const [now] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [renewingId, setRenewingId] = useState<string | null>(null);
@@ -68,12 +72,14 @@ export function HistoryView({
     const normalizedQuery = query.trim().toLowerCase();
     return items.filter((item) => {
       const matchesFilter = filter === "all" || item.status === filter;
+      const matchesPlatform = platform === "all" || item.creator.platform === platform;
+      const matchesPeriod = period === "all" || item.unlockedAt >= now - Number(period) * 86400000;
       const matchesQuery = !normalizedQuery
         || item.creator.displayName.toLowerCase().includes(normalizedQuery)
         || item.creator.handle.toLowerCase().includes(normalizedQuery);
-      return matchesFilter && matchesQuery;
-    });
-  }, [filter, items, query]);
+      return matchesFilter && matchesPlatform && matchesPeriod && matchesQuery;
+    }).sort((a,b) => sort === "name" ? a.creator.displayName.localeCompare(b.creator.displayName) : b.unlockedAt - a.unlockedAt);
+  }, [filter, items, now, period, platform, query, sort]);
 
   const renew = async (item: UnlockHistoryItem) => {
     setRenewingId(item.id);
@@ -122,6 +128,9 @@ export function HistoryView({
           <span className="sr-only">Search unlock history</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search creator" />
         </label>
+        <select aria-label="Filter by platform" value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="youtube">YouTube</option></select>
+        <select aria-label="Filter by date" value={period} onChange={e => setPeriod(e.target.value as typeof period)}><option value="all">Any date</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select>
+        <select aria-label="Sort history" value={sort} onChange={e => setSort(e.target.value as typeof sort)}><option value="newest">Newest first</option><option value="name">Creator name</option></select>
       </section>
 
       {error ? <div className="state-card state-error history-error" role="alert">{error}</div> : null}
@@ -165,6 +174,7 @@ export function HistoryView({
               <div className={`history-status history-status-${item.status}`}>
                 <span>{item.status === "active" ? `${daysRemaining(item.expiresAt)} days remaining` : "Access expired"}</span>
                 <small>{item.status === "active" ? `Until ${formatDate(item.expiresAt)}` : `Expired ${formatDate(item.expiresAt)}`}</small>
+                {item.status === "active" && item.expiresAt - now <= 86400000 ? <b>Expires within 24 hours</b> : null}
               </div>
               {item.status === "active" ? (
                 <button className="history-action" aria-label={`View ${item.creator.displayName} contact`} onClick={() => navigate({ name: "creator", creatorId: item.creator.id })}>

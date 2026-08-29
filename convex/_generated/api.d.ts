@@ -10,10 +10,14 @@
 
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as billing from "../billing.js";
 import type * as contactRequests from "../contactRequests.js";
 import type * as creators from "../creators.js";
+import type * as extensionApi from "../extensionApi.js";
 import type * as http from "../http.js";
+import type * as importCreators from "../importCreators.js";
 import type * as lib_matching from "../lib/matching.js";
+import type * as notifications from "../notifications.js";
 import type * as seed from "../seed.js";
 import type * as unlocks from "../unlocks.js";
 import type * as users from "../users.js";
@@ -27,10 +31,14 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
+  billing: typeof billing;
   contactRequests: typeof contactRequests;
   creators: typeof creators;
+  extensionApi: typeof extensionApi;
   http: typeof http;
+  importCreators: typeof importCreators;
   "lib/matching": typeof lib_matching;
+  notifications: typeof notifications;
   seed: typeof seed;
   unlocks: typeof unlocks;
   users: typeof users;

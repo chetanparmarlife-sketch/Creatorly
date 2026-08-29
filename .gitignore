@@ -2,6 +2,7 @@ node_modules
 .agents
 dist
 .env.local
+data/private/
 .env.*.local
 .vercel
 .auth-keys.json

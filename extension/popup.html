@@ -9,7 +9,7 @@
   <body>
     <header>
       <div class="brand"><span class="mark"><i></i><i></i><i></i></span><strong>Creatorly</strong></div>
-      <span class="build">M1</span>
+      <span class="balance" id="balance">— credits</span>
     </header>
     <main id="content" aria-live="polite">
       <section class="state detecting">
@@ -21,9 +21,10 @@
     <footer>
       <button id="open-dashboard" class="text-action">Open dashboard</button>
       <details>
-        <summary>Dashboard address</summary>
+        <summary>Connection settings</summary>
         <label><span class="sr-only">Dashboard URL</span><input id="dashboard-url" type="url" /></label>
-        <button id="save-url">Save</button>
+        <label><span class="sr-only">Connection key</span><input id="connection-key" type="password" placeholder="Paste connection key" /></label>
+        <button id="save-url">Save settings</button>
       </details>
     </footer>
     <script src="popup.js"></script>

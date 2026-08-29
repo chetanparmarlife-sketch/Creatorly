@@ -2,10 +2,11 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, CheckCircle2, Search, ShieldCheck } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import { Logo } from "./Logo";
+import type { AppRoute } from "../hooks/useRoute";
 
-export function AuthScreen() {
+export function AuthScreen({ initialMode = "signup", navigate, showVerificationAfterSignup = false }: { initialMode?: "signup" | "signin"; navigate?(route: AppRoute): void; showVerificationAfterSignup?: boolean }) {
   const data = useAppData();
-  const [mode, setMode] = useState<"signup" | "signin">("signup");
+  const [mode, setMode] = useState<"signup" | "signin">(initialMode);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -22,6 +23,7 @@ export function AuthScreen() {
           email: String(form.get("email") ?? ""),
           password: String(form.get("password") ?? ""),
         });
+        if (showVerificationAfterSignup) navigate?.({ name: "verification" });
       } else {
         await data.signIn(
           String(form.get("email") ?? ""),
@@ -38,7 +40,7 @@ export function AuthScreen() {
   return (
     <main className="auth-page">
       <section className="auth-story" aria-labelledby="auth-title">
-        <Logo />
+        <button className="brand-button" onClick={() => navigate?.({ name: "landing" })}><Logo /></button>
         <div className="auth-story-copy">
           <p className="eyebrow">Your creator contact desk</p>
           <h1 id="auth-title">From shortlist to the right inbox in minutes.</h1>
@@ -89,6 +91,7 @@ export function AuthScreen() {
               <span>Work email</span>
               <input name="email" type="email" autoComplete="email" required placeholder="you@agency.com" />
             </label>
+            {mode === "signin" ? <button className="forgot-link" type="button" onClick={() => setError("Password reset email is simulated in this build. Contact the workspace admin to reset access.")}>Forgot password?</button> : null}
             <label>
               <span>Password</span>
               <input name="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={8} required placeholder="At least 8 characters" />
@@ -106,6 +109,7 @@ export function AuthScreen() {
           }}>
             {mode === "signup" ? "Already have an account? Sign in" : "New to Creatorly? Create an account"}
           </button>
+          <button className="text-button auth-home-link" type="button" onClick={() => navigate?.({ name: "landing" })}>Back to homepage</button>
         </div>
       </section>
     </main>

@@ -17,6 +17,7 @@ export function ContactCard({ contact }: { contact: CreatorContact }) {
     contact.phone ? { label: "Phone", value: contact.phone, href: `tel:${contact.phone}`, icon: Phone } : null,
     contact.whatsapp ? { label: "WhatsApp", value: contact.whatsapp, href: `https://wa.me/${contact.whatsapp.replace(/\D/g, "")}`, icon: MessageCircle } : null,
   ].filter((field) => field !== null);
+  const statusLabel = contact.isDemo ? "Demo verified" : contact.verificationStatus === "verified" ? "Verified" : contact.verificationStatus === "pending_verification" ? "Pending verification" : "Unverified";
 
   return (
     <article className="contact-card">
@@ -25,7 +26,7 @@ export function ContactCard({ contact }: { contact: CreatorContact }) {
           <span className="role-badge">{contactRole(contact.contactType)}</span>
           <h3>{contact.name}</h3>
         </div>
-        <span className="verified-label"><ShieldCheck size={15} /> Demo verified</span>
+        <span className={`verified-label verified-${contact.verificationStatus}`}><ShieldCheck size={15} /> {statusLabel}</span>
       </div>
       <div className="contact-fields">
         {fields.map(({ label, value, href, icon: Icon }) => (
@@ -42,7 +43,7 @@ export function ContactCard({ contact }: { contact: CreatorContact }) {
         ))}
       </div>
       {contact.contextualNotes ? <p className="contact-note">“{contact.contextualNotes}”</p> : null}
-      <footer>Demo record · checked {formatDate(contact.lastVerifiedAt)}</footer>
+      <footer>{contact.isDemo ? `Demo record · checked ${formatDate(contact.lastVerifiedAt)}` : contact.verificationStatus === "verified" ? `Last verified ${formatDate(contact.lastVerifiedAt)}` : "Imported record · verification pending"}</footer>
     </article>
   );
 }

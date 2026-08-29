@@ -6,10 +6,45 @@ export type Viewer = {
   name: string;
   email: string;
   companyName: string;
+  phone?: string;
   role: "user" | "admin";
   currentPlanTier: PlanTier;
   creditBalance: number;
+  subscriptionStatus: "active" | "past_due" | "cancelled" | "trial";
+  subscriptionRenewalDate?: number;
+  cancellationRequestedAt?: number;
+  onboardingCompleted: boolean;
+  isEmailVerified: boolean;
+  notificationPreferences: NotificationPreferences;
 };
+
+export type NotificationPreferences = {
+  requestFulfilled: boolean;
+  lowBalance: boolean;
+  expirationWarning: boolean;
+  weeklySummary: boolean;
+};
+
+export type CreditTransaction = {
+  _id: string;
+  amount: number;
+  transactionType: "signup_bonus" | "subscription_allocation" | "purchase" | "unlock_usage" | "admin_adjustment" | "refund";
+  description: string;
+  referenceId?: string;
+  createdAt: number;
+};
+
+export type AppNotification = {
+  _id: string;
+  type: "request_fulfilled" | "low_balance" | "expiration_warning" | "weekly_summary" | "payment" | "system";
+  title: string;
+  message: string;
+  href?: string;
+  readAt?: number;
+  createdAt: number;
+};
+
+export type AdminUser = Pick<Viewer, "id" | "name" | "email" | "companyName" | "role" | "currentPlanTier" | "creditBalance" | "subscriptionStatus">;
 
 export type CreatorSearchResult = {
   id: string;
@@ -18,10 +53,21 @@ export type CreatorSearchResult = {
   displayName: string;
   followerCount: number;
   location?: string;
+  categories?: string[];
   isVerified: boolean;
   isDemo: boolean;
   contactCount: number;
   matchScore: number;
+};
+
+export type FollowerBand = "any" | "not_reported" | "under_1k" | "1k_5k" | "5k_10k";
+
+export type CreatorSearchFilters = {
+  platform?: Platform;
+  followerBand?: FollowerBand;
+  category?: string;
+  location?: string;
+  verifiedOnly?: boolean;
 };
 
 export type CreatorContact = {

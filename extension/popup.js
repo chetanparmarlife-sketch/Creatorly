@@ -1,60 +1,35 @@
 const DEFAULT_DASHBOARD_URL = "https://my-build-week-project.vercel.app";
+const DEFAULT_API_URL = "https://effervescent-toucan-379.convex.site";
 const content = document.querySelector("#content");
 const urlInput = document.querySelector("#dashboard-url");
+const keyInput = document.querySelector("#connection-key");
+const balance = document.querySelector("#balance");
+let currentProfile = null;
+let currentResult = null;
 
-async function dashboardUrl() {
-  const result = await chrome.storage.sync.get("dashboardUrl");
-  return String(result.dashboardUrl || DEFAULT_DASHBOARD_URL).replace(/\/$/, "");
+async function settings() {
+  const stored = await chrome.storage.sync.get(["dashboardUrl", "connectionKey"]);
+  return { dashboardUrl: String(stored.dashboardUrl || DEFAULT_DASHBOARD_URL).replace(/\/$/, ""), connectionKey: String(stored.connectionKey || "") };
 }
+async function openPath(path) { const config = await settings(); await chrome.tabs.create({ url: `${config.dashboardUrl}${path}` }); }
+async function openDashboard(profile) { const path = profile ? `/search?${new URLSearchParams({ q: profile.handle, platform: profile.platform })}` : "/search"; await openPath(path); }
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char])); }
+function role(value) { return String(value).replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase()); }
+async function copy(value, button) { await navigator.clipboard.writeText(value); const before = button.textContent; button.textContent = "Copied"; setTimeout(() => { button.textContent = before; }, 1100); }
+function updateBalance(value) { balance.textContent = Number.isFinite(value) ? `${value} credits` : "— credits"; }
 
-async function openDashboard(profile) {
-  const base = await dashboardUrl();
-  const target = profile
-    ? `${base}/search?${new URLSearchParams({ q: profile.handle, platform: profile.platform })}`
-    : `${base}/search`;
-  await chrome.tabs.create({ url: target });
-}
-
-function renderFound(profile) {
-  content.innerHTML = `
-    <section class="profile-card">
-      <span class="platform">${profile.platform} profile detected</span>
-      <h1>@${profile.handle}</h1>
-      <p>Continue to Creatorly to check the demo contact set and unlock available details.</p>
-      <div class="signal">● Handle ready to search</div>
-      <button class="primary" id="find-contact">Find this contact</button>
-    </section>`;
-  document.querySelector("#find-contact").addEventListener("click", () => openDashboard(profile));
-}
-
-function renderWrongPage() {
-  content.innerHTML = `
-    <section class="state">
-      <span class="wrong-icon">?</span>
-      <h1>Open a creator profile</h1>
-      <p>Go to an Instagram profile or a YouTube @handle page, then open Creatorly again.</p>
-    </section>`;
-}
-
-async function detect() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return renderWrongPage();
-  try {
-    const profile = await chrome.tabs.sendMessage(tab.id, { type: "CREATORLY_PROFILE" });
-    if (profile?.handle) renderFound(profile);
-    else renderWrongPage();
-  } catch {
-    renderWrongPage();
-  }
-}
-
-document.querySelector("#open-dashboard").addEventListener("click", () => openDashboard());
-document.querySelector("#save-url").addEventListener("click", async () => {
-  const value = urlInput.value.trim().replace(/\/$/, "");
-  if (!/^https?:\/\//.test(value)) return;
-  await chrome.storage.sync.set({ dashboardUrl: value });
-  document.querySelector("details").open = false;
-});
-
-dashboardUrl().then((value) => { urlInput.value = value; });
+function renderConnect() { content.innerHTML = `<section class="state"><span class="wrong-icon">↗</span><h1>Connect your account</h1><p>Create a connection key in Dashboard → Settings, then paste it below.</p><button class="primary" id="show-settings">Open settings</button></section>`; document.querySelector("#show-settings").onclick = () => { document.querySelector("details").open = true; }; }
+function renderWrongPage() { content.innerHTML = `<section class="state"><span class="wrong-icon">?</span><h1>Open a creator profile</h1><p>Go to an Instagram profile or a YouTube @handle page, then open Creatorly again.</p></section>`; chrome.action.setBadgeText({ text: "" }); }
+function renderMissing(profile) { content.innerHTML = `<section class="state"><span class="wrong-icon">+</span><h1>Contact not available yet</h1><p>@${escapeHtml(profile.handle)} is not in the repository.</p><button class="primary" id="request">Request contact</button><button class="secondary" id="search">Search dashboard</button></section>`; document.querySelector("#request").onclick = () => openPath(`/search?q=${encodeURIComponent(profile.handle)}&platform=${profile.platform}&request=1`); document.querySelector("#search").onclick = () => openDashboard(profile); }
+function contactsHtml(contacts) { return contacts.map(contact => `<article class="contact"><span class="role">${role(contact.contactType)}</span><h2>${escapeHtml(contact.name)}</h2>${contact.email ? `<button class="copy" data-copy="${escapeHtml(contact.email)}"><small>Email</small>${escapeHtml(contact.email)}</button>` : ""}${contact.phone ? `<button class="copy" data-copy="${escapeHtml(contact.phone)}"><small>Phone</small>${escapeHtml(contact.phone)}</button>` : ""}${contact.whatsapp ? `<button class="copy" data-copy="${escapeHtml(contact.whatsapp)}"><small>WhatsApp</small>${escapeHtml(contact.whatsapp)}</button>` : ""}${contact.contextualNotes ? `<p>${escapeHtml(contact.contextualNotes)}</p>` : ""}<footer>${contact.verificationStatus === "verified" ? "✓ Verified" : "Verification pending"}</footer></article>`).join(""); }
+function bindCopies() { document.querySelectorAll("[data-copy]").forEach(button => button.addEventListener("click", () => copy(button.dataset.copy, button))); }
+function renderUnlocked(result) { const days = Math.max(1, Math.ceil((result.expiresAt - Date.now()) / 86400000)); content.innerHTML = `<section class="profile-head"><span>${escapeHtml(result.creator.platform)}</span><h1>${escapeHtml(result.creator.displayName)}</h1><p>${escapeHtml(result.creator.handle)} · Access expires in ${days} days</p></section><section class="contacts">${contactsHtml(result.contacts)}</section><button class="secondary" id="view">Open in dashboard</button>`; bindCopies(); document.querySelector("#view").onclick = () => openPath(`/creator/${result.creator.id}`); chrome.action.setBadgeText({ text: "✓" }); }
+function renderLocked(result) { const needsPro = result.availableContactCount === 0 && result.hiddenProContactCount > 0; const noCredits = result.creditBalance < 5; content.innerHTML = `<section class="profile-card"><span class="platform">${escapeHtml(result.creator.platform)} profile found</span><h1>${escapeHtml(result.creator.displayName)}</h1><p>${escapeHtml(result.creator.handle)} · ${result.availableContactCount + result.hiddenProContactCount} contacts available</p><div class="signal">● ${needsPro ? "Pro access required" : noCredits ? "More credits required" : "Ready to unlock for 5 credits"}</div><button class="primary" id="primary">${needsPro ? "Upgrade to Pro" : noCredits ? "Add credits" : "Unlock contact"}</button><button class="secondary" id="view">View in dashboard</button></section>`; document.querySelector("#view").onclick = () => openPath(`/creator/${result.creator.id}`); document.querySelector("#primary").onclick = needsPro || noCredits ? () => openPath("/pricing") : unlock; chrome.action.setBadgeText({ text: "•" }); }
+function renderResult(result, profile) { currentResult = result; updateBalance(result.creditBalance); if (!result.authenticated) return renderConnect(); if (!result.found) return renderMissing(profile); if (result.isUnlocked) return renderUnlocked(result); renderLocked(result); }
+async function fetchProfile(profile) { const config = await settings(); if (!config.connectionKey) return renderConnect(); const response = await fetch(`${DEFAULT_API_URL}/extension/profile?${new URLSearchParams({ platform: profile.platform, handle: profile.handle })}`, { headers: { Authorization: `Bearer ${config.connectionKey}` } }); if (!response.ok) throw new Error("Creatorly could not check this profile."); renderResult(await response.json(), profile); }
+async function unlock() { const button = document.querySelector("#primary"); button.disabled = true; button.textContent = "Unlocking…"; const config = await settings(); const response = await fetch(`${DEFAULT_API_URL}/extension/unlock`, { method: "POST", headers: { Authorization: `Bearer ${config.connectionKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ creatorId: currentResult.creator.id }) }); const result = await response.json(); if (!response.ok) { button.disabled = false; button.textContent = result.error || "Try again"; return; } await fetchProfile(currentProfile); }
+async function detect() { const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); if (!tab?.id) return renderWrongPage(); try { const profile = await chrome.tabs.sendMessage(tab.id, { type: "CREATORLY_PROFILE" }); if (!profile?.handle) return renderWrongPage(); currentProfile = profile; await fetchProfile(profile); } catch (error) { content.innerHTML = `<section class="state"><span class="wrong-icon">!</span><h1>Could not connect</h1><p>${escapeHtml(error.message)}</p><button class="primary" id="retry">Try again</button></section>`; document.querySelector("#retry").onclick = detect; } }
+document.querySelector("#open-dashboard").onclick = () => openDashboard();
+document.querySelector("#save-url").onclick = async () => { const dashboardUrl = urlInput.value.trim().replace(/\/$/, ""); const connectionKey = keyInput.value.trim(); if (!/^https?:\/\//.test(dashboardUrl)) return; await chrome.storage.sync.set({ dashboardUrl, connectionKey }); document.querySelector("details").open = false; void detect(); };
+settings().then(config => { urlInput.value = config.dashboardUrl; keyInput.value = config.connectionKey; });
 void detect();

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { BadgeCheck, Camera, CheckCircle2, Inbox, PlaySquare, ShieldCheck } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import { formatDate } from "../lib/format";
-import type { AdminContactRequest, FulfillRequestInput } from "../types";
+import type { AdminContactRequest, AdminUser, FulfillRequestInput } from "../types";
 
 export function AdminView() {
   const data = useAppData();
@@ -12,6 +12,7 @@ export function AdminView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [users, setUsers] = useState<AdminUser[]>([]);
 
   const selected = useMemo(
     () => requests.find((request) => request.id === selectedId) ?? requests[0] ?? null,
@@ -26,11 +27,12 @@ export function AdminView() {
 
   useEffect(() => {
     let active = true;
-    data.listAdminRequests()
-      .then((nextRequests) => {
+    Promise.all([data.listAdminRequests(), data.listAdminUsers()])
+      .then(([nextRequests, nextUsers]) => {
         if (!active) return;
         setRequests(nextRequests);
         setSelectedId(nextRequests[0]?.id ?? null);
+        setUsers(nextUsers);
       })
       .catch((nextError) => {
         if (active) setError(nextError instanceof Error ? nextError.message : "Could not load requests.");
@@ -66,7 +68,7 @@ export function AdminView() {
     };
     try {
       const result = await data.fulfillRequest(input);
-      setSuccess(`Fulfilled ${result.fulfilledCount} matching ${result.fulfilledCount === 1 ? "request" : "requests"}. Notifications are pending email setup.`);
+      setSuccess(`Fulfilled ${result.fulfilledCount} matching ${result.fulfilledCount === 1 ? "request" : "requests"}. In-app notifications were delivered.`);
       await loadRequests();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Could not fulfill this request.");
@@ -104,6 +106,7 @@ export function AdminView() {
           </section>
         </div>
       ) : null}
+      <section className="admin-users"><div><p className="eyebrow">User management</p><h2>Workspace accounts</h2></div><div className="admin-user-list">{users.map(user => <article key={user.id}><span><strong>{user.name}</strong><small>{user.email} · {user.companyName}</small></span><b>{user.currentPlanTier}</b><em>{user.creditBalance} credits</em><i>{user.subscriptionStatus}</i></article>)}</div></section>
     </main>
   );
 }
