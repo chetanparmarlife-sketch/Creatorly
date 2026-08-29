@@ -1,4 +1,4 @@
-const DEFAULT_DASHBOARD_URL = "https://creatorly-build-week.vercel.app";
+const DEFAULT_DASHBOARD_URL = "https://my-build-week-project.vercel.app";
 const content = document.querySelector("#content");
 const urlInput = document.querySelector("#dashboard-url");
 
