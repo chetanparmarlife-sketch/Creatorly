@@ -9,4 +9,4 @@
 
 The popup defaults to the public production URL, `https://my-build-week-project.vercel.app`. Expand **Dashboard address** in the popup to switch it to `http://localhost:5173` during local development or to save a future custom domain.
 
-M1 limitation: the extension detects the profile and opens a pre-filled dashboard search. Contact reveal and account state stay in the dashboard. Shared extension sign-in and embedded unlock are deferred until the cloud Convex authentication flow can be verified.
+M1 limitation: the extension detects the profile and opens a pre-filled dashboard search. Contact reveal and account state stay in the dashboard. Shared extension sign-in and embedded unlock are deferred from this milestone.

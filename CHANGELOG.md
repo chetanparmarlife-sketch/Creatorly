@@ -26,9 +26,13 @@
 - Vercel production deployment: Ready; `/` and `/creator/maya-creates` both return HTTP 200 at the public alias `https://my-build-week-project.vercel.app`.
 - Vercel error scan: no runtime errors found after smoke requests.
 - Public GitHub repository connected to Vercel: `https://github.com/chetanparmarlife-sketch/Creatorly`.
+- Convex development and production deployments created, configured with separate authentication keys, and seeded with six demo creators.
+- Production backend round-trip: signup and sign-in succeeded; `maya.creates.official` matched `@maya_creates`; the first unlock revealed one contact and changed the balance from 25 to 20; the repeat unlock returned `already_unlocked` and did not charge again.
+- The production Vercel bundle points to `https://effervescent-toucan-379.convex.cloud`, not the development deployment.
 - Browser automation: not completed because the installed browser plugin points to a missing older runtime file. No visual browser claim is made.
 
-### Blocked account steps
+### Known limitations
 
-- Convex cloud project, live password round-trip, and seed push require `npx convex login` by the project owner.
+- Automated QA accounts use `codex.qa.*@example.test` and must not be counted as real user signups.
 - Real creator contacts were not supplied; all current contact values are explicit demo records under `example.test`.
+- Desktop/mobile visual review and unpacked-extension testing still require a manual Chrome check.

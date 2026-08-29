@@ -55,7 +55,7 @@
 - [x] Implement search ranking and public-safe result projection.
 - [x] Implement an atomic unlock mutation that reuses active records and charges only once.
 - [x] Seed at least six varied Instagram/YouTube creators and clearly fictional `example.test` contact values.
-- [ ] Create a real Convex development deployment, generate auth keys headlessly, set deployment variables, run code generation, and seed it.
+- [x] Create real Convex development and production deployments, generate separate auth keys headlessly, set deployment variables, run code generation, and seed both.
 
 ### Task 3: Authentication shell
 
@@ -70,7 +70,7 @@
 - [x] Build sign-up fields for name, agency, work email, and password with browser validation.
 - [x] Build sign-in fields for email and password with a visible error state.
 - [x] Route authenticated people to search and signed-out people to the auth screen.
-- [ ] Verify a real signup/sign-out/sign-in round trip against Convex.
+- [x] Verify real signup and sign-in against production Convex; sign-out behavior is covered by the UI integration test.
 
 ### Task 4: Search and creator detail core flow
 
@@ -120,4 +120,4 @@
 - [ ] Capture and inspect desktop and mobile screenshots; fix layout or contrast defects.
 - [ ] Load the unpacked extension and verify detection on supported and unsupported pages if local Chrome automation permits it.
 - [x] Add exact test outcomes and known limitations to CHANGELOG and README.
-- [ ] Deploy Convex production functions and Vercel, then smoke-test the public URL logged out.
+- [x] Deploy Convex production functions and Vercel, then smoke-test the public URL logged out.

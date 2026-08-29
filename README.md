@@ -5,6 +5,7 @@ Creatorly is a creator-contact discovery prototype for influencer marketing agen
 ## What works
 
 - Password signup/sign-in adapter for Convex Auth
+- Separate seeded Convex development and production deployments
 - Local demo fallback when Convex is not configured
 - Smart handle matching: exact, punctuation/suffix-normalized, display name, and partial name
 - Instagram/YouTube filter and six clearly fictional demo records
@@ -24,26 +25,22 @@ npm run dev
 
 Without `VITE_CONVEX_URL`, Creatorly runs in clearly labelled local demo mode and stores the demo account, balance, and unlocks in that browser only.
 
-## Connect Convex
+## Convex environments
 
-This machine was not signed in to Convex during the build, so the cloud deployment could not be created. To finish the connection:
+The public Vercel app uses the production Convex deployment at `https://effervescent-toucan-379.convex.cloud`. Local development uses the development deployment selected in the ignored `.env.local` file.
+
+To update the development deployment and reload its six fictional demo creators:
 
 ```bash
 npx convex login
 npx convex dev --once --run seed:run
 ```
 
-The second command creates/selects the project, generates the official files under `convex/_generated`, pushes the schema and functions, writes `VITE_CONVEX_URL` to `.env.local`, and seeds the six demo creators. Follow the Convex Auth skill’s headless key setup before testing password signup:
-
-1. Generate `JWT_PRIVATE_KEY` and `JWKS` with `jose`.
-2. Set those values plus `SITE_URL` on the selected deployment.
-3. Run `npx convex dev --once` again.
-
-Never commit `.auth-keys.json` or `.env.local`.
+The authentication keys and `SITE_URL` are already configured separately on development and production. Never commit `.auth-keys.json` or `.env.local`.
 
 ## Chrome extension
 
-See [extension/README.md](extension/README.md). M1 detects the profile and opens a matching dashboard search. Embedded contact reveal and shared extension authentication are deferred until the cloud Convex session is verified.
+See [extension/README.md](extension/README.md). M1 detects the profile and opens a matching dashboard search. Embedded contact reveal and shared extension authentication remain deferred from M1.
 
 ## Quality checks
 
@@ -55,7 +52,9 @@ npx tsc -p convex/tsconfig.json
 npm audit
 ```
 
-The integration test covers signup → smart search → creator detail → unlock → remount → persistent access and unchanged 20-credit balance.
+The integration test covers signup → smart search → creator detail → unlock → remount → persistent access and unchanged 20-credit balance. A production-backend check also passed signup, sign-in, normalized search, contact reveal, and repeat-unlock protection. Its `codex.qa.*@example.test` record is automated QA and must not be counted as a real signup.
+
+Automated visual browser checking was unavailable because the installed browser helper points to a missing older runtime file. HTTP checks and the full UI integration test pass, but desktop/mobile visual review and loading the unpacked extension still need a manual Chrome check.
 
 ## Scope
 
