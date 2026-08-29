@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Creatorly</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand"><span class="mark"><i></i><i></i><i></i></span><strong>Creatorly</strong></div>
+      <span class="build">M1</span>
+    </header>
+    <main id="content" aria-live="polite">
+      <section class="state detecting">
+        <span class="loader"></span>
+        <h1>Checking this page…</h1>
+        <p>Looking for an Instagram or YouTube creator profile.</p>
+      </section>
+    </main>
+    <footer>
+      <button id="open-dashboard" class="text-action">Open dashboard</button>
+      <details>
+        <summary>Dashboard address</summary>
+        <label><span class="sr-only">Dashboard URL</span><input id="dashboard-url" type="url" /></label>
+        <button id="save-url">Save</button>
+      </details>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

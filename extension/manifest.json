@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Creatorly Contact Finder",
+  "version": "0.1.0",
+  "description": "Detect creator profiles and continue the contact search in Creatorly.",
+  "permissions": ["activeTab", "tabs", "storage"],
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "https://instagram.com/*",
+    "https://www.youtube.com/*",
+    "https://youtube.com/*"
+  ],
+  "action": {
+    "default_title": "Creatorly",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*",
+        "https://instagram.com/*",
+        "https://www.youtube.com/*",
+        "https://youtube.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

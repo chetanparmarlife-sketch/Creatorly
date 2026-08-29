@@ -1,0 +1,13 @@
+node_modules
+.agents
+dist
+.env.local
+.env.*.local
+.vercel
+.auth-keys.json
+coverage
+*.log
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+.DS_Store
