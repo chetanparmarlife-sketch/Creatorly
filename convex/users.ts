@@ -18,6 +18,10 @@ export const viewer = query({
     if (!userId) return null;
     const user = await ctx.db.get(userId);
     if (!user) return null;
+    const billingCustomer = await ctx.db
+      .query("billingCustomers")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
     return {
       id: user._id,
       name: user.name ?? "Creatorly user",
@@ -30,6 +34,7 @@ export const viewer = query({
       subscriptionStatus: user.subscriptionStatus ?? "active",
       subscriptionRenewalDate: user.subscriptionRenewalDate,
       cancellationRequestedAt: user.cancellationRequestedAt,
+      hasDodoCustomer: Boolean(billingCustomer),
       onboardingCompleted: user.onboardingCompleted ?? false,
       onboardingStep: user.onboardingStep ?? 1,
       onboardingPlanTier: user.onboardingPlanTier ?? user.currentPlanTier ?? "free",

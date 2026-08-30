@@ -15,6 +15,7 @@ const formatFollowers = (value: number) => value >= 1_000_000 ? `${(value / 1_00
 const repositoryScope = "The original imported repository currently covers India-focused Instagram creators. YouTube creator data is not loaded yet.";
 const CREATOR_PAGE_SIZE = 24;
 const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
+type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" } | null;
 
 function PageHeader({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy: string; action?: React.ReactNode }) {
   return <header className="ops-header"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
@@ -28,7 +29,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const data = useAppData(); const store = useWorkspaceData();
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<Platform | "all">("all");
   const [creatorFilter, setCreatorFilter] = useState(""); const [category, setCategory] = useState(""); const [audience, setAudience] = useState<"all" | "under100k" | "100k500k" | "500k1m" | "over1m">("all");
-  const [location, setLocation] = useState(""); const [locationSort, setLocationSort] = useState<"default" | "asc" | "desc">("default"); const [contact, setContact] = useState<"all" | "available" | "missing">("all");
+  const [location, setLocation] = useState(""); const [sort, setSort] = useState<CreatorSort>(null); const [contact, setContact] = useState<"all" | "available" | "missing">("all");
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Set<string>>(new Set()); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
   const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location) => {
     setLoading(true); setError("");
@@ -68,23 +69,43 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
       || (audience === "500k1m" && creator.followerCount >= 500_000 && creator.followerCount < 1_000_000)
       || (audience === "over1m" && creator.followerCount >= 1_000_000);
     return creatorMatches && categoryMatches && locationMatches && contactMatches && audienceMatches;
-  }).sort((left, right) => locationSort === "default" ? 0 : (left.location ?? "zzzz").localeCompare(right.location ?? "zzzz") * (locationSort === "asc" ? 1 : -1)), [audience, category, contact, creatorFilter, location, locationSort, results]);
+  }).sort((left, right) => {
+    if (!sort) return 0;
+    const comparison = sort.field === "name"
+      ? left.displayName.localeCompare(right.displayName)
+      : sort.field === "audience"
+        ? left.followerCount - right.followerCount
+        : (left.location ?? "zzzz").localeCompare(right.location ?? "zzzz");
+    return comparison * (sort.direction === "asc" ? 1 : -1);
+  }), [audience, category, contact, creatorFilter, location, results, sort]);
   const categoryOptions = useMemo(() => [...new Set([...CREATOR_CATEGORIES, ...results.flatMap(creator => creator.categories ?? [])])].sort(), [results]);
   const locationOptions = useMemo(() => [...new Set(results.map(creator => creator.location).filter((item): item is string => Boolean(item)))].sort(), [results]);
-  const filtersActive = Boolean(creatorFilter || category || location || platform !== "all" || audience !== "all" || contact !== "all" || locationSort !== "default");
-  function clearTableFilters() { setCreatorFilter(""); setCategory(""); setPlatform("all"); setAudience("all"); setLocation(""); setLocationSort("default"); setContact("all"); }
-  function cycleLocationSort() { setLocationSort(current => current === "default" ? "asc" : current === "asc" ? "desc" : "default"); }
+  const filtersActive = Boolean(creatorFilter || category || location || platform !== "all" || audience !== "all" || contact !== "all" || sort);
+  function clearTableFilters() { setCreatorFilter(""); setCategory(""); setPlatform("all"); setAudience("all"); setLocation(""); setSort(null); setContact("all"); }
+  function cycleSort(field: NonNullable<CreatorSort>["field"]) {
+    setSort(current => {
+      const firstDirection = field === "audience" ? "desc" : "asc";
+      if (!current || current.field !== field) return { field, direction: firstDirection };
+      if (current.direction === firstDirection) return { field, direction: firstDirection === "asc" ? "desc" : "asc" };
+      return null;
+    });
+  }
+  function sortStatus(field: NonNullable<CreatorSort>["field"]) {
+    if (sort?.field !== field) return "Sort";
+    if (field === "audience") return sort.direction === "desc" ? "High–low" : "Low–high";
+    return sort.direction === "asc" ? "A–Z" : "Z–A";
+  }
   async function save(creator: CreatorSearchResult) { await store.saveCreator(workspace.id, creator); setSavedIds(current => new Set(current).add(creator.id)); }
   return <main className="workspace ops-page">
     <PageHeader eyebrow="India creator database" title="Discover creators across India" copy="Search the original India-focused creator repository by name, category, city, or country, then save profiles to your workspace." action={data.mode === "convex" ? <span className="data-source-chip">India creator repository</span> : undefined}/>
     <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void run(); }} placeholder="Search creator name or handle"/><button className="button button-primary" onClick={() => run()}><Sparkles size={15}/> Search</button></section>
     <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> shown · {results.length} loaded</span>{filtersActive ? <button type="button" onClick={clearTableFilters}><RotateCcw size={13}/> Reset filters</button> : <span>{query.trim() ? "Search results" : isDone ? "Full repository loaded" : "More creators available"}</span>}</div>
     <section className="ops-table-card"><div className="ops-table-head discovery-table-head" role="group" aria-label="Creator table filters">
-      <span className="table-filter-cell"><b>Creator</b><label><Search size={14}/><span className="sr-only">Filter creator column</span><input aria-label="Filter creator column" value={creatorFilter} onChange={event => setCreatorFilter(event.target.value)} placeholder="Name or handle"/></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">Creator <button type="button" onClick={() => cycleSort("name")} aria-label={`Sort creator name ${sort?.field === "name" && sort.direction === "asc" ? "descending" : sort?.field === "name" ? "by default" : "ascending"}`} aria-pressed={sort?.field === "name"}><ArrowUpDown size={12}/><span>{sortStatus("name")}</span></button></b><label><Search size={14}/><span className="sr-only">Filter creator column</span><input aria-label="Filter creator column" value={creatorFilter} onChange={event => setCreatorFilter(event.target.value)} placeholder="Name or handle"/></label></span>
       <span className="table-filter-cell"><b>Category</b><label><span className="sr-only">Filter category column</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="Search category"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
       <span className="table-filter-cell"><b>Platform</b><label><span className="sr-only">Filter platform column</span><select aria-label="Filter platform column" value={platform} onChange={event => setPlatform(event.target.value as Platform | "all")}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="twitter">X</option></select></label></span>
-      <span className="table-filter-cell"><b>Audience</b><label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="under100k">Under 100K</option><option value="100k500k">100K–500K</option><option value="500k1m">500K–1M</option><option value="over1m">1M+</option></select></label></span>
-      <span className="table-filter-cell"><b className="sortable-filter-title">City / Country <button type="button" onClick={cycleLocationSort} aria-label={`Sort city and country ${locationSort === "asc" ? "descending" : locationSort === "desc" ? "by default" : "ascending"}`} aria-pressed={locationSort !== "default"}><ArrowUpDown size={12}/><span>{locationSort === "asc" ? "A–Z" : locationSort === "desc" ? "Z–A" : "Sort"}</span></button></b><label><span className="sr-only">Filter city or country column</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search location"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">Audience <button type="button" onClick={() => cycleSort("audience")} aria-label={`Sort audience ${sort?.field === "audience" && sort.direction === "desc" ? "low to high" : sort?.field === "audience" ? "by default" : "high to low"}`} aria-pressed={sort?.field === "audience"}><ArrowUpDown size={12}/><span>{sortStatus("audience")}</span></button></b><label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="under100k">Under 100K</option><option value="100k500k">100K–500K</option><option value="500k1m">500K–1M</option><option value="over1m">1M+</option></select></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">City / Country <button type="button" onClick={() => cycleSort("location")} aria-label={`Sort city and country ${sort?.field === "location" && sort.direction === "asc" ? "descending" : sort?.field === "location" ? "by default" : "ascending"}`} aria-pressed={sort?.field === "location"}><ArrowUpDown size={12}/><span>{sortStatus("location")}</span></button></b><label><span className="sr-only">Filter city or country column</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search location"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
       <span className="table-filter-cell"><b>Contact</b><label><span className="sr-only">Filter contact column</span><select aria-label="Filter contact column" value={contact} onChange={event => setContact(event.target.value as typeof contact)}><option value="all">Any contact</option><option value="available">Available</option><option value="missing">Not available</option></select></label></span>
       <span className="table-filter-actions"><b>Reset</b><button type="button" className="filter-reset-icon" onClick={clearTableFilters} disabled={!filtersActive} aria-label="Reset table filters"><RotateCcw size={15}/></button></span>
     </div>

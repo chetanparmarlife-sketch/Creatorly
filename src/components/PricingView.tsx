@@ -13,6 +13,7 @@ const plans: Array<{ tier: PlanTier; price: string; credits: number; features: s
 
 export function PricingView({ viewer, navigate }: { viewer?: Viewer | null; navigate(route: AppRoute): void; refresh(): void }) {
   const data = useAppData();
+  const hasDodoCustomer = Boolean(viewer?.hasDodoCustomer);
   const [annual, setAnnual] = useState(false);
   const [busyKey, setBusyKey] = useState("");
   const [error, setError] = useState("");
@@ -51,7 +52,11 @@ export function PricingView({ viewer, navigate }: { viewer?: Viewer | null; navi
       navigate({ name: "signup" });
       return;
     }
-    if (tier === "free" || viewer.currentPlanTier !== "free") {
+    if (tier === "free") {
+      if (!hasDodoCustomer) {
+        setError("Complete a Dodo checkout before managing or changing a subscription.");
+        return;
+      }
       void openPortal();
       return;
     }
@@ -70,12 +75,13 @@ export function PricingView({ viewer, navigate }: { viewer?: Viewer | null; navi
       {plan.tier === "pro" ? <span className="popular-label"><Crown size={13}/> Manager access</span> : null}
       <p className="eyebrow">{plan.tier}</p><h2>{plan.price}<small>/month</small></h2><p>{plan.credits} credits included</p>
       <ul>{plan.features.map((feature) => <li key={feature}><Check size={15}/>{feature}</li>)}</ul>
-      <button className={`button ${plan.tier === "pro" ? "button-primary" : "button-secondary"} button-wide`} disabled={viewer?.currentPlanTier === plan.tier || Boolean(busyKey)} onClick={() => selectPlan(plan.tier)}>
-        {viewer?.currentPlanTier === plan.tier ? "Current plan" : busyKey === `plan-${plan.tier}` || (Boolean(viewer) && viewer?.currentPlanTier !== "free" && busyKey === "portal") ? "Opening Dodo…" : viewer ? viewer.currentPlanTier !== "free" || plan.tier === "free" ? "Manage in Dodo" : `Choose ${plan.tier}` : `Start with ${plan.tier}`}
+      <button className={`button ${plan.tier === "pro" ? "button-primary" : "button-secondary"} button-wide`} disabled={(viewer?.currentPlanTier === plan.tier && hasDodoCustomer) || Boolean(busyKey)} onClick={() => selectPlan(plan.tier)}>
+        {viewer?.currentPlanTier === plan.tier && hasDodoCustomer ? "Current plan" : busyKey === `plan-${plan.tier}` || busyKey === "portal" ? "Opening Dodo…" : viewer ? plan.tier === "free" ? hasDodoCustomer ? "Manage in Dodo" : "Dodo not activated" : viewer.currentPlanTier === plan.tier ? `Activate ${plan.tier} in Dodo` : `Choose ${plan.tier}` : `Start with ${plan.tier}`}
       </button>
     </article>)}</section>
     {viewer ? <section className="credit-packs"><div><Coins/><p className="eyebrow">One-time top-up</p><h2>Need more verified introductions?</h2><p>Contact packs do not change your core plan.</p></div><button disabled={Boolean(busyKey)} onClick={() => void openCheckout({ kind: "contact_credits", credits: 50 }, "credits-50")}><strong>{busyKey === "credits-50" ? "Opening Dodo…" : "50 credits"}</strong><span>₹699 · 10 unlocks</span></button><button disabled={Boolean(busyKey)} onClick={() => void openCheckout({ kind: "contact_credits", credits: 100 }, "credits-100")}><strong>{busyKey === "credits-100" ? "Opening Dodo…" : "100 credits"}</strong><span>₹1,199 · 20 unlocks</span></button></section> : null}
-    {viewer?.currentPlanTier !== "free" ? <button className="button button-secondary" disabled={Boolean(busyKey)} onClick={() => void openPortal()}><ExternalLink size={15}/> Manage subscription and invoices in Dodo</button> : null}
+    {viewer?.currentPlanTier !== "free" && hasDodoCustomer ? <button className="button button-secondary" disabled={Boolean(busyKey)} onClick={() => void openPortal()}><ExternalLink size={15}/> Manage subscription and invoices in Dodo</button> : null}
+    {viewer?.currentPlanTier !== "free" && !hasDodoCustomer ? <p className="provider-note">Your current access predates Dodo billing. Complete a test checkout to activate subscription management and invoices.</p> : null}
     {transactions.length ? <section className="transactions"><h2>Credit activity</h2>{transactions.slice(0, 6).map((item) => <div key={item._id}><span><strong>{item.description}</strong><small>{new Date(item.createdAt).toLocaleDateString()}</small></span><b className={item.amount > 0 ? "positive" : ""}>{item.amount > 0 ? "+" : ""}{item.amount}</b></div>)}</section> : null}
     <section className="future-billing"><p className="eyebrow">Future add-ons</p><h2>Inbox, AI Agents, and connected reporting</h2><p>These products are not charged yet. Pricing will be introduced only when the features and usage controls are ready.</p></section>
   </main>;

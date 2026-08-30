@@ -22,6 +22,7 @@ export type Viewer = {
   subscriptionStatus: "active" | "past_due" | "cancelled" | "trial";
   subscriptionRenewalDate?: number;
   cancellationRequestedAt?: number;
+  hasDodoCustomer?: boolean;
   onboardingCompleted: boolean;
   onboardingStep: 1 | 2 | 3 | 4 | 5;
   onboardingPlanTier: PlanTier;

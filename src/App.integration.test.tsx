@@ -364,6 +364,10 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.getByLabelText("Filter city or country column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter contact column")).toBeInTheDocument();
     await screen.findByRole("button", { name: /view Pending Import profile/i });
+    await user.click(screen.getByRole("button", { name: "Sort creator name ascending" }));
+    expect(document.querySelector(".discovery-row")).toHaveTextContent("Aanchal Mehta");
+    await user.click(screen.getByRole("button", { name: "Sort audience high to low" }));
+    expect(document.querySelector(".discovery-row")).toHaveTextContent("Rishi Verma");
     await user.selectOptions(screen.getByLabelText("Filter contact column"), "missing");
     expect(screen.getByRole("button", { name: /view Pending Import profile/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /view Maya Kapoor profile/i })).not.toBeInTheDocument();
