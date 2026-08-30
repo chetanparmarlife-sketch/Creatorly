@@ -176,6 +176,61 @@ export default defineSchema({
     referenceId: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_user", ["userId"]),
+  billingCustomers: defineTable({
+    userId: v.id("users"),
+    dodoCustomerId: v.string(),
+    email: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_dodo_customer", ["dodoCustomerId"]),
+  billingSubscriptions: defineTable({
+    userId: v.id("users"),
+    dodoSubscriptionId: v.string(),
+    dodoCustomerId: v.string(),
+    dodoProductId: v.string(),
+    tier: v.union(v.literal("basic"), v.literal("pro")),
+    billingCycle: v.union(v.literal("monthly"), v.literal("annual")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("active"),
+      v.literal("on_hold"),
+      v.literal("paused"),
+      v.literal("cancelled"),
+      v.literal("failed"),
+      v.literal("expired"),
+    ),
+    nextBillingDate: v.optional(v.number()),
+    cancelAtNextBillingDate: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_dodo_subscription", ["dodoSubscriptionId"]),
+  billingPayments: defineTable({
+    userId: v.id("users"),
+    dodoPaymentId: v.string(),
+    dodoCustomerId: v.string(),
+    dodoProductId: v.optional(v.string()),
+    purchaseKind: v.union(v.literal("core_plan"), v.literal("contact_credits"), v.literal("unknown")),
+    status: v.union(v.literal("processing"), v.literal("succeeded"), v.literal("failed"), v.literal("cancelled")),
+    amount: v.number(),
+    currency: v.string(),
+    invoiceId: v.optional(v.string()),
+    invoiceUrl: v.optional(v.string()),
+    failureMessage: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_dodo_payment", ["dodoPaymentId"]),
+  billingWebhookEvents: defineTable({
+    eventKey: v.string(),
+    eventType: v.string(),
+    providerObjectId: v.string(),
+    processedAt: v.number(),
+  }).index("by_event_key", ["eventKey"]),
   contactRequests: defineTable({
     userId: v.id("users"),
     requestedHandle: v.string(),

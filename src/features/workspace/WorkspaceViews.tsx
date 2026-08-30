@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, Plus, RotateCcw, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUpDown, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, Plus, RotateCcw, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
 import { CAMPAIGN_STAGES, type BrandDivisionType, type Campaign, type CampaignStage, type CreatorSearchResult, type GroupCollaborator, type GroupCollaboratorRole, type Platform, type SavedCreator, type WorkspaceGroup, type WorkspaceSummary } from "../../types";
@@ -14,6 +14,7 @@ const stageLabel = (stage: CampaignStage) => stage.replaceAll("_", " ").replace(
 const formatFollowers = (value: number) => value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : value >= 1_000 ? `${Math.round(value / 1_000)}K` : String(value);
 const repositoryScope = "The original imported repository currently covers India-focused Instagram creators. YouTube creator data is not loaded yet.";
 const CREATOR_PAGE_SIZE = 24;
+const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
 
 function PageHeader({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy: string; action?: React.ReactNode }) {
   return <header className="ops-header"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
@@ -26,65 +27,70 @@ function Empty({ icon, title, copy, action, onAction }: { icon: React.ReactNode;
 export function DiscoveryWorkspace({ workspace, navigate }: { workspace: WorkspaceSummary; navigate(route: AppRoute): void }) {
   const data = useAppData(); const store = useWorkspaceData();
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<Platform | "all">("all");
-  const [creatorFilter, setCreatorFilter] = useState(""); const [audience, setAudience] = useState<"all" | "under100k" | "100k500k" | "500k1m" | "over1m">("all");
-  const [market, setMarket] = useState(""); const [contact, setContact] = useState<"all" | "available" | "missing">("all");
+  const [creatorFilter, setCreatorFilter] = useState(""); const [category, setCategory] = useState(""); const [audience, setAudience] = useState<"all" | "under100k" | "100k500k" | "500k1m" | "over1m">("all");
+  const [location, setLocation] = useState(""); const [locationSort, setLocationSort] = useState<"default" | "asc" | "desc">("default"); const [contact, setContact] = useState<"all" | "available" | "missing">("all");
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Set<string>>(new Set()); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
-  const run = useCallback(async (nextQuery = query, nextPlatform = platform) => {
+  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location) => {
     setLoading(true); setError("");
     try {
       if (nextQuery.trim()) {
-        setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform }));
+        setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined }));
         setCursor(null); setIsDone(true);
       } else {
-        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform });
+        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined });
         setResults(result.page); setCursor(result.continueCursor); setIsDone(result.isDone);
       }
     } catch {
       setResults([]); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
     } finally { setLoading(false); }
-  }, [data, platform, query]);
+  }, [category, data, location, platform, query]);
   async function loadMore() {
     if (loadingMore || isDone || query.trim()) return;
     setLoadingMore(true); setError("");
     try {
-      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform });
+      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined });
       setResults(current => [...new Map([...current, ...result.page].map(creator => [creator.id, creator])).values()]);
       setCursor(result.continueCursor); setIsDone(result.isDone);
     } catch { setError("More creators could not be loaded. Try again."); }
     finally { setLoadingMore(false); }
   }
   useEffect(() => { let active = true; void store.listSavedCreators(workspace.id).then(saved => { if (active) setSavedIds(new Set(saved.map(item => item.creator.id))); }); return () => { active = false; }; }, [store, workspace.id]);
-  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform); }, 180); return () => window.clearTimeout(timer); }, [platform, query, run]);
+  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location); }, 180); return () => window.clearTimeout(timer); }, [category, location, platform, query, run]);
   const visibleResults = useMemo(() => results.filter(creator => {
-    const creatorText = `${creator.displayName} ${creator.handle} ${creator.categories?.join(" ") ?? ""}`.toLowerCase();
+    const creatorText = `${creator.displayName} ${creator.handle}`.toLowerCase();
     const creatorMatches = creatorText.includes(creatorFilter.trim().toLowerCase());
-    const marketMatches = `${creator.location ?? ""}`.toLowerCase().includes(market.trim().toLowerCase());
+    const categoryMatches = !category || creator.categories?.some(item => item.toLowerCase() === category.trim().toLowerCase());
+    const locationMatches = `${creator.location ?? ""}`.toLowerCase().includes(location.trim().toLowerCase());
     const contactMatches = contact === "all" || (contact === "available" ? creator.contactCount > 0 : creator.contactCount === 0);
     const audienceMatches = audience === "all"
       || (audience === "under100k" && creator.followerCount < 100_000)
       || (audience === "100k500k" && creator.followerCount >= 100_000 && creator.followerCount < 500_000)
       || (audience === "500k1m" && creator.followerCount >= 500_000 && creator.followerCount < 1_000_000)
       || (audience === "over1m" && creator.followerCount >= 1_000_000);
-    return creatorMatches && marketMatches && contactMatches && audienceMatches;
-  }), [audience, contact, creatorFilter, market, results]);
-  const filtersActive = Boolean(creatorFilter || market || platform !== "all" || audience !== "all" || contact !== "all");
-  function clearTableFilters() { setCreatorFilter(""); setPlatform("all"); setAudience("all"); setMarket(""); setContact("all"); }
+    return creatorMatches && categoryMatches && locationMatches && contactMatches && audienceMatches;
+  }).sort((left, right) => locationSort === "default" ? 0 : (left.location ?? "zzzz").localeCompare(right.location ?? "zzzz") * (locationSort === "asc" ? 1 : -1)), [audience, category, contact, creatorFilter, location, locationSort, results]);
+  const categoryOptions = useMemo(() => [...new Set([...CREATOR_CATEGORIES, ...results.flatMap(creator => creator.categories ?? [])])].sort(), [results]);
+  const locationOptions = useMemo(() => [...new Set(results.map(creator => creator.location).filter((item): item is string => Boolean(item)))].sort(), [results]);
+  const filtersActive = Boolean(creatorFilter || category || location || platform !== "all" || audience !== "all" || contact !== "all" || locationSort !== "default");
+  function clearTableFilters() { setCreatorFilter(""); setCategory(""); setPlatform("all"); setAudience("all"); setLocation(""); setLocationSort("default"); setContact("all"); }
+  function cycleLocationSort() { setLocationSort(current => current === "default" ? "asc" : current === "asc" ? "desc" : "default"); }
   async function save(creator: CreatorSearchResult) { await store.saveCreator(workspace.id, creator); setSavedIds(current => new Set(current).add(creator.id)); }
   return <main className="workspace ops-page">
-    <PageHeader eyebrow="Creator database" title="Discover creators" copy="Search the original imported creator repository, then save the strongest profiles to your team workspace." action={data.mode === "convex" ? <span className="data-source-chip">Original creator repository</span> : undefined}/>
-    <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void run(); }} placeholder="Search by creator, handle, category, or market"/><button className="button button-primary" onClick={() => run()}><Sparkles size={15}/> Search</button></section>
+    <PageHeader eyebrow="India creator database" title="Discover creators across India" copy="Search the original India-focused creator repository by name, category, city, or country, then save profiles to your workspace." action={data.mode === "convex" ? <span className="data-source-chip">India creator repository</span> : undefined}/>
+    <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void run(); }} placeholder="Search creator name or handle"/><button className="button button-primary" onClick={() => run()}><Sparkles size={15}/> Search</button></section>
     <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> shown · {results.length} loaded</span>{filtersActive ? <button type="button" onClick={clearTableFilters}><RotateCcw size={13}/> Reset filters</button> : <span>{query.trim() ? "Search results" : isDone ? "Full repository loaded" : "More creators available"}</span>}</div>
     <section className="ops-table-card"><div className="ops-table-head discovery-table-head" role="group" aria-label="Creator table filters">
       <span className="table-filter-cell"><b>Creator</b><label><Search size={14}/><span className="sr-only">Filter creator column</span><input aria-label="Filter creator column" value={creatorFilter} onChange={event => setCreatorFilter(event.target.value)} placeholder="Name or handle"/></label></span>
+      <span className="table-filter-cell"><b>Category</b><label><span className="sr-only">Filter category column</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="Search category"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
       <span className="table-filter-cell"><b>Platform</b><label><span className="sr-only">Filter platform column</span><select aria-label="Filter platform column" value={platform} onChange={event => setPlatform(event.target.value as Platform | "all")}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="twitter">X</option></select></label></span>
       <span className="table-filter-cell"><b>Audience</b><label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="under100k">Under 100K</option><option value="100k500k">100K–500K</option><option value="500k1m">500K–1M</option><option value="over1m">1M+</option></select></label></span>
-      <span className="table-filter-cell"><b>Market</b><label><span className="sr-only">Filter market column</span><input aria-label="Filter market column" value={market} onChange={event => setMarket(event.target.value)} placeholder="City or country"/></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">City / Country <button type="button" onClick={cycleLocationSort} aria-label={`Sort city and country ${locationSort === "asc" ? "descending" : locationSort === "desc" ? "by default" : "ascending"}`} aria-pressed={locationSort !== "default"}><ArrowUpDown size={12}/><span>{locationSort === "asc" ? "A–Z" : locationSort === "desc" ? "Z–A" : "Sort"}</span></button></b><label><span className="sr-only">Filter city or country column</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search location"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
       <span className="table-filter-cell"><b>Contact</b><label><span className="sr-only">Filter contact column</span><select aria-label="Filter contact column" value={contact} onChange={event => setContact(event.target.value as typeof contact)}><option value="all">Any contact</option><option value="available">Available</option><option value="missing">Not available</option></select></label></span>
       <span className="table-filter-actions"><b>Reset</b><button type="button" className="filter-reset-icon" onClick={clearTableFilters} disabled={!filtersActive} aria-label="Reset table filters"><RotateCcw size={15}/></button></span>
     </div>
-      {error && !results.length ? <div className="ops-loading state-error" role="alert">{error}</div> : loading ? <div className="ops-loading" role="status">Loading creators…</div> : visibleResults.length ? visibleResults.map(creator => <article className="ops-table-row" key={creator.id}>
-        <button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><span className="creator-monogram">{creator.displayName[0]}</span><span><strong>{creator.displayName}</strong><small>{creator.handle} · {creator.categories?.[0] ?? "Creator"}</small></span></button>
-        <span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span><b className="numeric">{formatFollowers(creator.followerCount)}</b><span>{creator.location ?? "—"}</span><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span>
+      {error && !results.length ? <div className="ops-loading state-error" role="alert">{error}</div> : loading ? <div className="ops-loading" role="status">Loading creators…</div> : visibleResults.length ? visibleResults.map(creator => <article className="ops-table-row discovery-row" key={creator.id}>
+        <button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><span className="creator-monogram">{creator.displayName[0]}</span><span><strong>{creator.displayName}</strong><small>{creator.handle}</small></span></button>
+        <span>{creator.categories?.[0] ?? "—"}</span><span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span><b className="numeric">{formatFollowers(creator.followerCount)}</b><span>{creator.location ?? "—"}</span><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span>
         <button className={savedIds.has(creator.id) ? "button button-saved" : "button button-secondary"} disabled={savedIds.has(creator.id)} onClick={() => save(creator)}>{savedIds.has(creator.id) ? <><Check size={15}/> Saved</> : <><Plus size={15}/> Save</>}</button>
       </article>) : query.trim().length >= 2 ? <Empty icon={<Search/>} title="No creator found" copy={repositoryScope} action="Request contact" onAction={() => setRequestOpen(true)}/> : <Empty icon={<Search/>} title="No creators match these filters" copy="Broaden one of the column filters or reset the table to see the full result set." action="Reset filters" onAction={clearTableFilters}/>}
       {!loading && !query.trim() && results.length ? <footer className="creator-page-actions"><span><strong>{results.length}</strong> creators loaded{!isDone ? " · continue exploring the repository" : " · you reached the end"}</span>{isDone ? <span className="creator-page-complete"><Check size={15}/> All creators loaded</span> : <button type="button" className="button button-secondary" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading creators…" : <><ArrowDown size={15}/> Load more creators</>}</button>}</footer> : null}

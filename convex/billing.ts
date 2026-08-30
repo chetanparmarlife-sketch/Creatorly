@@ -1,72 +1,82 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import { action, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { checkout, customerPortal } from "./dodo";
+import { getCheckoutProduct, requireCreatorlyAppUrl } from "./lib/dodoCatalog";
 
-const planTier = v.union(v.literal("free"), v.literal("basic"), v.literal("pro"));
-const planCredits = { free: 0, basic: 100, pro: 250 } as const;
+const purchase = v.union(
+  v.object({
+    kind: v.literal("core_plan"),
+    tier: v.union(v.literal("basic"), v.literal("pro")),
+    billingCycle: v.union(v.literal("monthly"), v.literal("annual")),
+  }),
+  v.object({
+    kind: v.literal("contact_credits"),
+    credits: v.union(v.literal(50), v.literal(100)),
+  }),
+);
 
-async function userIdOrThrow(ctx: MutationCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new ConvexError("Sign in to manage billing.");
-  return userId;
-}
-
-export const changePlan = mutation({
-  args: { tier: planTier, billingCycle: v.union(v.literal("monthly"), v.literal("annual")), demoPaymentId: v.string() },
-  handler: async (ctx, args) => {
-    const userId = await userIdOrThrow(ctx);
-    const user = await ctx.db.get(userId);
-    if (!user) throw new ConvexError("Account not found.");
-    const now = Date.now();
-    const included = planCredits[args.tier];
-    const renewalDays = args.billingCycle === "annual" ? 365 : 30;
-    const renewalDate = args.tier === "free" ? undefined : now + renewalDays * 24 * 60 * 60 * 1000;
-    const allocation = args.tier === "free" ? 0 : included;
-    await ctx.db.patch(userId, {
-      currentPlanTier: args.tier,
-      subscriptionStatus: "active",
-      subscriptionRenewalDate: renewalDate,
-      cancellationRequestedAt: undefined,
-      monthlyCreditsIncluded: included,
-      monthlyCreditsResetDate: renewalDate,
-      creditBalance: (user.creditBalance ?? 0) + allocation,
-      updatedAt: now,
+export const createCheckout = action({
+  args: { purchase },
+  handler: async (ctx, args): Promise<{ checkoutUrl: string }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Sign in to start checkout.");
+    if (!process.env.DODO_PAYMENTS_API_KEY) throw new ConvexError("Dodo Payments is not configured yet.");
+    const environment = process.env.DODO_PAYMENTS_ENVIRONMENT ?? "test_mode";
+    if (environment !== "test_mode" && environment !== "live_mode") {
+      throw new ConvexError("DODO_PAYMENTS_ENVIRONMENT must be test_mode or live_mode.");
+    }
+    if (environment === "live_mode" && process.env.DODO_PAYMENTS_LIVE_ENABLED !== "true") {
+      throw new ConvexError("Live Dodo checkout is locked while Creatorly billing is being verified.");
+    }
+    const user = await ctx.runQuery(internal.billingCustomers.getCheckoutUser, { userId });
+    if (!user?.email) throw new ConvexError("Add an email address before starting checkout.");
+    const item = getCheckoutProduct(args.purchase);
+    const appUrl = requireCreatorlyAppUrl();
+    const metadata: Record<string, string | number | boolean> = args.purchase.kind === "core_plan"
+      ? {
+          creatorly_user_id: userId,
+          creatorly_purchase: "core_plan",
+          creatorly_tier: args.purchase.tier,
+          creatorly_billing_cycle: args.purchase.billingCycle,
+        }
+      : {
+          creatorly_user_id: userId,
+          creatorly_purchase: "contact_credits",
+          creatorly_credits: args.purchase.credits,
+        };
+    const result: { checkout_url: string } = await checkout(ctx, {
+      payload: {
+        product_cart: [{ product_id: item.productId, quantity: 1 }],
+        customer: user.dodoCustomerId
+          ? { customer_id: user.dodoCustomerId }
+          : { email: user.email, name: user.name },
+        customer_business_name: user.companyName,
+        metadata,
+        return_url: `${appUrl}/payment/success`,
+        cancel_url: `${appUrl}/pricing`,
+        billing_currency: "INR",
+        minimal_address: true,
+        feature_flags: { allow_discount_code: true },
+        customization: { theme: "light", show_order_details: true },
+      },
     });
-    if (allocation > 0) await ctx.db.insert("creditTransactions", {
-      userId,
-      amount: allocation,
-      transactionType: "subscription_allocation",
-      description: `DemoPay ${args.tier} plan allocation`,
-      referenceId: args.demoPaymentId,
-      createdAt: now,
-    });
-    await ctx.db.insert("notifications", {
-      userId, type: "payment", title: `${args.tier[0].toUpperCase()}${args.tier.slice(1)} plan active`,
-      message: allocation ? `${allocation} credits were added through DemoPay.` : "Your account is now on the Free plan.",
-      href: "/pricing", createdAt: now,
-    });
-    return { tier: args.tier, creditsAdded: allocation, creditBalance: (user.creditBalance ?? 0) + allocation, renewalDate };
+    if (!result.checkout_url) throw new ConvexError("Dodo Payments did not return a checkout URL.");
+    return { checkoutUrl: result.checkout_url };
   },
 });
 
-export const purchaseCredits = mutation({
-  args: { credits: v.union(v.literal(50), v.literal(100)), demoPaymentId: v.string() },
-  handler: async (ctx, args) => {
-    const userId = await userIdOrThrow(ctx);
-    const user = await ctx.db.get(userId);
-    if (!user) throw new ConvexError("Account not found.");
-    const nextBalance = (user.creditBalance ?? 0) + args.credits;
-    const now = Date.now();
-    await ctx.db.patch(userId, { creditBalance: nextBalance, updatedAt: now });
-    await ctx.db.insert("creditTransactions", {
-      userId, amount: args.credits, transactionType: "purchase",
-      description: `DemoPay ${args.credits}-credit pack`, referenceId: args.demoPaymentId, createdAt: now,
-    });
-    await ctx.db.insert("notifications", {
-      userId, type: "payment", title: "Credits added", message: `${args.credits} credits were added through DemoPay.`, href: "/pricing", createdAt: now,
-    });
-    return { creditsAdded: args.credits, creditBalance: nextBalance };
+export const createCustomerPortal = action({
+  args: {},
+  handler: async (ctx): Promise<{ portalUrl: string }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Sign in to manage billing.");
+    const customer = await ctx.runQuery(internal.billingCustomers.getDodoCustomer, { userId });
+    if (!customer) throw new ConvexError("No Dodo billing profile exists yet. Complete a test checkout first.");
+    const result: { portal_url: string } = await customerPortal(ctx, { send_email: false });
+    if (!result.portal_url) throw new ConvexError("Dodo Payments did not return a billing portal URL.");
+    return { portalUrl: result.portal_url };
   },
 });
 
@@ -75,6 +85,15 @@ export const listTransactions = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    return ctx.db.query("creditTransactions").withIndex("by_user", q => q.eq("userId", userId)).order("desc").take(20);
+    return ctx.db.query("creditTransactions").withIndex("by_user", (q) => q.eq("userId", userId)).order("desc").take(20);
+  },
+});
+
+export const listPayments = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    return ctx.db.query("billingPayments").withIndex("by_user", (q) => q.eq("userId", userId)).order("desc").take(20);
   },
 });

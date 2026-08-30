@@ -33,6 +33,7 @@ import type {
   UnlockHistoryItem,
   Viewer,
 } from "../types";
+import type { BillingPurchase } from "../lib/billingCatalog";
 
 type AppData = {
   mode: DataMode;
@@ -43,7 +44,7 @@ type AppData = {
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
   search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
-  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform }): Promise<CreatorSearchPage>;
+  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string }): Promise<CreatorSearchPage>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
   requestContact(input: ContactRequestInput): Promise<ContactRequestResult>;
@@ -56,9 +57,8 @@ type AppData = {
   completeOnboarding(): Promise<void>;
   updateOnboardingStep(step: 1 | 2 | 3 | 4 | 5): Promise<void>;
   updateOnboardingPlan(tier: PlanTier): Promise<void>;
-  requestCancellation(): Promise<void>;
-  changePlan(tier: PlanTier, billingCycle: "monthly" | "annual", demoPaymentId: string): Promise<{ tier: PlanTier; creditsAdded: number; creditBalance: number; renewalDate?: number }>;
-  purchaseCredits(credits: 50 | 100, demoPaymentId: string): Promise<{ creditsAdded: number; creditBalance: number }>;
+  createCheckout(purchase: BillingPurchase): Promise<{ checkoutUrl: string }>;
+  createCustomerPortal(): Promise<{ portalUrl: string }>;
   listTransactions(): Promise<CreditTransaction[]>;
   listNotifications(): Promise<AppNotification[]>;
   markNotificationRead(id: string): Promise<void>;
@@ -94,8 +94,8 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     },
     getViewer: demoData.viewer,
     search: demoData.search,
-    browseCreators: async ({ cursor, numItems, platform }) => {
-      const creators = await demoData.search("", { platform });
+    browseCreators: async ({ cursor, numItems, platform, category, location }) => {
+      const creators = await demoData.search("", { platform, category, location });
       const start = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
       const page = creators.slice(start, start + numItems);
       const next = start + page.length;
@@ -113,9 +113,8 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     completeOnboarding: demoData.completeOnboarding,
     updateOnboardingStep: demoData.updateOnboardingStep,
     updateOnboardingPlan: demoData.updateOnboardingPlan,
-    requestCancellation: demoData.requestCancellation,
-    changePlan: demoData.changePlan,
-    purchaseCredits: demoData.purchaseCredits,
+    createCheckout: async () => { throw new Error("Dodo checkout requires the connected Creatorly backend."); },
+    createCustomerPortal: async () => { throw new Error("Dodo billing management requires the connected Creatorly backend."); },
     listTransactions: demoData.listTransactions,
     listNotifications: demoData.listNotifications,
     markNotificationRead: demoData.markNotificationRead,
@@ -128,7 +127,7 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
 
 type EmptyArgs = Record<string, never>;
 type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean };
-type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform };
+type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string };
 type DetailArgs = { creatorId: string };
 
 const viewerRef = makeFunctionReference<"query">("users:viewer") as FunctionReference<
@@ -166,9 +165,8 @@ const updateNotificationsRef = makeFunctionReference<"mutation">("users:updateNo
 const completeOnboardingRef = makeFunctionReference<"mutation">("users:completeOnboarding") as FunctionReference<"mutation", "public", EmptyArgs, unknown>;
 const updateOnboardingStepRef = makeFunctionReference<"mutation">("users:updateOnboardingStep") as FunctionReference<"mutation", "public", { step: 1 | 2 | 3 | 4 | 5 }, unknown>;
 const updateOnboardingPlanRef = makeFunctionReference<"mutation">("users:updateOnboardingPlan") as FunctionReference<"mutation", "public", { tier: PlanTier }, unknown>;
-const requestCancellationRef = makeFunctionReference<"mutation">("users:requestCancellation") as FunctionReference<"mutation", "public", EmptyArgs, unknown>;
-const changePlanRef = makeFunctionReference<"mutation">("billing:changePlan") as FunctionReference<"mutation", "public", { tier: PlanTier; billingCycle: "monthly" | "annual"; demoPaymentId: string }, { tier: PlanTier; creditsAdded: number; creditBalance: number; renewalDate?: number }>;
-const purchaseCreditsRef = makeFunctionReference<"mutation">("billing:purchaseCredits") as FunctionReference<"mutation", "public", { credits: 50 | 100; demoPaymentId: string }, { creditsAdded: number; creditBalance: number }>;
+const createCheckoutRef = makeFunctionReference<"action">("billing:createCheckout") as FunctionReference<"action", "public", { purchase: BillingPurchase }, { checkoutUrl: string }>;
+const createCustomerPortalRef = makeFunctionReference<"action">("billing:createCustomerPortal") as FunctionReference<"action", "public", EmptyArgs, { portalUrl: string }>;
 const transactionsRef = makeFunctionReference<"query">("billing:listTransactions") as FunctionReference<"query", "public", EmptyArgs, CreditTransaction[]>;
 const notificationsRef = makeFunctionReference<"query">("notifications:listMine") as FunctionReference<"query", "public", EmptyArgs, AppNotification[]>;
 const markReadRef = makeFunctionReference<"mutation">("notifications:markRead") as FunctionReference<"mutation", "public", { notificationId: string }, unknown>;
@@ -214,7 +212,7 @@ export function ConvexDataProvider({
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
-    browseCreators: ({ cursor, numItems, platform }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform }),
+    browseCreators: ({ cursor, numItems, platform, category, location }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform, category, location }),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
     getHistory: () => convex.query(historyRef, {}),
     requestContact: (input) => convex.mutation(requestContactRef, input),
@@ -229,9 +227,8 @@ export function ConvexDataProvider({
     completeOnboarding: async () => { await convex.mutation(completeOnboardingRef, {}); },
     updateOnboardingStep: async (step) => { await convex.mutation(updateOnboardingStepRef, { step }); },
     updateOnboardingPlan: async (tier) => { await convex.mutation(updateOnboardingPlanRef, { tier }); },
-    requestCancellation: async () => { await convex.mutation(requestCancellationRef, {}); },
-    changePlan: (tier, billingCycle, demoPaymentId) => convex.mutation(changePlanRef, { tier, billingCycle, demoPaymentId }),
-    purchaseCredits: (credits, demoPaymentId) => convex.mutation(purchaseCreditsRef, { credits, demoPaymentId }),
+    createCheckout: (billingPurchase) => convex.action(createCheckoutRef, { purchase: billingPurchase }),
+    createCustomerPortal: () => convex.action(createCustomerPortalRef, {}),
     listTransactions: () => convex.query(transactionsRef, {}),
     listNotifications: () => convex.query(notificationsRef, {}),
     markNotificationRead: async (notificationId) => { await convex.mutation(markReadRef, { notificationId }); },

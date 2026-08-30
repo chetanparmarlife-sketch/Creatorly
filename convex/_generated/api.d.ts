@@ -11,16 +11,20 @@
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
+import type * as billingCustomers from "../billingCustomers.js";
+import type * as billingWebhooks from "../billingWebhooks.js";
 import type * as campaignExecution from "../campaignExecution.js";
 import type * as campaigns from "../campaigns.js";
 import type * as contactFlags from "../contactFlags.js";
 import type * as contactRequests from "../contactRequests.js";
 import type * as creators from "../creators.js";
+import type * as dodo from "../dodo.js";
 import type * as extensionApi from "../extensionApi.js";
 import type * as groupOperations from "../groupOperations.js";
 import type * as home from "../home.js";
 import type * as http from "../http.js";
 import type * as importCreators from "../importCreators.js";
+import type * as lib_dodoCatalog from "../lib/dodoCatalog.js";
 import type * as lib_extensionCrm from "../lib/extensionCrm.js";
 import type * as lib_matching from "../lib/matching.js";
 import type * as lib_workspaceAuth from "../lib/workspaceAuth.js";
@@ -41,16 +45,20 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
   billing: typeof billing;
+  billingCustomers: typeof billingCustomers;
+  billingWebhooks: typeof billingWebhooks;
   campaignExecution: typeof campaignExecution;
   campaigns: typeof campaigns;
   contactFlags: typeof contactFlags;
   contactRequests: typeof contactRequests;
   creators: typeof creators;
+  dodo: typeof dodo;
   extensionApi: typeof extensionApi;
   groupOperations: typeof groupOperations;
   home: typeof home;
   http: typeof http;
   importCreators: typeof importCreators;
+  "lib/dodoCatalog": typeof lib_dodoCatalog;
   "lib/extensionCrm": typeof lib_extensionCrm;
   "lib/matching": typeof lib_matching;
   "lib/workspaceAuth": typeof lib_workspaceAuth;
@@ -88,4 +96,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  dodopayments: import("@dodopayments/convex/_generated/component.js").ComponentApi<"dodopayments">;
+};

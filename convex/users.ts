@@ -92,17 +92,6 @@ export const updateOnboardingPlan = mutation({
   },
 });
 
-export const requestCancellation = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const { userId, user } = await requireUser(ctx);
-    if ((user.currentPlanTier ?? "free") === "free") throw new ConvexError("The Free plan has no subscription to cancel.");
-    const now = Date.now();
-    await ctx.db.patch(userId, { cancellationRequestedAt: now, subscriptionStatus: "cancelled", updatedAt: now });
-    return { status: "cancelled" as const, accessUntil: user.subscriptionRenewalDate };
-  },
-});
-
 export const createExtensionToken = mutation({
   args: {},
   handler: async (ctx) => {

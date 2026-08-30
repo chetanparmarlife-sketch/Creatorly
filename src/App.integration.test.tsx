@@ -41,16 +41,16 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.queryByRole("heading", { name: /go from shortlist/i })).not.toBeInTheDocument();
   });
 
-  it("renders hero statuses as plain labels instead of controls", () => {
+  it("positions live products before clearly labelled future add-ons", () => {
     window.history.replaceState({}, "", "/");
     renderDemo();
 
-    const matched = screen.getByText("Matched");
-    const access = screen.getByText("VERIFICATION IN PROGRESS");
-    expect(matched.tagName).toBe("SPAN");
-    expect(access.tagName).toBe("SPAN");
-    expect(window.getComputedStyle(matched).cursor).not.toBe("pointer");
-    expect(window.getComputedStyle(access).cursor).not.toBe("pointer");
+    expect(screen.getByRole("heading", { name: /find the right creators. run the whole campaign/i })).toBeInTheDocument();
+    const pageText = document.body.textContent ?? "";
+    expect(pageText.indexOf("Creatorly Discovery")).toBeLessThan(pageText.indexOf("Private creator CRM"));
+    expect(pageText.indexOf("Private creator CRM")).toBeLessThan(pageText.indexOf("Chrome extension"));
+    expect(pageText.indexOf("Chrome extension")).toBeLessThan(pageText.indexOf("Campaign workspace"));
+    expect(screen.getAllByText("Future add-on")).toHaveLength(4);
   });
 
   it("signs up, searches, unlocks once, and preserves access after remount", async () => {
@@ -67,7 +67,7 @@ describe("Creatorly M1 user journey", () => {
     expect(window.location.pathname).toBe("/app");
     await user.type(screen.getByLabelText("Creator name or handle"), "maya.creates.official");
     const mayaResult = await screen.findByRole("button", { name: /Maya Kapoor/i });
-    expect(mayaResult).toHaveTextContent("Lifestyle");
+    expect(mayaResult.closest("article")).toHaveTextContent("Lifestyle");
     await user.click(mayaResult);
 
     expect(await screen.findByRole("heading", { name: /creator profile/i })).toBeInTheDocument();
@@ -249,7 +249,7 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByText(/queue is clear/i)).toBeInTheDocument();
   });
 
-  it("upgrades to Pro through DemoPay and adds plan credits", async () => {
+  it("does not simulate a paid upgrade when the Dodo backend is unavailable", async () => {
     const user = userEvent.setup();
     renderDemo();
     await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
@@ -262,14 +262,10 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.queryByTitle("Credits available")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /manage billing/i }));
     await user.click(screen.getByRole("button", { name: /choose pro/i }));
-    expect(screen.getByRole("dialog", { name: /pro plan/i })).toHaveTextContent(/no real money/i);
-    await user.click(screen.getByRole("button", { name: /confirm demo payment/i }));
-    expect(await screen.findByRole("heading", { name: /demo payment complete/i })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /return to discovery/i }));
-    await user.click(await screen.findByRole("button", { name: /^settings$/i }));
-    const billing = (await screen.findByRole("heading", { name: /plan and credits/i })).closest("section");
-    expect(billing).not.toBeNull();
-    await waitFor(() => expect(within(billing!).getByText("275")).toBeInTheDocument());
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Dodo checkout requires the connected Creatorly backend/i);
+    const savedUser = JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}") as Record<string, unknown>;
+    expect(savedUser.currentPlanTier).toBe("free");
+    expect(savedUser.creditBalance).toBe(25);
   });
 
   it("returns to workspace onboarding step 3 after a hard-refresh-style remount", async () => {
@@ -364,7 +360,8 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.getByLabelText("Filter creator column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter platform column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
-    expect(screen.getByLabelText("Filter market column")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter category column")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter city or country column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter contact column")).toBeInTheDocument();
     await screen.findByRole("button", { name: /view Pending Import profile/i });
     await user.selectOptions(screen.getByLabelText("Filter contact column"), "missing");

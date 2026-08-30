@@ -1,128 +1,41 @@
 import {
-  ArrowRight, ArrowUpRight, BadgeCheck, Bot, Check, CheckCircle2, Globe2,
-  Clock3, Mail, Search, ShieldCheck, Sparkles, UserRoundSearch,
+  ArrowRight, BadgeCheck, Bot, Check, Database, FileBarChart, Globe2,
+  FolderKanban, Inbox, Search, Sparkles, Upload, Users, Workflow,
 } from "lucide-react";
 import type { AppRoute } from "../hooks/useRoute";
 import { Logo } from "./Logo";
 import "./LandingPage.css";
 
-const agents = [
-  { icon: Search, name: "Discovery Agent", detail: "Builds the right creator shortlist", status: "Searching" },
-  { icon: UserRoundSearch, name: "Contact Agent", detail: "Finds who handles the deal", status: "Matched" },
-  { icon: Globe2, name: "Browser Agent", detail: "Works where your team researches", status: "Ready" },
-  { icon: ShieldCheck, name: "Verification Agent", detail: "Keeps contact evidence current", status: "VERIFICATION IN PROGRESS" },
+const products = [
+  { number: "01", icon: Database, name: "Creatorly Discovery", title: "Find creators with the audience, market, and contact access your brief needs.", body: "Search Creatorly’s own creator database by platform, category, audience size, location, and verification state. Save the strongest profiles directly to your workspace.", points: ["Search across major social platforms", "Filter by audience and market", "Unlock verified partnership contacts"], visual: "discovery" as const },
+  { number: "02", icon: Users, name: "Private creator CRM", title: "Build a creator network your team owns and can actually use.", body: "Keep Creatorly profiles beside private creators your team uploads or adds manually. Track every relationship without changing Creatorly’s shared database.", points: ["CSV upload and manual entry", "Private workspace contacts", "Stages, owners, notes, and next actions"], visual: "crm" as const },
+  { number: "03", icon: Globe2, name: "Chrome extension", title: "Research creators in the browser, then save them to the right workspace.", body: "Match supported social profiles, see whether a creator is already saved, unlock available contact data, and add unmatched profiles privately.", points: ["Shows the connected workspace", "Detects already-saved creators", "Saves matched and private profiles"], visual: "extension" as const },
+  { number: "04", icon: FolderKanban, name: "Campaign workspace", title: "Move from a shortlist to live content without rebuilding the work elsewhere.", body: "Group campaigns by client or internal division, assign creators, track deliverables and approvals, and export reports for the people who need them.", points: ["Client and division grouping", "Creator pipeline and deliverables", "Review access and scoped reports"], visual: "campaign" as const },
 ] as const;
 
-const capabilities = [
-  { icon: Search, title: "Creator discovery", body: "Search by handle, category, platform, audience size, location, and verification state." },
-  { icon: Mail, title: "Decision-maker contacts", body: "See the creator, manager, agent, assistant, or PR contact responsible for partnerships." },
-  { icon: Globe2, title: "In-browser research", body: "Open Creatorly from creator profiles and unlock contacts without losing your research flow." },
-  { icon: ShieldCheck, title: "Evidence and review", body: "Track verification state, report wrong contacts, and route issues into an admin review queue." },
+const addons = [
+  { icon: Bot, title: "AI Agents", body: "Agents that help build shortlists, research contacts, and prepare campaign work." },
+  { icon: Inbox, title: "Unified Inbox", body: "Creator conversations and replies connected to the campaign record." },
+  { icon: Workflow, title: "Automations", body: "Controlled follow-ups, handoffs, reminders, and repetitive campaign actions." },
+  { icon: FileBarChart, title: "Connected reporting", body: "Live performance reporting from connected social and outreach channels." },
 ] as const;
+
+function ProductVisual({ type }: { type: typeof products[number]["visual"] }) {
+  if (type === "discovery") return <div className="product-ui discovery-ui"><div className="ui-search"><Search size={16}/><span>wellness creators in Mumbai</span><kbd>Search</kbd></div><div className="ui-filters"><span>Instagram</span><span>100K–1M</span><span className="selected">Verified</span></div><div className="ui-table"><div className="ui-table-head"><span>Creator</span><span>Audience</span><span>Contact</span></div>{[["MK","Maya Kapoor","842K","3 available"],["AM","Aanchal Mehta","416K","2 available"],["NK","Noor Khan","291K","1 available"]].map(row => <div className="ui-row" key={row[1]}><span className="ui-person"><i>{row[0]}</i><b>{row[1]}</b></span><strong>{row[2]}</strong><em>{row[3]}</em></div>)}</div></div>;
+  if (type === "crm") return <div className="product-ui crm-ui"><header><div><span>Creator CRM</span><strong>248 creators</strong></div><button><Upload size={14}/> Add creators</button></header><div className="crm-columns"><span>Creator</span><span>Source</span><span>Stage</span></div>{[["RS","Riya Shah","Creatorly data","Contacted"],["AV","Aarav Verma","Uploaded by your team","Negotiating"],["NS","Nisha Sen","Added manually","Shortlisted"]].map(row => <div className="crm-preview-row" key={row[1]}><span className="ui-person"><i>{row[0]}</i><b>{row[1]}</b></span><em>{row[2]}</em><strong>{row[3]}</strong></div>)}</div>;
+  if (type === "extension") return <div className="product-ui browser-ui"><div className="browser-address"><span/><span/><span/><p>instagram.com/maya_creates</p></div><div className="social-profile"><i>MK</i><strong>Maya Kapoor</strong><small>Wellness creator · Mumbai</small></div><aside><header><Logo/><span>Connected</span></header><small>QA Agency workspace</small><div className="match-state"><BadgeCheck size={16}/><span><b>Profile matched</b><small>Already saved to Creator CRM</small></span></div><button>Open saved creator <ArrowRight size={14}/></button></aside></div>;
+  return <div className="product-ui campaign-ui"><header><span>Campaigns</span><button>+ Create campaign</button></header><div className="campaign-tabs"><span>All campaigns <b>8</b></span><span className="selected">Northstar Foods <b>3</b></span><span>Aperture Labs <b>2</b></span></div><div className="campaign-card-preview"><small>Northstar Foods</small><strong>Festive creator launch</strong><p>Drive consideration with trusted lifestyle creators.</p><footer><span><Users size={13}/> 12 creators</span><span>INR 500,000</span></footer></div></div>;
+}
 
 export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
   const startFree = () => navigate({ name: "signup" });
-
-  return (
-    <main className="home-page">
-      <header className="home-nav">
-        <Logo />
-        <nav aria-label="Landing navigation">
-          <a href="#agents">AI agents</a><a href="#platform">Platform</a>
-          <button onClick={() => navigate({ name: "pricing" })}>Pricing</button>
-        </nav>
-        <div className="home-nav-actions">
-          <button className="text-button" onClick={() => navigate({ name: "login" })}>Log in</button>
-          <button className="button button-primary" onClick={startFree}>Start free</button>
-        </div>
-      </header>
-
-      <section className="home-hero" aria-labelledby="home-title">
-        <div className="home-hero-copy">
-          <p className="home-kicker"><Sparkles size={14} /> AI agents for creator partnerships</p>
-          <h1 id="home-title">Your next creator campaign starts with a team of agents.</h1>
-          <p>Creatorly helps agencies and brands find creators, identify the right partnership contact, and keep every unlock organized in one workspace.</p>
-        </div>
-        <div className="home-command" aria-label="Creatorly agent command center preview">
-          <div className="home-command-topbar"><span><i /> Creatorly command center</span><small>4 agents online</small></div>
-          <div className="home-prompt">
-            <div><span>Ask Creatorly</span><strong>Find verified wellness creators in Mumbai and show me who handles brand partnerships.</strong></div>
-            <button onClick={startFree} aria-label="Run this agent workflow"><ArrowUpRight size={20} /></button>
-          </div>
-          <div className="home-prompt-chips"><span>Build a creator shortlist</span><span>Find partnership contacts</span><span>Review contact evidence</span></div>
-          <div className="home-agent-rail">
-            {agents.map(({ icon: Icon, name, detail, status }) => (
-              <article key={name}><span className="home-agent-icon"><Icon size={18} /></span><div><strong>{name}</strong><small>{detail}</small></div><span className="home-agent-status"><CheckCircle2 size={12} /> {status}</span></article>
-            ))}
-          </div>
-        </div>
-        <button className="button home-hero-cta" onClick={startFree}>Launch your first agent <ArrowRight size={18} /></button>
-        <div className="home-trust"><span><Check size={14} /> 25 credits included</span><span><Check size={14} /> No card needed</span><span><Check size={14} /> 5 free contact unlocks</span></div>
-      </section>
-
-      <section className="home-audience" aria-label="Built for creator partnership teams">
-        <p>Built for teams running creator partnerships</p>
-        <div><span>Creative agencies</span><span>Influencer teams</span><span>Consumer brands</span><span>Talent partners</span></div>
-      </section>
-
-      <section className="home-platform" id="agents">
-        <header className="home-section-head"><p className="eyebrow">One connected workflow</p><h2>Four agents. One campaign-ready answer.</h2><p>Each agent handles a specific part of creator research, then passes the useful context to the next.</p></header>
-
-        <article className="home-showcase">
-          <header><span className="home-showcase-icon"><Search size={20} /></span><p className="eyebrow">Discovery Agent</p><h3>Turn a campaign brief into a focused creator shortlist.</h3><p>Search 17,709 profiles by platform, category, audience size, location, and verification.</p></header>
-          <div className="home-product-stage">
-            <div className="home-product-window">
-              <div className="home-window-bar"><span /><span /><span /><small>Creator search</small></div>
-              <div className="home-search-console"><Search size={18} /><strong>wellness creators in Mumbai</strong><kbd>⌘ K</kbd></div>
-              <div className="home-filter-row"><span>Instagram</span><span>Wellness</span><span>100K–1M</span><span className="is-active">Verified only</span></div>
-              <div className="home-result-list">
-                <article><i>MK</i><div><strong>Maya Kapoor</strong><small>@maya_creates · Wellness</small></div><span>842K</span><em>3 contacts</em></article>
-                <article><i>AM</i><div><strong>Aanchal Mehta</strong><small>@aanchal.moves · Fitness</small></div><span>416K</span><em>2 contacts</em></article>
-                <article><i>NK</i><div><strong>Noor Khan</strong><small>@noortravels · Lifestyle</small></div><span>291K</span><em>1 contact</em></article>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article className="home-showcase">
-          <header><span className="home-showcase-icon"><UserRoundSearch size={20} /></span><p className="eyebrow">Contact Agent</p><h3>Know who handles the deal before you write the email.</h3><p>See the person, role, verification state, access tier, and outreach context before spending a credit.</p></header>
-          <div className="home-product-stage home-stage-contact">
-            <div className="home-contact-map">
-              <div className="home-creator-node"><span>MK</span><div><strong>Maya Kapoor</strong><small>@maya_creates · 842K</small></div><BadgeCheck size={18} /></div>
-              <div className="home-route-line"><i /><i /><i /></div>
-              <div className="home-contact-result">
-                <div><span><BadgeCheck size={14} /> Verified contact</span><em>PRO ACCESS</em></div><strong>Rhea Malhotra</strong><small>Manager · Brand partnerships</small>
-                <p><Mail size={16} /> rhea.manager@example.test</p><footer><Clock3 size={14} /> Verified 6 days ago · Handles long-term partnerships</footer>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article className="home-showcase" id="platform">
-          <header><span className="home-showcase-icon"><Globe2 size={20} /></span><p className="eyebrow">Browser + Verification Agents</p><h3>Research in the browser. Send uncertain data to review.</h3><p>Open the extension on a creator profile, unlock the right contact, and report stale evidence without switching tools.</p></header>
-          <div className="home-product-stage home-stage-browser">
-            <div className="home-browser-window">
-              <div className="home-browser-bar"><span /><span /><span /><div>instagram.com/maya_creates</div></div>
-              <div className="home-browser-profile"><i>MK</i><div><strong>Maya Kapoor</strong><small>Creator · Wellness · Mumbai</small></div></div>
-              <aside>
-                <div className="home-extension-head"><Logo /><em>Connected</em></div><p className="eyebrow">Profile matched</p><h4>Maya Kapoor</h4><small>@maya_creates · 842K followers</small>
-                <div className="home-extension-contact"><Mail size={16} /><div><strong>Manager contact available</strong><small>Verified 6 days ago</small></div></div>
-                <button onClick={startFree}>Unlock for 5 credits</button><span><ShieldCheck size={13} /> Evidence tracked in your workspace</span>
-              </aside>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section className="home-capabilities">
-        <header className="home-section-head"><p className="eyebrow">Built for operational teams</p><h2>Everything your agency needs after the shortlist.</h2></header>
-        <div className="home-capability-grid">
-          {capabilities.map(({ icon: Icon, title, body }) => <article key={title}><Icon size={21} /><h3>{title}</h3><p>{body}</p><span>Included <ArrowUpRight size={14} /></span></article>)}
-        </div>
-      </section>
-
-      <section className="home-final"><span><Bot size={18} /> Your agent team is ready</span><h2>Give Creatorly a campaign brief. Get the people who can move it forward.</h2><p>Create a free workspace with 25 credits and unlock up to five verified contacts.</p><button className="button" onClick={startFree}>Launch your first agent <ArrowRight size={18} /></button></section>
-      <footer className="home-footer"><Logo /><span>© 2026 Creatorly · AI agents for creator partnerships</span><nav aria-label="Footer navigation"><a href="#agents">AI agents</a><button onClick={() => navigate({ name: "pricing" })}>Pricing</button></nav></footer>
-    </main>
-  );
+  return <main className="home-page">
+    <header className="home-nav"><Logo/><nav aria-label="Landing navigation"><a href="#platform">Platform</a><a href="#workflow">How it works</a><a href="#addons">Add-ons</a><button onClick={() => navigate({ name: "pricing" })}>Pricing</button></nav><div className="home-nav-actions"><button className="text-button" onClick={() => navigate({ name: "login" })}>Log in</button><button className="button button-primary" onClick={startFree}>Start free</button></div></header>
+    <section className="home-hero" aria-labelledby="home-title"><div className="home-hero-copy"><p className="home-kicker"><Sparkles size={14}/> Creator operations for agencies and brands</p><h1 id="home-title">Find the right creators. Run the whole campaign.</h1><p>Creatorly combines creator discovery, your private CRM, browser research, and campaign execution in one workspace built for influencer marketing teams.</p><div className="home-hero-actions"><button className="button button-primary" onClick={startFree}>Start your creator workspace <ArrowRight size={17}/></button><a href="#workflow">See how it works</a></div><div className="home-trust"><span><Check size={14}/> 25 credits included</span><span><Check size={14}/> No card needed</span><span><Check size={14}/> Private workspace data</span></div></div><div className="home-operating-rail" aria-label="Creatorly product workflow"><header><span>Campaign operating rail</span><small>One connected workspace</small></header>{products.map(({ number, icon: Icon, name }, index) => <div className="operating-step" key={name}><code>{number}</code><span><Icon size={17}/></span><strong>{name}</strong>{index < products.length - 1 ? <ArrowRight size={15}/> : <BadgeCheck size={16}/>}</div>)}<footer><span><b>12</b> shortlisted</span><span><b>8</b> contacted</span><span><b>4</b> in review</span><span><b>3</b> live</span></footer></div></section>
+    <section className="home-audience" aria-label="Built for creator partnership teams"><p>Built for teams running creator partnerships</p><div><span>Influencer agencies</span><span>Consumer brands</span><span>Creator marketing teams</span><span>Talent partners</span></div></section>
+    <section className="home-products" id="platform"><header className="home-section-head"><p className="eyebrow">The product today</p><h2>One workspace from discovery to delivery.</h2><p>Start with Creatorly’s data. Add the creator relationships your team already owns. Keep the campaign moving without losing context between tools.</p></header>{products.map(({ number, icon: Icon, name, title, body, points, visual }, index) => <article className={`home-product-row ${index % 2 ? "reverse" : ""}`} id={index === 0 ? "workflow" : undefined} key={name}><div className="home-product-copy"><span className="product-number">{number}</span><div className="product-name"><Icon size={18}/>{name}</div><h3>{title}</h3><p>{body}</p><ul>{points.map(point => <li key={point}><Check size={14}/>{point}</li>)}</ul></div><div className="home-product-stage"><ProductVisual type={visual}/></div></article>)}</section>
+    <section className="home-addons" id="addons"><header><div><p className="eyebrow">Future add-ons</p><h2>More automation when your workflow is ready for it.</h2></div><p>These products are on the roadmap and are not represented as live features in the current build.</p></header><div>{addons.map(({ icon: Icon, title, body }) => <article key={title}><span><Icon size={19}/></span><div><small>Future add-on</small><h3>{title}</h3><p>{body}</p></div></article>)}</div></section>
+    <section className="home-final"><span><FolderKanban size={18}/> Your creator workspace starts here</span><h2>Bring creator discovery, relationships, and campaign work together.</h2><p>Create a free workspace and start with the features available today.</p><button className="button" onClick={startFree}>Start your creator workspace <ArrowRight size={18}/></button></section>
+    <footer className="home-footer"><Logo/><span>© 2026 Creatorly · Creator operations for agencies and brands</span><nav aria-label="Footer navigation"><a href="#platform">Platform</a><a href="#addons">Future add-ons</a><button onClick={() => navigate({ name: "pricing" })}>Pricing</button></nav></footer>
+  </main>;
 }

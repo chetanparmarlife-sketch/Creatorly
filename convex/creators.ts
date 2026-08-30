@@ -31,6 +31,8 @@ export const browsePage = query({
   args: {
     paginationOpts: paginationOptsValidator,
     platform: v.optional(platformValidator),
+    category: v.optional(v.string()),
+    location: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -42,19 +44,45 @@ export const browsePage = query({
       };
     }
 
-    const result = args.platform
+    const category = args.category?.trim().toLowerCase();
+    const location = args.location?.trim();
+    const result = location
       ? await ctx.db
           .query("creators")
-          .withIndex("by_platform_followers", (q) => q.eq("platform", args.platform!))
-          .filter((q) => q.eq(q.field("isDemo"), false))
-          .order("desc")
+          .withSearchIndex("search_location", (q) => args.platform
+            ? q.search("location", location).eq("platform", args.platform)
+            : q.search("location", location))
+          .filter((q) => category
+            ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("primaryCategory"), category))
+            : q.eq(q.field("isDemo"), false))
           .paginate(args.paginationOpts)
-      : await ctx.db
-          .query("creators")
-          .withIndex("by_followers")
-          .filter((q) => q.eq(q.field("isDemo"), false))
-          .order("desc")
-          .paginate(args.paginationOpts);
+      : category && args.platform
+        ? await ctx.db
+            .query("creators")
+            .withIndex("by_platform_category_followers", (q) => q.eq("platform", args.platform!).eq("primaryCategory", category))
+            .filter((q) => q.eq(q.field("isDemo"), false))
+            .order("desc")
+            .paginate(args.paginationOpts)
+        : category
+          ? await ctx.db
+              .query("creators")
+              .withIndex("by_category_followers", (q) => q.eq("primaryCategory", category))
+              .filter((q) => q.eq(q.field("isDemo"), false))
+              .order("desc")
+              .paginate(args.paginationOpts)
+          : args.platform
+            ? await ctx.db
+                .query("creators")
+                .withIndex("by_platform_followers", (q) => q.eq("platform", args.platform!))
+                .filter((q) => q.eq(q.field("isDemo"), false))
+                .order("desc")
+                .paginate(args.paginationOpts)
+            : await ctx.db
+                .query("creators")
+                .withIndex("by_followers")
+                .filter((q) => q.eq(q.field("isDemo"), false))
+                .order("desc")
+                .paginate(args.paginationOpts);
 
     const page = await Promise.all(result.page.map(async (creator) => {
       const contacts = await ctx.db
