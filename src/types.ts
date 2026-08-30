@@ -171,6 +171,9 @@ export type WorkspaceKind = "agency" | "brand" | "talent";
 export type WorkspaceRole = "owner" | "admin" | "manager" | "contributor" | "reviewer";
 export type CampaignStage = "discovered" | "shortlisted" | "contacted" | "replied" | "negotiating" | "contracted" | "creating" | "in_review" | "scheduled" | "live" | "paid";
 export type CampaignStatus = "draft" | "active" | "paused" | "completed" | "archived";
+export type DeliverableStatus = "planned" | "awaiting_content" | "in_review" | "changes_requested" | "approved" | "scheduled" | "live";
+export type ApprovalDecision = "pending" | "approved" | "changes_requested";
+export type CampaignTaskStatus = "open" | "done" | "cancelled";
 
 export const CAMPAIGN_STAGES: CampaignStage[] = ["discovered", "shortlisted", "contacted", "replied", "negotiating", "contracted", "creating", "in_review", "scheduled", "live", "paid"];
 export const canManageCampaign = (role: WorkspaceRole) => role !== "reviewer";
@@ -196,7 +199,24 @@ export type CampaignCreator = {
   nextAction?: string;
   nextActionAt?: number;
   agreedFee?: number;
+  deliverables: CampaignDeliverable[];
 };
+export type CampaignApproval = { id: string; decision: ApprovalDecision; note?: string; reviewerName: string; createdAt: number };
+export type CampaignDeliverable = {
+  id: string;
+  campaignCreatorId: string;
+  title: string;
+  channel: Platform;
+  format: string;
+  dueAt?: number;
+  status: DeliverableStatus;
+  submissionUrl?: string;
+  liveUrl?: string;
+  approvals: CampaignApproval[];
+  createdAt: number;
+  updatedAt: number;
+};
+export type CampaignTask = { id: string; campaignCreatorId?: string; title: string; status: CampaignTaskStatus; dueAt?: number; assigneeName: string; createdAt: number; updatedAt: number };
 export type Campaign = {
   id: string;
   name: string;
@@ -209,7 +229,8 @@ export type Campaign = {
   startsAt?: number;
   endsAt?: number;
   creators: CampaignCreator[];
+  tasks: CampaignTask[];
   createdAt: number;
   updatedAt: number;
 };
-export type WorkspaceActivity = { id: string; summary: string; entityType: "workspace" | "saved_creator" | "campaign" | "campaign_creator" | "task"; createdAt: number };
+export type WorkspaceActivity = { id: string; summary: string; entityType: "workspace" | "saved_creator" | "campaign" | "campaign_creator" | "deliverable" | "approval" | "task"; createdAt: number };

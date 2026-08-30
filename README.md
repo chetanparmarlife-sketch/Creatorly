@@ -4,6 +4,8 @@ Creatorly is a creator-contact discovery product for influencer marketing agenci
 
 Release 1 also adds the workspace foundation for agencies and brands: workspace onboarding, creator discovery, a saved-creator CRM, campaign creation, and an 11-stage campaign execution rail.
 
+Release 2 adds campaign execution: dashboard, rail, table, calendar, review queue, creator fees, tasks, deliverables, linked content submissions, and append-only approval history.
+
 ## What works
 
 - Password signup/sign-in adapter for Convex Auth
@@ -29,8 +31,13 @@ Release 1 also adds the workspace foundation for agencies and brands: workspace 
 - Saved-creator CRM with relationship stages, ownership, priority, and next actions
 - Campaign workspace with a horizontal execution rail from Discovered through Paid
 - Operational home dashboard with live workspace activity
+- Campaign command center with Dashboard, Rail, Table, Calendar, and Review modes
+- Deliverable planning, due dates, linked content submissions, change requests, and approvals
+- Creator fee and budget tracking plus campaign task management
 
 Instagram, TikTok, YouTube, X/Twitter, and WhatsApp connections are shown as **Planned** during onboarding. Release 1 does not claim those external APIs are connected yet.
+
+Release 2 stores links to review assets; it does not upload creator files. Fees and budget are operational tracking only—Creatorly does not send creator payments or provide escrow.
 
 The imported repository contains 19,166 contact records. Imported contacts are labelled **Pending verification** until independently checked; only fictional records use the **Demo verified** label.
 
@@ -100,6 +107,7 @@ npm audit
 The integration tests cover signup → smart search → creator detail → unlock → remount → persistent access, History access/renewal, missing-contact submission, and admin fulfillment. Production checks also pass request creation, normalized duplicate suppression, and server-side rejection of non-admin users. `codex.qa.*@example.test` records are automated QA and must not be counted as real signups.
 
 The Release 1 integration test covers signup → discovery → save to CRM → campaign creation → creator assignment → campaign stage movement.
+The Release 2 continuation covers creator fee → task → deliverable → review URL → changes requested → approval.
 
 ## Scope
 

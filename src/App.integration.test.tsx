@@ -306,7 +306,7 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByText("Notification preferences saved.")).toBeInTheDocument();
   });
 
-  it("saves a discovered creator and moves them through a campaign", async () => {
+  it("executes a creator campaign from discovery through content approval", async () => {
     const user = userEvent.setup();
     renderDemo();
     await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
@@ -335,8 +335,28 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByRole("heading", { name: "Monsoon Escape" })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Saved creator"), screen.getByRole("option", { name: "Riya On The Go" }));
     await user.click(screen.getByRole("button", { name: /^add$/i }));
+    await user.click(await screen.findByRole("button", { name: /^rail$/i }));
     const stage = await screen.findByLabelText(/move Riya On The Go/i);
     await user.selectOptions(stage, "contacted");
     await waitFor(() => expect(screen.getByLabelText(/move Riya On The Go/i)).toHaveValue("contacted"));
+
+    const rail = screen.getByRole("region", { name: /campaign creator rail/i });
+    await user.click(within(rail).getByRole("button", { name: /Riya On The Go/i }));
+    const drawer = await screen.findByRole("complementary", { name: /campaign execution details/i });
+    await user.type(within(drawer).getByLabelText(/agreed fee/i), "75000");
+    await user.click(within(drawer).getByRole("button", { name: /save fee/i }));
+    await user.type(within(drawer).getByPlaceholderText("Confirm usage rights"), "Confirm usage rights");
+    await user.click(within(drawer).getByRole("button", { name: /^add task$/i }));
+    await user.type(within(drawer).getByPlaceholderText("Launch reel"), "Launch reel");
+    await user.click(within(drawer).getByRole("button", { name: /^add deliverable$/i }));
+    await user.click(await within(drawer).findByRole("button", { name: /Launch reel/i }));
+    await user.type(within(drawer).getByLabelText("Review URL"), "https://example.test/review");
+    await user.click(within(drawer).getByRole("button", { name: /submit for review/i }));
+    expect(await within(drawer).findByText("In review")).toBeInTheDocument();
+    await user.type(within(drawer).getByLabelText("Review note"), "Tighten the opening frame");
+    await user.click(within(drawer).getByRole("button", { name: /request changes/i }));
+    expect((await within(drawer).findAllByText("Changes requested")).length).toBeGreaterThan(0);
+    await user.click(within(drawer).getByRole("button", { name: /^approve$/i }));
+    expect((await within(drawer).findAllByText("Approved")).length).toBeGreaterThan(0);
   });
 });

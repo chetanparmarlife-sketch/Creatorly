@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useConvex } from "convex/react";
 import { makeFunctionReference, type FunctionReference } from "convex/server";
-import type { Campaign, CampaignStage, CreatorSearchResult, SavedCreator, Viewer, WorkspaceActivity, WorkspaceSummary } from "../../types";
+import type { ApprovalDecision, Campaign, CampaignStage, CampaignTaskStatus, CreatorSearchResult, Platform, SavedCreator, Viewer, WorkspaceActivity, WorkspaceSummary } from "../../types";
 
 type WorkspaceData = {
   ensureWorkspace(viewer: Viewer): Promise<WorkspaceSummary>;
@@ -13,6 +13,13 @@ type WorkspaceData = {
   listCampaigns(workspaceId: string): Promise<Campaign[]>;
   addCampaignCreator(workspaceId: string, campaignId: string, savedCreatorId: string): Promise<void>;
   moveCampaignCreator(workspaceId: string, campaignId: string, campaignCreatorId: string, stage: CampaignStage): Promise<void>;
+  getCampaignExecution(workspaceId: string, campaignId: string): Promise<Campaign | null>;
+  addDeliverable(workspaceId: string, campaignId: string, campaignCreatorId: string, input: { title: string; channel: Platform; format: string; dueAt?: number }): Promise<void>;
+  submitDeliverable(workspaceId: string, campaignId: string, deliverableId: string, submissionUrl: string): Promise<void>;
+  decideDeliverable(workspaceId: string, campaignId: string, deliverableId: string, decision: Exclude<ApprovalDecision, "pending">, note?: string): Promise<void>;
+  addCampaignTask(workspaceId: string, campaignId: string, input: { campaignCreatorId?: string; title: string; dueAt?: number }): Promise<void>;
+  setCampaignTaskStatus(workspaceId: string, campaignId: string, taskId: string, status: CampaignTaskStatus): Promise<void>;
+  setCampaignCreatorFee(workspaceId: string, campaignId: string, campaignCreatorId: string, agreedFee: number): Promise<void>;
   listActivity(workspaceId: string): Promise<WorkspaceActivity[]>;
 };
 
@@ -32,6 +39,9 @@ function read<T>(key: string, fallback: T): T {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as T : fallback; } catch { return fallback; }
 }
 function write<T>(key: string, value: T) { localStorage.setItem(key, JSON.stringify(value)); }
+function normalizeCampaign(campaign: Campaign): Campaign {
+  return { ...campaign, tasks: campaign.tasks ?? [], creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables ?? [] })) };
+}
 function record(summary: string, entityType: WorkspaceActivity["entityType"]) {
   const items = read<WorkspaceActivity[]>(ACTIVITY_KEY, []);
   write(ACTIVITY_KEY, [{ id: crypto.randomUUID(), summary, entityType, createdAt: Date.now() }, ...items].slice(0, 100));
@@ -67,27 +77,58 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
     async createCampaign(_workspaceId, input) {
       const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []);
       const now = Date.now();
-      const campaign: Campaign = { id: crypto.randomUUID(), ...input, status: "active", ownerName: "Me", creators: [], createdAt: now, updatedAt: now };
+      const campaign: Campaign = { id: crypto.randomUUID(), ...input, status: "active", ownerName: "Me", creators: [], tasks: [], createdAt: now, updatedAt: now };
       write(CAMPAIGN_KEY, [campaign, ...campaigns]);
       record(`Created campaign ${campaign.name}`, "campaign");
       return campaign.id;
     },
-    async listCampaigns() { return read<Campaign[]>(CAMPAIGN_KEY, []); },
+    async listCampaigns() { return read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); },
     async addCampaignCreator(_workspaceId, campaignId, savedCreatorId) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []);
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign);
       const campaign = campaigns.find(item => item.id === campaignId);
       const saved = read<SavedCreator[]>(SAVED_KEY, []).find(item => item.id === savedCreatorId);
       if (!campaign || !saved || campaign.creators.some(item => item.savedCreatorId === savedCreatorId)) return;
-      const creator = { id: crypto.randomUUID(), savedCreatorId, stage: "shortlisted" as const, ownerName: saved.ownerName, nextAction: "Send campaign brief" };
+      const creator = { id: crypto.randomUUID(), savedCreatorId, stage: "shortlisted" as const, ownerName: saved.ownerName, nextAction: "Send campaign brief", deliverables: [] };
       write(CAMPAIGN_KEY, campaigns.map(item => item.id === campaignId ? { ...item, creators: [...item.creators, creator], updatedAt: Date.now() } : item));
       record(`Added ${saved.creator.displayName} to ${campaign.name}`, "campaign_creator");
     },
     async moveCampaignCreator(_workspaceId, campaignId, campaignCreatorId, stage) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []);
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign);
       const campaign = campaigns.find(item => item.id === campaignId);
       const current = campaign?.creators.find(item => item.id === campaignCreatorId);
       write(CAMPAIGN_KEY, campaigns.map(item => item.id === campaignId ? { ...item, creators: item.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, stage } : creator), updatedAt: Date.now() } : item));
       if (campaign && current) record(`Moved a creator in ${campaign.name} from ${current.stage} to ${stage}`, "campaign_creator");
+    },
+    async getCampaignExecution(_workspaceId, campaignId) { return read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign).find(item => item.id === campaignId) ?? null; },
+    async addDeliverable(_workspaceId, campaignId, campaignCreatorId, input) {
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
+      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, deliverables: [...creator.deliverables, { id: crypto.randomUUID(), campaignCreatorId, ...input, status: "planned", approvals: [], createdAt: now, updatedAt: now }] } : creator), updatedAt: now } : campaign));
+      record(`Added deliverable ${input.title}`, "deliverable");
+    },
+    async submitDeliverable(_workspaceId, campaignId, deliverableId, submissionUrl) {
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
+      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables.map(item => item.id === deliverableId ? { ...item, submissionUrl, status: "in_review", updatedAt: now } : item) })), updatedAt: now } : campaign));
+      record("Submitted content for review", "deliverable");
+    },
+    async decideDeliverable(_workspaceId, campaignId, deliverableId, decision, note) {
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
+      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables.map(item => item.id === deliverableId ? { ...item, status: decision, approvals: [...item.approvals, { id: crypto.randomUUID(), decision, note, reviewerName: "Me", createdAt: now }], updatedAt: now } : item) })), updatedAt: now } : campaign));
+      record(decision === "approved" ? "Approved creator content" : "Requested creator content changes", "approval");
+    },
+    async addCampaignTask(_workspaceId, campaignId, input) {
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
+      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, tasks: [...campaign.tasks, { id: crypto.randomUUID(), ...input, status: "open", assigneeName: "Me", createdAt: now, updatedAt: now }], updatedAt: now } : campaign));
+      record(`Created task ${input.title}`, "task");
+    },
+    async setCampaignTaskStatus(_workspaceId, campaignId, taskId, status) {
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
+      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, tasks: campaign.tasks.map(task => task.id === taskId ? { ...task, status, updatedAt: now } : task), updatedAt: now } : campaign));
+      record(status === "done" ? "Completed campaign task" : "Updated campaign task", "task");
+    },
+    async setCampaignCreatorFee(_workspaceId, campaignId, campaignCreatorId, agreedFee) {
+      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
+      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, agreedFee } : creator), updatedAt: now } : campaign));
+      record("Updated creator agreed fee", "campaign_creator");
     },
     async listActivity() { return read<WorkspaceActivity[]>(ACTIVITY_KEY, []); },
   }), []);
@@ -104,7 +145,29 @@ const createCampaignRef = makeFunctionReference<"mutation">("campaigns:create") 
 const listCampaignsRef = makeFunctionReference<"query">("campaigns:list") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
 const addCampaignCreatorRef = makeFunctionReference<"mutation">("campaigns:addCreator") as FunctionReference<"mutation", "public", { workspaceId: string; campaignId: string; savedCreatorId: string }, unknown>;
 const moveCampaignCreatorRef = makeFunctionReference<"mutation">("campaigns:moveCreator") as FunctionReference<"mutation", "public", { workspaceId: string; campaignCreatorId: string; stage: CampaignStage }, unknown>;
+const getExecutionRef = makeFunctionReference<"query">("campaignExecution:getCampaign") as FunctionReference<"query", "public", { workspaceId: string; campaignId: string }, Record<string, unknown>>;
+const addDeliverableRef = makeFunctionReference<"mutation">("campaignExecution:addDeliverable") as FunctionReference<"mutation", "public", { workspaceId: string; campaignId: string; campaignCreatorId: string; title: string; channel: Platform; format: string; dueAt?: number }, unknown>;
+const submitDeliverableRef = makeFunctionReference<"mutation">("campaignExecution:submitContent") as FunctionReference<"mutation", "public", { workspaceId: string; deliverableId: string; submissionUrl: string }, unknown>;
+const decideDeliverableRef = makeFunctionReference<"mutation">("campaignExecution:decideApproval") as FunctionReference<"mutation", "public", { workspaceId: string; deliverableId: string; decision: Exclude<ApprovalDecision, "pending">; note?: string }, unknown>;
+const addTaskRef = makeFunctionReference<"mutation">("campaignExecution:addTask") as FunctionReference<"mutation", "public", { workspaceId: string; campaignId: string; campaignCreatorId?: string; title: string; dueAt?: number }, unknown>;
+const setTaskRef = makeFunctionReference<"mutation">("campaignExecution:setTaskStatus") as FunctionReference<"mutation", "public", { workspaceId: string; taskId: string; status: CampaignTaskStatus }, unknown>;
+const setFeeRef = makeFunctionReference<"mutation">("campaignExecution:setCreatorFee") as FunctionReference<"mutation", "public", { workspaceId: string; campaignCreatorId: string; agreedFee: number }, unknown>;
 const homeRef = makeFunctionReference<"query">("home:getSummary") as FunctionReference<"query", "public", { workspaceId: string }, { recentActivity: WorkspaceActivity[] }>;
+
+function mapCampaignRow(row: Record<string, unknown>): Campaign {
+  return {
+    id: String(row._id), name: String(row.name), goal: String(row.goal), platforms: row.platforms as Campaign["platforms"], status: row.status as Campaign["status"], ownerName: "Unassigned", currency: String(row.currency), budget: row.budget as number | undefined,
+    creators: ((row.creators as Array<Record<string, unknown>> | undefined) ?? []).map(creator => ({
+      id: String(creator._id), savedCreatorId: String(creator.savedCreatorId), stage: creator.stage as CampaignStage, ownerName: "Unassigned", nextAction: creator.nextAction as string | undefined, nextActionAt: creator.nextActionAt as number | undefined, agreedFee: creator.agreedFee as number | undefined,
+      deliverables: ((creator.deliverables as Array<Record<string, unknown>> | undefined) ?? []).map(item => ({
+        id: String(item._id), campaignCreatorId: String(item.campaignCreatorId), title: String(item.title), channel: item.channel as Platform, format: String(item.format), dueAt: item.dueAt as number | undefined, status: item.status as Campaign["creators"][number]["deliverables"][number]["status"], submissionUrl: item.submissionUrl as string | undefined, liveUrl: item.liveUrl as string | undefined,
+        approvals: ((item.approvals as Array<Record<string, unknown>> | undefined) ?? []).map(approval => ({ id: String(approval._id), decision: approval.decision as ApprovalDecision, note: approval.note as string | undefined, reviewerName: String(approval.reviewerName ?? "Workspace reviewer"), createdAt: Number(approval.createdAt) })), createdAt: Number(item.createdAt), updatedAt: Number(item.updatedAt),
+      })),
+    })),
+    tasks: ((row.tasks as Array<Record<string, unknown>> | undefined) ?? []).map(task => ({ id: String(task._id), campaignCreatorId: task.campaignCreatorId ? String(task.campaignCreatorId) : undefined, title: String(task.title), status: task.status as CampaignTaskStatus, dueAt: task.dueAt as number | undefined, assigneeName: "Unassigned", createdAt: Number(task.createdAt), updatedAt: Number(task.updatedAt) })),
+    createdAt: Number(row.createdAt), updatedAt: Number(row.updatedAt),
+  };
+}
 
 export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode }) {
   const convex = useConvex();
@@ -125,27 +188,16 @@ export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode 
     }),
     updateSavedCreator: async (workspaceId, savedCreatorId, patch) => { await convex.mutation(updateSavedRef, { workspaceId, savedCreatorId, ...patch }); },
     createCampaign: async (workspaceId, input) => (await convex.mutation(createCampaignRef, { workspaceId, ...input })).campaignId,
-    listCampaigns: async (workspaceId) => (await convex.query(listCampaignsRef, { workspaceId })).map(row => ({
-      id: String(row._id),
-      name: String(row.name),
-      goal: String(row.goal),
-      platforms: row.platforms as Campaign["platforms"],
-      status: row.status as Campaign["status"],
-      ownerName: "Unassigned",
-      currency: String(row.currency),
-      budget: row.budget as number | undefined,
-      creators: ((row.creators as Array<Record<string, unknown>> | undefined) ?? []).map(creator => ({
-        id: String(creator._id),
-        savedCreatorId: String(creator.savedCreatorId),
-        stage: creator.stage as CampaignStage,
-        ownerName: "Unassigned",
-        nextAction: creator.nextAction as string | undefined,
-      })),
-      createdAt: Number(row.createdAt),
-      updatedAt: Number(row.updatedAt),
-    })),
+    listCampaigns: async (workspaceId) => (await convex.query(listCampaignsRef, { workspaceId })).map(mapCampaignRow),
     addCampaignCreator: async (workspaceId, campaignId, savedCreatorId) => { await convex.mutation(addCampaignCreatorRef, { workspaceId, campaignId, savedCreatorId }); },
     moveCampaignCreator: async (workspaceId, _campaignId, campaignCreatorId, stage) => { await convex.mutation(moveCampaignCreatorRef, { workspaceId, campaignCreatorId, stage }); },
+    getCampaignExecution: async (workspaceId, campaignId) => mapCampaignRow(await convex.query(getExecutionRef, { workspaceId, campaignId })),
+    addDeliverable: async (workspaceId, campaignId, campaignCreatorId, input) => { await convex.mutation(addDeliverableRef, { workspaceId, campaignId, campaignCreatorId, ...input }); },
+    submitDeliverable: async (workspaceId, _campaignId, deliverableId, submissionUrl) => { await convex.mutation(submitDeliverableRef, { workspaceId, deliverableId, submissionUrl }); },
+    decideDeliverable: async (workspaceId, _campaignId, deliverableId, decision, note) => { await convex.mutation(decideDeliverableRef, { workspaceId, deliverableId, decision, note }); },
+    addCampaignTask: async (workspaceId, campaignId, input) => { await convex.mutation(addTaskRef, { workspaceId, campaignId, ...input }); },
+    setCampaignTaskStatus: async (workspaceId, _campaignId, taskId, status) => { await convex.mutation(setTaskRef, { workspaceId, taskId, status }); },
+    setCampaignCreatorFee: async (workspaceId, _campaignId, campaignCreatorId, agreedFee) => { await convex.mutation(setFeeRef, { workspaceId, campaignCreatorId, agreedFee }); },
     listActivity: async (workspaceId) => (await convex.query(homeRef, { workspaceId })).recentActivity,
   }), [convex, ensureWorkspace]);
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;

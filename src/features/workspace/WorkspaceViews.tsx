@@ -4,6 +4,7 @@ import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
 import { CAMPAIGN_STAGES, type Campaign, type CampaignStage, type CreatorSearchResult, type Platform, type SavedCreator, type WorkspaceActivity, type WorkspaceSummary } from "../../types";
 import { useWorkspaceData } from "./WorkspaceData";
+import { CampaignExecution } from "./CampaignExecution";
 import "./workspace.css";
 
 const stageLabel = (stage: CampaignStage) => stage.replaceAll("_", " ").replace(/^./, value => value.toUpperCase());
@@ -84,16 +85,14 @@ export function CampaignsWorkspace({ workspace, navigate }: { workspace: Workspa
 
 export function CampaignDetailWorkspace({ workspace, campaignId, navigate }: { workspace: WorkspaceSummary; campaignId: string; navigate(route: AppRoute): void }) {
   const store = useWorkspaceData(); const [campaign, setCampaign] = useState<Campaign | null>(null); const [saved, setSaved] = useState<SavedCreator[]>([]); const [selectedCreator, setSelectedCreator] = useState("");
-  const load = useCallback(async () => { const [campaigns, savedCreators] = await Promise.all([store.listCampaigns(workspace.id), store.listSavedCreators(workspace.id)]); setCampaign(campaigns.find(item => item.id === campaignId) ?? null); setSaved(savedCreators); }, [campaignId, store, workspace.id]);
-  useEffect(() => { let active = true; void Promise.all([store.listCampaigns(workspace.id), store.listSavedCreators(workspace.id)]).then(([campaigns, savedCreators]) => { if (active) { setCampaign(campaigns.find(item => item.id === campaignId) ?? null); setSaved(savedCreators); } }); return () => { active = false; }; }, [campaignId, store, workspace.id]);
-  const byId = useMemo(() => new Map(saved.map(item => [item.id, item])), [saved]);
+  const load = useCallback(async () => { const [nextCampaign, savedCreators] = await Promise.all([store.getCampaignExecution(workspace.id, campaignId), store.listSavedCreators(workspace.id)]); setCampaign(nextCampaign); setSaved(savedCreators); }, [campaignId, store, workspace.id]);
+  useEffect(() => { let active = true; void Promise.all([store.getCampaignExecution(workspace.id, campaignId), store.listSavedCreators(workspace.id)]).then(([nextCampaign, savedCreators]) => { if (active) { setCampaign(nextCampaign); setSaved(savedCreators); } }); return () => { active = false; }; }, [campaignId, store, workspace.id]);
   if (!campaign) return <main className="workspace ops-page"><div className="ops-loading">Loading campaign…</div></main>;
   const activeCampaign = campaign;
   const available = saved.filter(item => !activeCampaign.creators.some(creator => creator.savedCreatorId === item.id));
   async function add() { if (!selectedCreator) return; await store.addCampaignCreator(workspace.id, activeCampaign.id, selectedCreator); setSelectedCreator(""); await load(); }
   async function move(id: string, stage: CampaignStage) { await store.moveCampaignCreator(workspace.id, activeCampaign.id, id, stage); await load(); }
   return <main className="workspace ops-page"><button className="back-link" onClick={() => navigate({ name: "campaigns" })}>← All campaigns</button><PageHeader eyebrow="Active campaign" title={campaign.name} copy={campaign.goal} action={<div className="add-campaign-creator"><select aria-label="Saved creator" value={selectedCreator} onChange={event => setSelectedCreator(event.target.value)}><option value="">Add a saved creator…</option>{available.map(item => <option key={item.id} value={item.id}>{item.creator.displayName}</option>)}</select><button className="button button-primary" disabled={!selectedCreator} onClick={add}><Plus size={15}/> Add</button></div>}/>
-    <section className="campaign-rail-summary"><div><span>Creators</span><strong>{campaign.creators.length}</strong></div><div><span>Live</span><strong>{campaign.creators.filter(item => item.stage === "live" || item.stage === "paid").length}</strong></div><div><span>Working budget</span><strong>{campaign.currency} {(campaign.budget ?? 0).toLocaleString()}</strong></div></section>
-    <section className="campaign-rail" aria-label="Campaign creator rail">{CAMPAIGN_STAGES.map(stage => { const creators = campaign.creators.filter(item => item.stage === stage); return <div className="rail-column" key={stage}><header><span>{stageLabel(stage)}</span><b>{creators.length}</b></header>{creators.map(item => { const creator = byId.get(item.savedCreatorId); return <article key={item.id}><button onClick={() => creator && navigate({ name: "creator", creatorId: creator.creator.id })}><span className="creator-monogram">{creator?.creator.displayName[0] ?? "C"}</span><span><strong>{creator?.creator.displayName ?? "Creator"}</strong><small>{creator?.creator.handle ?? "Saved creator"}</small></span></button><p>{item.nextAction ?? "No next action"}</p><label><span className="sr-only">Move {creator?.creator.displayName ?? "creator"}</span><select value={item.stage} onChange={event => move(item.id, event.target.value as CampaignStage)}>{CAMPAIGN_STAGES.map(option => <option value={option} key={option}>{stageLabel(option)}</option>)}</select></label></article>})}</div>; })}</section>
+    <CampaignExecution workspace={workspace} campaign={campaign} savedCreators={saved} onRefresh={load} onMove={move}/>
   </main>;
 }

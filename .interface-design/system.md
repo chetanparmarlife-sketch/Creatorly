@@ -52,6 +52,11 @@ The product signature expands the **contact signal rail** into a campaign execut
 - Creator CRM row — creator identity, platform, audience, relationship stage, owner, next action, and an explicit written verification state
 - Campaign rail — horizontally scrollable 280px stage columns with compact creator cards; stage names remain visible while moving work
 - Workspace onboarding — five focused steps for workspace, goals, team, channels, and first result; external channels are labelled Planned until connected
+- Campaign view switcher — compact black selected tab across Dashboard, Rail, Table, Calendar, and Review; every mode reads the same execution record
+- Budget strip — committed fees and remaining campaign budget use tabular numerals and plain tracking language, never payment language
+- Evidence drawer — 520px right-side review surface containing the linked asset, due date, decision controls, and append-only review history
+- Review language — Planned, In review, Changes requested, Approved, Scheduled, and Live are always written; blue means selected or processing, green means approved, and red means action required
+- Mobile review sheet — below 980px the evidence drawer becomes a bottom sheet capped at 88vh, while campaign view tabs remain horizontally scrollable
 
 ## Landing page pattern
 

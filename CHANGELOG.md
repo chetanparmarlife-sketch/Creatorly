@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-08-30 — Campaign execution Release 2
+
+### Added
+
+- Campaign dashboard with creator progress, committed spend, remaining budget, deliverable completion, review queue, and overdue risk.
+- Shared Rail, Table, Calendar, and Review views backed by the same campaign execution records.
+- Creator-level agreed-fee tracking, operational tasks, deliverable planning, due dates, and channel/format metadata.
+- Review-asset URL submission, explicit approve/request-changes decisions, and append-only approval history.
+- Role-checked Convex mutations and immutable workspace activity events for execution changes.
+- Responsive evidence drawer that becomes a mobile review sheet.
+
+### Product boundaries
+
+- Review assets are linked by URL; Creatorly does not upload or store the content file in Release 2.
+- Fees and budget are tracking fields only; no payment, escrow, contract, or tax workflow is claimed.
+
 ## 2026-08-30 — Agency workspace Release 1
 
 ### Added

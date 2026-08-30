@@ -332,10 +332,42 @@ export default defineSchema({
     .index("by_campaign_stage", ["campaignId", "stage"])
     .index("by_campaign_creator", ["campaignId", "savedCreatorId"])
     .index("by_workspace", ["workspaceId"]),
+  deliverables: defineTable({
+    workspaceId: v.id("workspaces"),
+    campaignId: v.id("campaigns"),
+    campaignCreatorId: v.id("campaignCreators"),
+    title: v.string(),
+    channel: platform,
+    format: v.string(),
+    dueAt: v.optional(v.number()),
+    status: v.union(v.literal("planned"), v.literal("awaiting_content"), v.literal("in_review"), v.literal("changes_requested"), v.literal("approved"), v.literal("scheduled"), v.literal("live")),
+    submissionUrl: v.optional(v.string()),
+    liveUrl: v.optional(v.string()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_campaign_creator", ["campaignCreatorId"])
+    .index("by_campaign_status", ["campaignId", "status"])
+    .index("by_workspace", ["workspaceId"]),
+  approvals: defineTable({
+    workspaceId: v.id("workspaces"),
+    campaignId: v.id("campaigns"),
+    deliverableId: v.id("deliverables"),
+    decision: v.union(v.literal("pending"), v.literal("approved"), v.literal("changes_requested")),
+    note: v.optional(v.string()),
+    reviewerUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_deliverable", ["deliverableId"])
+    .index("by_campaign", ["campaignId"])
+    .index("by_workspace", ["workspaceId"]),
   tasks: defineTable({
     workspaceId: v.id("workspaces"),
     campaignId: v.optional(v.id("campaigns")),
     savedCreatorId: v.optional(v.id("savedCreators")),
+    campaignCreatorId: v.optional(v.id("campaignCreators")),
     title: v.string(),
     status: v.union(v.literal("open"), v.literal("done"), v.literal("cancelled")),
     assigneeMemberId: v.optional(v.id("workspaceMembers")),
@@ -343,11 +375,13 @@ export default defineSchema({
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_workspace", ["workspaceId"]),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_campaign", ["campaignId"]),
   activityEvents: defineTable({
     workspaceId: v.id("workspaces"),
     actorUserId: v.id("users"),
-    entityType: v.union(v.literal("workspace"), v.literal("saved_creator"), v.literal("campaign"), v.literal("campaign_creator"), v.literal("task")),
+    entityType: v.union(v.literal("workspace"), v.literal("saved_creator"), v.literal("campaign"), v.literal("campaign_creator"), v.literal("deliverable"), v.literal("approval"), v.literal("task")),
     entityId: v.string(),
     action: v.string(),
     summary: v.string(),
