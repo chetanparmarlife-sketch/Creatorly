@@ -82,6 +82,10 @@ export type CreatorSearchFilters = {
   category?: string;
   location?: string;
   verifiedOnly?: boolean;
+  minFollowers?: number;
+  maxFollowers?: number;
+  sortField?: "name" | "audience" | "location";
+  sortDirection?: "asc" | "desc";
 };
 
 export type CreatorSearchPage = {

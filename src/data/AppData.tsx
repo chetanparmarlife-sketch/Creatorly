@@ -44,7 +44,7 @@ type AppData = {
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
   search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
-  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; minFollowers?: number; maxFollowers?: number }): Promise<CreatorSearchPage>;
+  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" }): Promise<CreatorSearchPage>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
   requestContact(input: ContactRequestInput): Promise<ContactRequestResult>;
@@ -94,8 +94,13 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     },
     getViewer: demoData.viewer,
     search: demoData.search,
-    browseCreators: async ({ cursor, numItems, platform, category, location, minFollowers = 0, maxFollowers }) => {
-      const creators = (await demoData.search("", { platform, category, location })).filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers));
+    browseCreators: async ({ cursor, numItems, platform, category, location, minFollowers = 0, maxFollowers, sortField = "audience", sortDirection = "desc" }) => {
+      const creators = (await demoData.search("", { platform, category, location }))
+        .filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers))
+        .sort((left, right) => {
+          const comparison = sortField === "name" ? left.displayName.localeCompare(right.displayName) : sortField === "location" ? (left.location ?? "").localeCompare(right.location ?? "") : left.followerCount - right.followerCount;
+          return comparison * (sortDirection === "asc" ? 1 : -1);
+        });
       const start = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
       const page = creators.slice(start, start + numItems);
       const next = start + page.length;
@@ -126,8 +131,8 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
 }
 
 type EmptyArgs = Record<string, never>;
-type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean };
-type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; minFollowers?: number; maxFollowers?: number };
+type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
+type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
 type DetailArgs = { creatorId: string };
 
 const viewerRef = makeFunctionReference<"query">("users:viewer") as FunctionReference<
@@ -212,7 +217,7 @@ export function ConvexDataProvider({
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
-    browseCreators: ({ cursor, numItems, platform, category, location, minFollowers, maxFollowers }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform, category, location, minFollowers, maxFollowers }),
+    browseCreators: ({ cursor, numItems, platform, category, location, minFollowers, maxFollowers, sortField, sortDirection }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform, category, location, minFollowers, maxFollowers, sortField, sortDirection }),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
     getHistory: () => convex.query(historyRef, {}),
     requestContact: (input) => convex.mutation(requestContactRef, input),

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-08-31 — Repository follower minimum
+
+### Changed
+
+- Enforced a minimum of 1,000 supplied followers for every future repository import and admin-added repository creator.
+- Removed 10,736 existing imported profiles below the minimum while preserving linked saved creators as private workspace snapshots.
+- Updated discovery filters and product copy to the production range of 1,000–9,996 followers.
+- The active production repository now contains 6,973 imported profiles and 7,524 contacts.
+
+### Verified
+
+- Production audit returns zero non-demo profiles below 1,000 followers.
+- The minimum stored imported follower count is 1,000 and the maximum is 9,996.
+
 ## 2026-08-30 — Campaign execution Release 2
 
 ### Added

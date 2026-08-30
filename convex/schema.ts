@@ -86,6 +86,8 @@ export default defineSchema({
     lastUpdatedAt: v.number(),
   })
     .index("by_platform", ["platform"])
+    .index("by_repository_name", ["isDemo", "displayName"])
+    .index("by_repository_location", ["isDemo", "location"])
     .index("by_followers", ["followerCount"])
     .index("by_platform_followers", ["platform", "followerCount"])
     .index("by_verified_followers", ["isVerified", "followerCount"])
@@ -160,7 +162,8 @@ export default defineSchema({
     ),
   })
     .index("by_user", ["userId"])
-    .index("by_user_creator", ["userId", "creatorId"]),
+    .index("by_user_creator", ["userId", "creatorId"])
+    .index("by_creator", ["creatorId"]),
   creditTransactions: defineTable({
     userId: v.id("users"),
     amount: v.number(),
@@ -248,7 +251,8 @@ export default defineSchema({
     associatedCreatorId: v.optional(v.id("creators")),
   })
     .index("by_user", ["userId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_associated_creator", ["associatedCreatorId"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: v.union(
@@ -373,6 +377,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
+    .index("by_creator", ["creatorId"])
     .index("by_workspace_creator", ["workspaceId", "creatorId"])
     .index("by_workspace_private_profile", ["workspaceId", "privatePlatform", "privateNormalizedHandle"])
     .index("by_workspace_private_email", ["workspaceId", "privateNormalizedEmail"])

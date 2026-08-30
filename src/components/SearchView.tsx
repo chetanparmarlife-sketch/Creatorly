@@ -7,7 +7,7 @@ import { CreatorResult } from "./CreatorResult";
 import { RequestContactModal } from "./RequestContactModal";
 
 const CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
-const REPOSITORY_SCOPE = "Current coverage: India-focused Instagram creators from the imported repository; follower counts are incomplete and generally under 10K. YouTube coverage is not loaded yet.";
+const REPOSITORY_SCOPE = "Current coverage: 6,973 India-focused Instagram creators with supplied follower counts from 1K to 9,996. YouTube coverage is not loaded yet.";
 const CATEGORY_SHORTCUTS = [
   { label: "Lifestyle", icon: Sparkles },
   { label: "Entertainment", icon: Clapperboard },
@@ -84,7 +84,7 @@ export function SearchView({
         </div>
         <div className="search-proof">
           <Sparkles size={17} aria-hidden="true" />
-          <span><strong>17,709 real profiles</strong> ready to discover</span>
+          <span><strong>6,973 real profiles</strong> ready to discover</span>
         </div>
       </section>
 

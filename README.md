@@ -12,7 +12,7 @@ Release 2 adds campaign execution: dashboard, rail, table, calendar, review queu
 - Separate seeded Convex development and production deployments
 - Local demo fallback when Convex is not configured
 - Smart handle matching: exact, punctuation/suffix-normalized, display name, and partial name
-- Instagram/YouTube filter, six clearly fictional demo records, and 17,709 imported Instagram creator profiles
+- Instagram/YouTube filter, six clearly fictional demo records, and 6,973 eligible imported Instagram creator profiles
 - Atomic Convex unlock mutation with a 30-day access record and credit audit transaction
 - Basic/Free versus Pro contact gating without leaking restricted values
 - Responsive search, locked, insufficient-access, and revealed contact states
@@ -39,19 +39,20 @@ Instagram, TikTok, YouTube, X/Twitter, and WhatsApp connections are shown as **P
 
 Release 2 stores links to review assets; it does not upload creator files. Fees and budget are operational tracking only—Creatorly does not send creator payments or provide escrow.
 
-The imported repository contains 19,166 contact records. Imported contacts are labelled **Pending verification** until independently checked; only fictional records use the **Demo verified** label.
+The active imported repository contains 6,973 creator profiles and 7,524 contact records. Imported contacts are labelled **Pending verification** until independently checked; only fictional records use the **Demo verified** label.
 
 ## Real creator import
 
 The supplied 20,001-row CSV was cleaned and imported into production without committing private contact values to Git. The private intermediate file lives under ignored `data/private/`.
 
-- 17,709 creator profiles and 19,166 contact records imported
+- 17,709 creator profiles and 19,166 contact records were originally imported
+- The active repository keeps only profiles with at least 1,000 supplied followers: 6,973 profiles and 7,524 contacts remain
 - 1,618 exact duplicate rows merged
 - 13,790 category-like names replaced with the exact Instagram handle
 - 43 malformed email values removed
 - 674 unusable rows rejected: 60 invalid Instagram handles and 614 rows without a valid contact
 - 13,650 profiles have category data available for discovery filters
-- The source filename says 10K–20K, but every supplied follower count is below 10K; 5,023 are zero or missing
+- The source filename says 10K–20K, but every supplied follower count is below 10K; rows below 1,000 are excluded from storage
 - Every imported contact is marked `pending_verification`; the import does not claim the data is verified
 
 The non-sensitive audit is in [data/creator-import-report.json](data/creator-import-report.json). YouTube URLs were not turned into creator records because the source uses mixed channel URL formats; that mapping remains pending rather than guessing identities.

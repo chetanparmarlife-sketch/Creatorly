@@ -15,12 +15,10 @@ const stageLabel = (stage: CampaignStage) => stage.replaceAll("_", " ").replace(
 const repositoryScope = "The original imported repository currently covers India-focused Instagram creators. YouTube creator data is not loaded yet.";
 const CREATOR_PAGE_SIZE = 24;
 const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
-type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" } | null;
-type AudienceBand = "all" | "unavailable" | "under1k" | "1k5k" | "5k10k";
+type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" };
+type AudienceBand = "all" | "1k5k" | "5k10k";
 
 function audienceRange(band: AudienceBand) {
-  if (band === "unavailable") return { minFollowers: 0, maxFollowers: 1 };
-  if (band === "under1k") return { minFollowers: 1, maxFollowers: 1_000 };
   if (band === "1k5k") return { minFollowers: 1_000, maxFollowers: 5_000 };
   if (band === "5k10k") return { minFollowers: 5_000, maxFollowers: 10_000 };
   return {};
@@ -37,70 +35,52 @@ function Empty({ icon, title, copy, action, onAction }: { icon: React.ReactNode;
 export function DiscoveryWorkspace({ workspace, navigate }: { workspace: WorkspaceSummary; navigate(route: AppRoute): void }) {
   const data = useAppData(); const store = useWorkspaceData();
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<Platform | "all">("all");
-  const [creatorFilter, setCreatorFilter] = useState(""); const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
-  const [location, setLocation] = useState(""); const [sort, setSort] = useState<CreatorSort>(null); const [contact, setContact] = useState<"all" | "available" | "missing">("all");
+  const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
+  const [location, setLocation] = useState(""); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Set<string>>(new Set()); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
-  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience) => {
+  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience, nextSort = sort) => {
     setLoading(true); setError("");
     try {
+      const range = audienceRange(nextAudience);
+      const sorting = { sortField: nextSort.field, sortDirection: nextSort.direction };
       if (nextQuery.trim()) {
-        setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined }));
+        setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, ...range, ...sorting }));
         setCursor(null); setIsDone(true);
       } else {
-        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, ...audienceRange(nextAudience) });
+        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, ...range, ...sorting });
         setResults(result.page); setCursor(result.continueCursor); setIsDone(result.isDone);
       }
     } catch {
       setResults([]); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
     } finally { setLoading(false); }
-  }, [audience, category, data, location, platform, query]);
+  }, [audience, category, data, location, platform, query, sort]);
   async function loadMore() {
     if (loadingMore || isDone || query.trim()) return;
     setLoadingMore(true); setError("");
     try {
-      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined, ...audienceRange(audience) });
+      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined, ...audienceRange(audience), sortField: sort.field, sortDirection: sort.direction });
       setResults(current => [...new Map([...current, ...result.page].map(creator => [creator.id, creator])).values()]);
       setCursor(result.continueCursor); setIsDone(result.isDone);
     } catch { setError("More creators could not be loaded. Try again."); }
     finally { setLoadingMore(false); }
   }
   useEffect(() => { let active = true; void store.listSavedCreators(workspace.id).then(saved => { if (active) setSavedIds(new Set(saved.map(item => item.creator.id))); }); return () => { active = false; }; }, [store, workspace.id]);
-  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location, audience); }, 180); return () => window.clearTimeout(timer); }, [audience, category, location, platform, query, run]);
-  const visibleResults = useMemo(() => results.filter(creator => {
-    const creatorText = `${creator.displayName} ${creator.handle}`.toLowerCase();
-    const creatorMatches = creatorText.includes(creatorFilter.trim().toLowerCase());
-    const categoryMatches = !category || creator.categories?.some(item => item.toLowerCase() === category.trim().toLowerCase());
-    const locationMatches = `${creator.location ?? ""}`.toLowerCase().includes(location.trim().toLowerCase());
-    const contactMatches = contact === "all" || (contact === "available" ? creator.contactCount > 0 : creator.contactCount === 0);
-    const audienceMatches = audience === "all"
-      || (audience === "unavailable" && creator.followerCount === 0)
-      || (audience === "under1k" && creator.followerCount > 0 && creator.followerCount < 1_000)
-      || (audience === "1k5k" && creator.followerCount >= 1_000 && creator.followerCount < 5_000)
-      || (audience === "5k10k" && creator.followerCount >= 5_000 && creator.followerCount < 10_000);
-    return creatorMatches && categoryMatches && locationMatches && contactMatches && audienceMatches;
-  }).sort((left, right) => {
-    if (!sort) return 0;
-    const comparison = sort.field === "name"
-      ? left.displayName.localeCompare(right.displayName)
-      : sort.field === "audience"
-        ? left.followerCount - right.followerCount
-        : (left.location ?? "zzzz").localeCompare(right.location ?? "zzzz");
-    return comparison * (sort.direction === "asc" ? 1 : -1);
-  }), [audience, category, contact, creatorFilter, location, results, sort]);
+  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location, audience, sort); }, 180); return () => window.clearTimeout(timer); }, [audience, category, location, platform, query, run, sort]);
+  const visibleResults = results;
   const categoryOptions = useMemo(() => [...new Set([...CREATOR_CATEGORIES, ...results.flatMap(creator => creator.categories ?? [])])].sort(), [results]);
   const locationOptions = useMemo(() => [...new Set(results.map(creator => creator.location).filter((item): item is string => Boolean(item)))].sort(), [results]);
-  const filtersActive = Boolean(creatorFilter || category || location || platform !== "all" || audience !== "all" || contact !== "all" || sort);
-  function clearTableFilters() { setCreatorFilter(""); setCategory(""); setPlatform("all"); setAudience("all"); setLocation(""); setSort(null); setContact("all"); }
-  function cycleSort(field: NonNullable<CreatorSort>["field"]) {
+  const filtersActive = Boolean(category || location || platform !== "all" || audience !== "all" || sort.field !== "audience" || sort.direction !== "desc");
+  function clearTableFilters() { setCategory(""); setPlatform("all"); setAudience("all"); setLocation(""); setSort({ field: "audience", direction: "desc" }); }
+  function cycleSort(field: CreatorSort["field"]) {
     setSort(current => {
       const firstDirection = field === "audience" ? "desc" : "asc";
       if (!current || current.field !== field) return { field, direction: firstDirection };
       if (current.direction === firstDirection) return { field, direction: firstDirection === "asc" ? "desc" : "asc" };
-      return null;
+      return { field: "audience", direction: "desc" };
     });
   }
   function sortStatus(field: NonNullable<CreatorSort>["field"]) {
-    if (sort?.field !== field) return "Sort";
+    if (sort.field !== field) return "Sort";
     if (field === "audience") return sort.direction === "desc" ? "High–low" : "Low–high";
     return sort.direction === "asc" ? "A–Z" : "Z–A";
   }
@@ -110,12 +90,12 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void run(); }} placeholder="Search creator name or handle"/><button className="button button-primary" onClick={() => run()}><Sparkles size={15}/> Search</button></section>
     <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> shown · {results.length} loaded</span>{filtersActive ? <button type="button" onClick={clearTableFilters}><RotateCcw size={13}/> Reset filters</button> : <span>{query.trim() ? "Search results" : isDone ? "Full repository loaded" : "More creators available"}</span>}</div>
     <section className="ops-table-card"><div className="ops-table-head discovery-table-head" role="group" aria-label="Creator table filters">
-      <span className="table-filter-cell"><b className="sortable-filter-title">Creator <button type="button" onClick={() => cycleSort("name")} aria-label={`Sort creator name ${sort?.field === "name" && sort.direction === "asc" ? "descending" : sort?.field === "name" ? "by default" : "ascending"}`} aria-pressed={sort?.field === "name"}><ArrowUpDown size={12}/><span>{sortStatus("name")}</span></button></b><label><Search size={14}/><span className="sr-only">Filter creator column</span><input aria-label="Filter creator column" value={creatorFilter} onChange={event => setCreatorFilter(event.target.value)} placeholder="Name or handle"/></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">Creator <button type="button" onClick={() => cycleSort("name")} aria-label={`Sort creator name ${sort.field === "name" && sort.direction === "asc" ? "descending" : sort.field === "name" ? "by default" : "ascending"}`} aria-pressed={sort.field === "name"}><ArrowUpDown size={12}/><span>{sortStatus("name")}</span></button></b><span className="filter-static-note">Use search above</span></span>
       <span className="table-filter-cell"><b>Category</b><label><span className="sr-only">Filter category column</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="Search category"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
       <span className="table-filter-cell"><b>Platform</b><label><span className="sr-only">Filter platform column</span><select aria-label="Filter platform column" value={platform} onChange={event => setPlatform(event.target.value as Platform | "all")}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="twitter">X</option></select></label></span>
-      <span className="table-filter-cell"><b className="sortable-filter-title">Audience <button type="button" onClick={() => cycleSort("audience")} aria-label={`Sort audience ${sort?.field === "audience" && sort.direction === "desc" ? "low to high" : sort?.field === "audience" ? "by default" : "high to low"}`} aria-pressed={sort?.field === "audience"}><ArrowUpDown size={12}/><span>{sortStatus("audience")}</span></button></b><label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="unavailable">0 or unavailable</option><option value="under1k">1–999</option><option value="1k5k">1K–5K</option><option value="5k10k">5K–10K</option></select></label></span>
-      <span className="table-filter-cell"><b className="sortable-filter-title">City / Country <button type="button" onClick={() => cycleSort("location")} aria-label={`Sort city and country ${sort?.field === "location" && sort.direction === "asc" ? "descending" : sort?.field === "location" ? "by default" : "ascending"}`} aria-pressed={sort?.field === "location"}><ArrowUpDown size={12}/><span>{sortStatus("location")}</span></button></b><label><span className="sr-only">Filter city or country column</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search location"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
-      <span className="table-filter-cell"><b>Contact</b><label><span className="sr-only">Filter contact column</span><select aria-label="Filter contact column" value={contact} onChange={event => setContact(event.target.value as typeof contact)}><option value="all">Any contact</option><option value="available">Available</option><option value="missing">Not available</option></select></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">Audience <button type="button" onClick={() => cycleSort("audience")} aria-label={`Sort audience ${sort?.field === "audience" && sort.direction === "desc" ? "low to high" : sort?.field === "audience" ? "by default" : "high to low"}`} aria-pressed={sort?.field === "audience"}><ArrowUpDown size={12}/><span>{sortStatus("audience")}</span></button></b><label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="1k5k">1K–5K</option><option value="5k10k">5K–10K</option></select></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">City / Country <button type="button" onClick={() => cycleSort("location")} aria-label={`Sort city and country ${sort.field === "location" && sort.direction === "asc" ? "descending" : sort.field === "location" ? "by default" : "ascending"}`} aria-pressed={sort.field === "location"}><ArrowUpDown size={12}/><span>{sortStatus("location")}</span></button></b><label><span className="sr-only">Filter city or country column</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Exact location"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
+      <span className="table-filter-cell"><b>Contact</b><span className="filter-static-note">Verification status</span></span>
       <span className="table-filter-actions"><b>Reset</b><button type="button" className="filter-reset-icon" onClick={clearTableFilters} disabled={!filtersActive} aria-label="Reset table filters"><RotateCcw size={15}/></button></span>
     </div>
       {error && !results.length ? <div className="ops-loading state-error" role="alert">{error}</div> : loading ? <div className="ops-loading" role="status">Loading creators…</div> : visibleResults.length ? visibleResults.map(creator => <article className="ops-table-row discovery-row" key={creator.id}>

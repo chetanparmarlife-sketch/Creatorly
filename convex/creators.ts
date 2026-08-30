@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { normalize, score } from "./lib/matching";
+import { MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
 
 function canonicalProfileUrl(platform: string, handle: string) {
   const clean = handle.replace(/^@/, "");
@@ -20,12 +21,18 @@ const platformValidator = v.union(
   v.literal("twitter"),
 );
 
-function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; verifiedOnly?: boolean }) {
+function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number }) {
+  if (!creator.isDemo && creator.followerCount < MIN_REPOSITORY_FOLLOWERS) return false;
   if (args.verifiedOnly && !creator.isVerified) return false;
   if (args.location && !creator.location?.toLowerCase().includes(args.location.trim().toLowerCase())) return false;
   if (args.category && !creator.categories?.some(category => category.toLowerCase() === args.category?.toLowerCase())) return false;
+  if (args.minFollowers !== undefined && creator.followerCount < args.minFollowers) return false;
+  if (args.maxFollowers !== undefined && creator.followerCount >= args.maxFollowers) return false;
   return true;
 }
+
+const sortFieldValidator = v.union(v.literal("name"), v.literal("audience"), v.literal("location"));
+const sortDirectionValidator = v.union(v.literal("asc"), v.literal("desc"));
 
 export const browsePage = query({
   args: {
@@ -35,6 +42,8 @@ export const browsePage = query({
     location: v.optional(v.string()),
     minFollowers: v.optional(v.number()),
     maxFollowers: v.optional(v.number()),
+    sortField: v.optional(sortFieldValidator),
+    sortDirection: v.optional(sortDirectionValidator),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -48,29 +57,44 @@ export const browsePage = query({
 
     const category = args.category?.trim().toLowerCase();
     const location = args.location?.trim();
-    const minFollowers = args.minFollowers ?? 0;
+    const minFollowers = Math.max(MIN_REPOSITORY_FOLLOWERS, args.minFollowers ?? MIN_REPOSITORY_FOLLOWERS);
     const maxFollowers = args.maxFollowers;
-    const result = location
+    const sortField = args.sortField ?? "audience";
+    const sortDirection = args.sortDirection ?? (sortField === "audience" ? "desc" : "asc");
+    const result = sortField === "name"
       ? await ctx.db
           .query("creators")
-          .withSearchIndex("search_location", (q) => args.platform
-            ? q.search("location", location).eq("platform", args.platform)
-            : q.search("location", location))
+          .withIndex("by_repository_name", (q) => q.eq("isDemo", false))
           .filter((q) => q.and(
-            q.eq(q.field("isDemo"), false),
+            ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
             ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+            ...(location ? [q.eq(q.field("location"), location)] : []),
             q.gte(q.field("followerCount"), minFollowers),
             ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
           ))
+          .order(sortDirection)
           .paginate(args.paginationOpts)
-      : category && args.platform
+      : sortField === "location"
+        ? await ctx.db
+            .query("creators")
+            .withIndex("by_repository_location", (q) => q.eq("isDemo", false))
+            .filter((q) => q.and(
+              ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+              ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+              ...(location ? [q.eq(q.field("location"), location)] : []),
+              q.gte(q.field("followerCount"), minFollowers),
+              ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
+            ))
+            .order(sortDirection)
+            .paginate(args.paginationOpts)
+        : category && args.platform
         ? await ctx.db
             .query("creators")
             .withIndex("by_platform_category_followers", (q) => maxFollowers === undefined
               ? q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers)
               : q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-            .filter((q) => q.eq(q.field("isDemo"), false))
-            .order("desc")
+            .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
+            .order(sortDirection)
             .paginate(args.paginationOpts)
         : category
           ? await ctx.db
@@ -78,8 +102,8 @@ export const browsePage = query({
               .withIndex("by_category_followers", (q) => maxFollowers === undefined
                 ? q.eq("primaryCategory", category).gte("followerCount", minFollowers)
                 : q.eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-              .filter((q) => q.eq(q.field("isDemo"), false))
-              .order("desc")
+              .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
+              .order(sortDirection)
               .paginate(args.paginationOpts)
           : args.platform
             ? await ctx.db
@@ -87,16 +111,16 @@ export const browsePage = query({
                 .withIndex("by_platform_followers", (q) => maxFollowers === undefined
                   ? q.eq("platform", args.platform!).gte("followerCount", minFollowers)
                   : q.eq("platform", args.platform!).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-                .filter((q) => q.eq(q.field("isDemo"), false))
-                .order("desc")
+                .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
+                .order(sortDirection)
                 .paginate(args.paginationOpts)
             : await ctx.db
                 .query("creators")
                 .withIndex("by_followers", (q) => maxFollowers === undefined
                   ? q.gte("followerCount", minFollowers)
                   : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-                .filter((q) => q.eq(q.field("isDemo"), false))
-                .order("desc")
+                .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
+                .order(sortDirection)
                 .paginate(args.paginationOpts);
 
     const page = await Promise.all(result.page.map(async (creator) => {
@@ -134,6 +158,10 @@ export const search = query({
     category: v.optional(v.string()),
     location: v.optional(v.string()),
     verifiedOnly: v.optional(v.boolean()),
+    minFollowers: v.optional(v.number()),
+    maxFollowers: v.optional(v.number()),
+    sortField: v.optional(sortFieldValidator),
+    sortDirection: v.optional(sortDirectionValidator),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -152,8 +180,8 @@ export const search = query({
         .filter(creator => (!args.platform || creator.platform === args.platform) && passesFilters(creator, args))
         .map(creator => [creator._id.toString(), creator])).values()];
     } else {
-      const min = 0;
-      const max = Number.POSITIVE_INFINITY;
+      const min = Math.max(MIN_REPOSITORY_FOLLOWERS, args.minFollowers ?? MIN_REPOSITORY_FOLLOWERS);
+      const max = args.maxFollowers ?? Number.POSITIVE_INFINITY;
       if (args.category) {
         const term = args.category.toLowerCase();
         if (args.platform && args.verifiedOnly) {
@@ -227,7 +255,15 @@ export const search = query({
 
     return ranked
       .filter((item) => item !== null)
-      .sort((a, b) => searchText ? b.matchScore - a.matchScore : b.followerCount - a.followerCount)
+      .sort((a, b) => {
+        if (!args.sortField) return searchText ? b.matchScore - a.matchScore : b.followerCount - a.followerCount;
+        const comparison = args.sortField === "name"
+          ? a.displayName.localeCompare(b.displayName)
+          : args.sortField === "location"
+            ? (a.location ?? "").localeCompare(b.location ?? "")
+            : a.followerCount - b.followerCount;
+        return comparison * ((args.sortDirection ?? "asc") === "asc" ? 1 : -1);
+      })
       .slice(0, searchText ? 8 : 24);
   },
 });

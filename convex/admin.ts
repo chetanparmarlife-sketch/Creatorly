@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
+import { isRepositoryEligible, MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { normalize } from "./lib/matching";
 
@@ -83,6 +84,9 @@ export const fulfillRequest = mutation({
     }
     if (!args.creator.displayName.trim() || !args.contact.name.trim()) {
       throw new ConvexError("Enter the creator and contact names.");
+    }
+    if (!isRepositoryEligible(Math.round(args.creator.followerCount))) {
+      throw new ConvexError(`Repository creators need at least ${MIN_REPOSITORY_FOLLOWERS.toLocaleString("en-US")} followers.`);
     }
     if (!args.contact.email && !args.contact.phone && !args.contact.whatsapp) {
       throw new ConvexError("Add at least one contact method.");

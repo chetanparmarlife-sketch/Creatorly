@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { isRepositoryEligible } from "./lib/repositoryPolicy";
 
 function sameContact(existing: { email?: string; whatsapp?: string }, incoming: { email?: string; whatsapp?: string }) {
   return (existing.email ?? "").trim().toLowerCase() === (incoming.email ?? "").trim().toLowerCase()
@@ -14,8 +15,14 @@ export const ingestBatch = internalMutation({
     let creatorsInserted = 0;
     let creatorsUpdated = 0;
     let contactsInserted = 0;
+    let skippedBelowMinimum = 0;
     const now = Date.now();
     for (const row of rows) {
+      if (!isRepositoryEligible(row.followerCount)) {
+        await ctx.db.patch(row._id, { processed: true });
+        skippedBelowMinimum += 1;
+        continue;
+      }
       const candidates = await ctx.db.query("creators").withIndex("by_normalized_handle", q => q.eq("normalizedHandle", row.normalizedHandle)).collect();
       const existing = candidates.find(creator => creator.platform === "instagram" && creator.handle.toLowerCase() === row.handle.toLowerCase());
       let creatorId = existing?._id;
@@ -41,7 +48,7 @@ export const ingestBatch = internalMutation({
       }
       await ctx.db.patch(row._id, { processed: true });
     }
-    return { processed: rows.length, creatorsInserted, creatorsUpdated, contactsInserted };
+    return { processed: rows.length, creatorsInserted, creatorsUpdated, contactsInserted, skippedBelowMinimum };
   },
 });
 
