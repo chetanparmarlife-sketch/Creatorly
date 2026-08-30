@@ -4,7 +4,7 @@
 
 Creatorly uses **Lumen**: a bright, restrained operating desk for agency teams who need to find, verify, and act on creator contacts quickly. Brand screens are calm and comfortably spaced; admin screens compress the same components into precise queues and evidence panels.
 
-The product signature remains the **contact signal rail** — profile matched → record checked → contact open — now expressed through black structure, blue selection, and written green verification states.
+The product signature expands the **contact signal rail** into a campaign execution rail: discovered → shortlisted → contacted → replied → negotiating → contracted → creating → in review → scheduled → live → paid. It uses black structure, blue selection, and written semantic states to show progress without decorative color.
 
 ## Tokens
 
@@ -47,6 +47,11 @@ The product signature remains the **contact signal rail** — profile matched �
 - Modal — 480–640px centered white surface · 14–16px radius · neutral dim backdrop · restrained shadow
 - Selected filter or row — action-blue text with `#EAF0FF` background
 - Success, warning, and danger states use both words and semantic color; color is never the only signal
+- Operational home — three compact metrics, one active-campaign focal card, and a recent-activity list; every module points to a next action
+- Discovery command — one natural-language search bar, precise platform/category/location/follower filters, and a dense creator result table
+- Creator CRM row — creator identity, platform, audience, relationship stage, owner, next action, and an explicit written verification state
+- Campaign rail — horizontally scrollable 280px stage columns with compact creator cards; stage names remain visible while moving work
+- Workspace onboarding — five focused steps for workspace, goals, team, channels, and first result; external channels are labelled Planned until connected
 
 ## Landing page pattern
 

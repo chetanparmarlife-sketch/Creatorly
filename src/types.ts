@@ -1,4 +1,4 @@
-export type Platform = "instagram" | "youtube";
+export type Platform = "instagram" | "tiktok" | "youtube" | "twitter";
 export type SocialPlatform = Platform | "linkedin" | "twitter";
 export type PlanTier = "free" | "basic" | "pro";
 
@@ -23,7 +23,7 @@ export type Viewer = {
   subscriptionRenewalDate?: number;
   cancellationRequestedAt?: number;
   onboardingCompleted: boolean;
-  onboardingStep: 1 | 2 | 3 | 4;
+  onboardingStep: 1 | 2 | 3 | 4 | 5;
   onboardingPlanTier: PlanTier;
   isEmailVerified: boolean;
   notificationPreferences: NotificationPreferences;
@@ -166,3 +166,50 @@ export type FulfillRequestInput = {
 };
 
 export type DataMode = "convex" | "demo";
+
+export type WorkspaceKind = "agency" | "brand" | "talent";
+export type WorkspaceRole = "owner" | "admin" | "manager" | "contributor" | "reviewer";
+export type CampaignStage = "discovered" | "shortlisted" | "contacted" | "replied" | "negotiating" | "contracted" | "creating" | "in_review" | "scheduled" | "live" | "paid";
+export type CampaignStatus = "draft" | "active" | "paused" | "completed" | "archived";
+
+export const CAMPAIGN_STAGES: CampaignStage[] = ["discovered", "shortlisted", "contacted", "replied", "negotiating", "contracted", "creating", "in_review", "scheduled", "live", "paid"];
+export const canManageCampaign = (role: WorkspaceRole) => role !== "reviewer";
+export const canRevealContacts = (role: WorkspaceRole) => role !== "reviewer";
+
+export type WorkspaceSummary = { id: string; name: string; kind: WorkspaceKind; role: WorkspaceRole };
+export type SavedCreator = {
+  id: string;
+  creator: CreatorSearchResult;
+  relationshipStage: CampaignStage;
+  ownerName: string;
+  priority: "low" | "normal" | "high";
+  tags: string[];
+  nextAction?: string;
+  nextActionAt?: number;
+  updatedAt: number;
+};
+export type CampaignCreator = {
+  id: string;
+  savedCreatorId: string;
+  stage: CampaignStage;
+  ownerName: string;
+  nextAction?: string;
+  nextActionAt?: number;
+  agreedFee?: number;
+};
+export type Campaign = {
+  id: string;
+  name: string;
+  goal: string;
+  platforms: Platform[];
+  status: CampaignStatus;
+  ownerName: string;
+  currency: string;
+  budget?: number;
+  startsAt?: number;
+  endsAt?: number;
+  creators: CampaignCreator[];
+  createdAt: number;
+  updatedAt: number;
+};
+export type WorkspaceActivity = { id: string; summary: string; entityType: "workspace" | "saved_creator" | "campaign" | "campaign_creator" | "task"; createdAt: number };

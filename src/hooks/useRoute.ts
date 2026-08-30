@@ -13,6 +13,11 @@ export type AppRoute =
   | { name: "search"; query: string; platform?: Platform }
   | { name: "history" }
   | { name: "admin" }
+  | { name: "home" }
+  | { name: "discover" }
+  | { name: "creators" }
+  | { name: "campaigns" }
+  | { name: "campaign"; campaignId: string }
   | { name: "creator"; creatorId: string };
 
 function readRoute(): AppRoute {
@@ -32,13 +37,19 @@ function readRoute(): AppRoute {
   }
   if (path === "/history") return { name: "history" };
   if (path === "/admin") return { name: "admin" };
+  if (path === "/app" || path === "/app/home") return { name: "home" };
+  if (path === "/app/discover") return { name: "discover" };
+  if (path === "/app/creators") return { name: "creators" };
+  if (path === "/app/campaigns") return { name: "campaigns" };
+  const campaignMatch = path.match(/^\/app\/campaigns\/([^/]+)$/);
+  if (campaignMatch) return { name: "campaign", campaignId: decodeURIComponent(campaignMatch[1]) };
   const params = new URLSearchParams(window.location.search);
   const platform = params.get("platform");
   return {
     name: "search",
     query: params.get("q") ?? "",
     platform:
-      platform === "instagram" || platform === "youtube" ? platform : undefined,
+      platform === "instagram" || platform === "tiktok" || platform === "youtube" || platform === "twitter" ? platform : undefined,
   };
 }
 
@@ -54,6 +65,11 @@ export function useRoute() {
   const navigate = useCallback((next: AppRoute) => {
     const url = next.name === "creator"
       ? `/creator/${encodeURIComponent(next.creatorId)}`
+      : next.name === "campaign" ? `/app/campaigns/${encodeURIComponent(next.campaignId)}`
+      : next.name === "home" ? "/app/home"
+      : next.name === "discover" ? "/app/discover"
+      : next.name === "creators" ? "/app/creators"
+      : next.name === "campaigns" ? "/app/campaigns"
       : next.name === "history"
         ? "/history"
         : next.name === "admin"
@@ -72,7 +88,7 @@ export function useRoute() {
         })}` : ""}`;
     window.history.pushState({}, "", url);
     setRoute(next);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
   return { route, navigate };

@@ -5,6 +5,7 @@ import { ConvexReactClient, useConvexAuth } from "convex/react";
 import "@fontsource-variable/plus-jakarta-sans";
 import { App } from "./App";
 import { ConvexDataProvider, DemoDataProvider } from "./data/AppData";
+import { ConvexWorkspaceDataProvider, DemoWorkspaceDataProvider } from "./features/workspace/WorkspaceData";
 import "./styles.css";
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined;
@@ -14,7 +15,7 @@ function ConnectedApp() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   return (
     <ConvexDataProvider authenticated={isAuthenticated} authLoading={isLoading}>
-      <App />
+      <ConvexWorkspaceDataProvider><App /></ConvexWorkspaceDataProvider>
     </ConvexDataProvider>
   );
 }
@@ -23,7 +24,7 @@ function Root() {
   if (!convexUrl) {
     return (
       <DemoDataProvider>
-        <App />
+        <DemoWorkspaceDataProvider><App /></DemoWorkspaceDataProvider>
       </DemoDataProvider>
     );
   }

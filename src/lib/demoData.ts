@@ -22,6 +22,34 @@ const verifiedAt = new Date("2026-08-24T10:00:00+05:30").getTime();
 
 const DEMO_CREATORS: DemoCreator[] = [
   {
+    id: "riya-on-the-go",
+    platform: "tiktok",
+    handle: "@riyaonthego",
+    normalizedHandle: "riyaonthego",
+    displayName: "Riya On The Go",
+    followerCount: 612000,
+    location: "Mumbai, India",
+    categories: ["Travel", "Lifestyle"],
+    socialProfiles: [{ platform: "tiktok", handle: "riyaonthego", url: "https://www.tiktok.com/@riyaonthego", followerCount: 612000, isVerified: true }],
+    isVerified: true,
+    isDemo: true,
+    contacts: [{ id: "riya-direct", contactType: "creator_direct", name: "Riya Shah", email: "riya.partnerships@example.test", verificationStatus: "verified", lastVerifiedAt: verifiedAt, isDemo: true, accessTier: "basic" }],
+  },
+  {
+    id: "arjun-builds",
+    platform: "twitter",
+    handle: "@arjunbuilds",
+    normalizedHandle: "arjunbuilds",
+    displayName: "Arjun Builds",
+    followerCount: 184000,
+    location: "Bengaluru, India",
+    categories: ["Technology", "Business"],
+    socialProfiles: [{ platform: "twitter", handle: "arjunbuilds", url: "https://x.com/arjunbuilds", followerCount: 184000, isVerified: true }],
+    isVerified: true,
+    isDemo: true,
+    contacts: [{ id: "arjun-manager", contactType: "manager", name: "Nisha Rao", email: "nisha.arjun@example.test", verificationStatus: "verified", lastVerifiedAt: verifiedAt, isDemo: true, accessTier: "pro" }],
+  },
+  {
     id: "pending-import",
     platform: "instagram",
     handle: "@pending_import",
@@ -273,9 +301,9 @@ export const demoData = {
   },
   async completeOnboarding() {
     const user = readUser();
-    if (user) saveUser({ ...user, onboardingCompleted: true, onboardingStep: 4 });
+    if (user) saveUser({ ...user, onboardingCompleted: true, onboardingStep: 5 });
   },
-  async updateOnboardingStep(step: 1 | 2 | 3 | 4) {
+  async updateOnboardingStep(step: 1 | 2 | 3 | 4 | 5) {
     const user = readUser();
     if (!user) throw new Error("Sign in to continue onboarding.");
     saveUser({ ...user, onboardingStep: step });

@@ -6,14 +6,17 @@ import { normalize, score } from "./lib/matching";
 
 function canonicalProfileUrl(platform: string, handle: string) {
   const clean = handle.replace(/^@/, "");
-  return platform === "youtube"
-    ? `https://www.youtube.com/@${encodeURIComponent(clean)}`
-    : `https://www.instagram.com/${encodeURIComponent(clean)}/`;
+  if (platform === "youtube") return `https://www.youtube.com/@${encodeURIComponent(clean)}`;
+  if (platform === "tiktok") return `https://www.tiktok.com/@${encodeURIComponent(clean)}`;
+  if (platform === "twitter") return `https://x.com/${encodeURIComponent(clean)}`;
+  return `https://www.instagram.com/${encodeURIComponent(clean)}/`;
 }
 
 const platformValidator = v.union(
   v.literal("instagram"),
+  v.literal("tiktok"),
   v.literal("youtube"),
+  v.literal("twitter"),
 );
 
 function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; verifiedOnly?: boolean }) {

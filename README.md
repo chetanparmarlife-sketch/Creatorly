@@ -2,6 +2,8 @@
 
 Creatorly is a creator-contact discovery product for influencer marketing agencies. The current build covers the complete demo journey from landing and onboarding through search, plan selection, unlock, history, settings, request fulfilment, and the Chrome extension.
 
+Release 1 also adds the workspace foundation for agencies and brands: workspace onboarding, creator discovery, a saved-creator CRM, campaign creation, and an 11-stage campaign execution rail.
+
 ## What works
 
 - Password signup/sign-in adapter for Convex Auth
@@ -22,6 +24,13 @@ Creatorly is a creator-contact discovery product for influencer marketing agenci
 - In-app fulfilment and payment notifications
 - Mobile navigation, advanced History filters, expiration warnings, and admin user summaries
 - Embedded extension availability, unlock, contact reveal, copy, upgrade, and request states
+- Agency or brand workspace setup with role-ready tenant boundaries
+- Creator discovery across Instagram, TikTok, YouTube, and X/Twitter
+- Saved-creator CRM with relationship stages, ownership, priority, and next actions
+- Campaign workspace with a horizontal execution rail from Discovered through Paid
+- Operational home dashboard with live workspace activity
+
+Instagram, TikTok, YouTube, X/Twitter, and WhatsApp connections are shown as **Planned** during onboarding. Release 1 does not claim those external APIs are connected yet.
 
 The imported repository contains 19,166 contact records. Imported contacts are labelled **Pending verification** until independently checked; only fictional records use the **Demo verified** label.
 
@@ -90,8 +99,8 @@ npm audit
 
 The integration tests cover signup → smart search → creator detail → unlock → remount → persistent access, History access/renewal, missing-contact submission, and admin fulfillment. Production checks also pass request creation, normalized duplicate suppression, and server-side rejection of non-admin users. `codex.qa.*@example.test` records are automated QA and must not be counted as real signups.
 
-Automated visual browser checking was unavailable because the installed browser helper points to a missing older runtime file. HTTP checks and the full UI integration test pass, but desktop/mobile visual review and loading the unpacked extension still need a manual Chrome check.
+The Release 1 integration test covers signup → discovery → save to CRM → campaign creation → creator assignment → campaign stage movement.
 
 ## Scope
 
-The extracted M1 specification is in [docs/specs/creatorly-m1.md](docs/specs/creatorly-m1.md). Real payment processing, outbound email, independent verification of imported contacts, YouTube channel mapping, and Chrome Web Store publishing remain pending. Team workspaces remain out of scope.
+The extracted M1 specification is in [docs/specs/creatorly-m1.md](docs/specs/creatorly-m1.md). The Release 1 workspace specification and execution plan are in [docs/specs/2026-08-30-creatorly-influencer-workspace.md](docs/specs/2026-08-30-creatorly-influencer-workspace.md) and [docs/superpowers/plans/2026-08-30-creatorly-workspace-discovery-crm.md](docs/superpowers/plans/2026-08-30-creatorly-workspace-discovery-crm.md). Real payment processing, outbound email, social data synchronization, WhatsApp messaging, independent verification of imported contacts, YouTube channel mapping, and Chrome Web Store publishing remain pending.

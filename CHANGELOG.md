@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-08-30 — Agency workspace Release 1
+
+### Added
+
+- Agency and brand workspace foundation with owner, admin, campaign manager, member, and reviewer roles.
+- Five-step workspace onboarding focused on goals, team setup, channels, and the first useful action.
+- Creator discovery across Instagram, TikTok, YouTube, and X/Twitter with saved-profile actions.
+- Creator CRM for relationship stage, owner, priority, tags, and next-action tracking.
+- Campaign creation and an 11-stage execution rail from Discovered through Paid.
+- Operational home dashboard and workspace activity history.
+- Explicit Planned labels for social-network and WhatsApp integrations that are not connected yet.
+
+### Verified
+
+- ESLint, 21 unit and UI integration tests, frontend production build, and Convex TypeScript checks pass.
+- End-to-end UI coverage includes signup, creator discovery, CRM save, campaign creation, creator assignment, and stage movement.
+
 ## 2026-08-29 — Real Instagram creator import
 
 ### Added

@@ -1,4 +1,4 @@
-import { ChevronDown, CreditCard, History, LogOut, Menu, Search, Settings, ShieldCheck, UserRound, X } from "lucide-react";
+import { Bot, ChartNoAxesCombined, ChevronDown, CreditCard, History, Home, Inbox, LogOut, Megaphone, Menu, Plug, Search, Settings, ShieldCheck, UserRound, Users, Workflow, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Viewer } from "../types";
 import { Logo } from "./Logo";
@@ -16,7 +16,7 @@ export function AppShell({
   children,
 }: {
   viewer: Viewer | null;
-  activePage: "search" | "history" | "pricing" | "settings" | "admin";
+  activePage: "home" | "search" | "creators" | "campaigns" | "history" | "pricing" | "settings" | "admin";
   navigate(route: AppRoute): void;
   onSearch(): void;
   onHistory(): void;
@@ -31,13 +31,25 @@ export function AppShell({
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand-button" onClick={onSearch} aria-label="Go to creator search">
+        <button className="brand-button" onClick={() => go({ name: "home" })} aria-label="Go to workspace home">
           <Logo />
         </button>
         <nav className={mobileOpen ? "is-open" : ""} aria-label="Primary navigation">
-          <button className={`nav-item ${activePage === "search" ? "is-active" : ""}`} onClick={onSearch} aria-current={activePage === "search" ? "page" : undefined}>
-            <Search size={17} aria-hidden="true" /> Search
+          <button className={`nav-item ${activePage === "home" ? "is-active" : ""}`} onClick={() => go({ name: "home" })} aria-current={activePage === "home" ? "page" : undefined}>
+            <Home size={17} aria-hidden="true" /> Home
           </button>
+          <button className={`nav-item ${activePage === "search" ? "is-active" : ""}`} onClick={onSearch} aria-current={activePage === "search" ? "page" : undefined}>
+            <Search size={17} aria-hidden="true" /> <span aria-hidden="true">Discover</span><span className="sr-only">Search</span>
+          </button>
+          <button className={`nav-item ${activePage === "creators" ? "is-active" : ""}`} onClick={() => go({ name: "creators" })} aria-current={activePage === "creators" ? "page" : undefined}><Users size={17}/> Creators</button>
+          <button className={`nav-item ${activePage === "campaigns" ? "is-active" : ""}`} onClick={() => go({ name: "campaigns" })} aria-current={activePage === "campaigns" ? "page" : undefined}><Megaphone size={17}/> Campaigns</button>
+          <div className="nav-divider" />
+          <button className="nav-item is-planned" disabled><Inbox size={17}/> Inbox <small>Planned</small></button>
+          <button className="nav-item is-planned" disabled><Workflow size={17}/> Automations <small>Planned</small></button>
+          <button className="nav-item is-planned" disabled><ChartNoAxesCombined size={17}/> Reports <small>Planned</small></button>
+          <button className="nav-item is-planned" disabled><Bot size={17}/> Agents <small>Planned</small></button>
+          <button className="nav-item is-planned" disabled><Plug size={17}/> Integrations <small>Planned</small></button>
+          <div className="nav-divider" />
           <button className={`nav-item ${activePage === "history" ? "is-active" : ""}`} onClick={onHistory} aria-current={activePage === "history" ? "page" : undefined}>
             <History size={17} aria-hidden="true" /> History
           </button>

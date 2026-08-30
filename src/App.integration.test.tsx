@@ -1,14 +1,15 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App";
 import { DemoDataProvider } from "./data/AppData";
 import { demoData } from "./lib/demoData";
+import { DemoWorkspaceDataProvider } from "./features/workspace/WorkspaceData";
 
 function renderDemo() {
   return render(
     <DemoDataProvider>
-      <App />
+      <DemoWorkspaceDataProvider><App /></DemoWorkspaceDataProvider>
     </DemoDataProvider>,
   );
 }
@@ -24,7 +25,7 @@ describe("Creatorly M1 user journey", () => {
   it("does not show a signed-out screen while a saved session is being restored", () => {
     render(
       <DemoDataProvider authLoading>
-        <App />
+        <DemoWorkspaceDataProvider><App /></DemoWorkspaceDataProvider>
       </DemoDataProvider>,
     );
 
@@ -258,7 +259,7 @@ describe("Creatorly M1 user journey", () => {
     await waitFor(() => expect(screen.getByTitle("Credits available")).toHaveTextContent("275"));
   });
 
-  it("returns to onboarding step 3 after a hard-refresh-style remount", async () => {
+  it("returns to workspace onboarding step 3 after a hard-refresh-style remount", async () => {
     const user = userEvent.setup();
     const firstRender = renderDemo();
     await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
@@ -274,16 +275,16 @@ describe("Creatorly M1 user journey", () => {
     window.history.replaceState({}, "", "/onboarding");
 
     const onboardingRender = renderDemo();
-    await user.click(await screen.findByRole("button", { name: /choose a plan/i }));
-    await user.click(screen.getByRole("button", { name: /^pro/i }));
-    await user.click(screen.getByRole("button", { name: /continue to demopay/i }));
-    expect(await screen.findByRole("heading", { name: /no real charge will be made/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /who is running creator campaigns/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^continue/i }));
+    expect(await screen.findByRole("heading", { name: /what should creatorly help/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^continue/i }));
+    expect(await screen.findByRole("heading", { name: /set the first campaign owner/i })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}").onboardingStep).toBe(3);
-    expect(JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}").onboardingPlanTier).toBe("pro");
 
     onboardingRender.unmount();
     renderDemo();
-    expect(await screen.findByRole("heading", { name: /no real charge will be made/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /set the first campaign owner/i })).toBeInTheDocument();
   });
 
   it("updates profile and notification settings", async () => {
@@ -303,5 +304,39 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("checkbox", { name: /weekly usage summary/i }));
     await user.click(screen.getByRole("button", { name: /save notifications/i }));
     expect(await screen.findByText("Notification preferences saved.")).toBeInTheDocument();
+  });
+
+  it("saves a discovered creator and moves them through a campaign", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+
+    await user.click(await screen.findByRole("button", { name: /^search$/i }));
+    const search = await screen.findByLabelText("Creator name or handle");
+    await user.type(search, "Riya On The Go");
+    await user.click(within(search.closest("section")!).getByRole("button", { name: /^search$/i }));
+    const row = await screen.findByRole("button", { name: /view Riya On The Go profile/i });
+    const resultRow = row.closest("article");
+    expect(resultRow).not.toBeNull();
+    await user.click(within(resultRow!).getByRole("button", { name: /^save$/i }));
+
+    await user.click(screen.getByRole("button", { name: /^creators$/i }));
+    expect(await screen.findByText("@riyaonthego")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^campaigns$/i }));
+    await user.click((await screen.findAllByRole("button", { name: /create campaign/i }))[0]);
+    const campaignName = screen.getByPlaceholderText("Festive creator launch");
+    await user.type(campaignName, "Monsoon Escape");
+    await user.type(screen.getByPlaceholderText(/drive consideration/i), "Launch a travel collection");
+    await user.click(within(campaignName.closest("form")!).getByRole("button", { name: /^create campaign$/i }));
+    expect(await screen.findByRole("heading", { name: "Monsoon Escape" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Saved creator"), screen.getByRole("option", { name: "Riya On The Go" }));
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+    const stage = await screen.findByLabelText(/move Riya On The Go/i);
+    await user.selectOptions(stage, "contacted");
+    await waitFor(() => expect(screen.getByLabelText(/move Riya On The Go/i)).toHaveValue("contacted"));
   });
 });

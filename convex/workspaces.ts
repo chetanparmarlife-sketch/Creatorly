@@ -1,0 +1,63 @@
+import { ConvexError, v } from "convex/values";
+import { mutation, query } from "./_generated/server";
+import { requireWorkspaceMember, requireWorkspaceRole, workspaceAdmins } from "./lib/workspaceAuth";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+const role = v.union(v.literal("owner"), v.literal("admin"), v.literal("manager"), v.literal("contributor"), v.literal("reviewer"));
+
+export const create = mutation({
+  args: { name: v.string(), kind: v.union(v.literal("agency"), v.literal("brand"), v.literal("talent")), website: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("NOT_AUTHENTICATED");
+    const user = await ctx.db.get(userId);
+    if (!user) throw new ConvexError("Account not found.");
+    const name = args.name.trim();
+    if (!name) throw new ConvexError("Enter a workspace name.");
+    const now = Date.now();
+    const workspaceId = await ctx.db.insert("workspaces", { name, kind: args.kind, website: args.website?.trim() || undefined, createdBy: userId, createdAt: now, updatedAt: now });
+    await ctx.db.insert("workspaceMembers", { workspaceId, userId, email: user.email ?? "", role: "owner", status: "active", createdAt: now, updatedAt: now });
+    await ctx.db.patch(userId, { activeWorkspaceId: workspaceId, updatedAt: now });
+    await ctx.db.insert("activityEvents", { workspaceId, actorUserId: userId, entityType: "workspace", entityId: workspaceId, action: "created", summary: `Created workspace ${name}`, createdAt: now });
+    return { workspaceId };
+  },
+});
+
+export const listMine = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const memberships = await ctx.db.query("workspaceMembers").withIndex("by_user", q => q.eq("userId", userId)).collect();
+    const rows = await Promise.all(memberships.filter(m => m.status === "active").map(async member => {
+      const workspace = await ctx.db.get(member.workspaceId);
+      return workspace ? { id: workspace._id, name: workspace.name, kind: workspace.kind, role: member.role } : null;
+    }));
+    return rows.filter(row => row !== null);
+  },
+});
+
+export const getCurrent = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    const { member } = await requireWorkspaceMember(ctx, args.workspaceId);
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (!workspace) throw new ConvexError("Workspace not found.");
+    const members = await ctx.db.query("workspaceMembers").withIndex("by_workspace", q => q.eq("workspaceId", args.workspaceId)).collect();
+    return { ...workspace, role: member.role, members: members.map(item => ({ id: item._id, email: item.email, role: item.role, status: item.status })) };
+  },
+});
+
+export const inviteMember = mutation({
+  args: { workspaceId: v.id("workspaces"), email: v.string(), role },
+  handler: async (ctx, args) => {
+    await requireWorkspaceRole(ctx, args.workspaceId, workspaceAdmins);
+    const email = args.email.trim().toLowerCase();
+    if (!email.includes("@")) throw new ConvexError("Enter a valid email address.");
+    const existing = await ctx.db.query("workspaceMembers").withIndex("by_workspace_email", q => q.eq("workspaceId", args.workspaceId).eq("email", email)).unique();
+    if (existing) return { invitationId: existing._id, status: "already_exists" as const };
+    const now = Date.now();
+    const invitationId = await ctx.db.insert("workspaceMembers", { workspaceId: args.workspaceId, email, role: args.role, status: "invited", createdAt: now, updatedAt: now });
+    return { invitationId, status: "created" as const };
+  },
+});

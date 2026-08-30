@@ -12,6 +12,9 @@ import { PaymentResultView } from "./components/PaymentResultView";
 import { PricingView } from "./components/PricingView";
 import { SettingsView } from "./components/SettingsView";
 import { VerificationView } from "./components/VerificationView";
+import { CampaignDetailWorkspace, CampaignsWorkspace, CreatorsWorkspace, DiscoveryWorkspace, WorkspaceHome } from "./features/workspace/WorkspaceViews";
+import { useWorkspaceData } from "./features/workspace/WorkspaceData";
+import type { WorkspaceSummary } from "./types";
 
 const AdminView = lazy(() => import("./components/AdminView").then((module) => ({ default: module.AdminView })));
 import { SearchView } from "./components/SearchView";
@@ -20,10 +23,18 @@ export function App() {
   const data = useAppData();
   const { route, navigate } = useRoute();
   const [viewer, setViewer] = useState<Viewer | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
+  const workspaceData = useWorkspaceData();
 
   const loadViewer = useCallback(async () => {
     setViewer(await data.getViewer());
   }, [data]);
+
+  useEffect(() => {
+    let active = true;
+    if (viewer) workspaceData.ensureWorkspace(viewer).then(item => { if (active) setWorkspace(item); });
+    return () => { active = false; };
+  }, [viewer, workspaceData]);
 
   useEffect(() => {
     let active = true;
@@ -58,9 +69,9 @@ export function App() {
   return (
     <AppShell
       viewer={viewer}
-      activePage={route.name === "history" ? "history" : route.name === "pricing" ? "pricing" : route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
+      activePage={route.name === "home" ? "home" : route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" ? "pricing" : route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
       navigate={navigate}
-      onSearch={() => navigate({ name: "search", query: "" })}
+      onSearch={() => navigate({ name: "discover" })}
       onHistory={() => navigate({ name: "history" })}
       onAdmin={() => navigate({ name: "admin" })}
       showAdmin={viewer?.role === "admin"}
@@ -71,7 +82,12 @@ export function App() {
       }}
     >
       {data.mode === "demo" ? <div className="workspace-mode">Local demo · connect Convex for shared data</div> : null}
-      {route.name === "pricing" ? <PricingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>
+      {route.name === "home" ? workspace ? <WorkspaceHome workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      : route.name === "discover" ? workspace ? <DiscoveryWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      : route.name === "creators" ? workspace ? <CreatorsWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      : route.name === "campaigns" ? workspace ? <CampaignsWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      : route.name === "campaign" ? workspace ? <CampaignDetailWorkspace workspace={workspace} campaignId={route.campaignId} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      : route.name === "pricing" ? <PricingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>
       : route.name === "settings" ? <SettingsView viewer={viewer} refresh={loadViewer}/>
       : route.name === "payment" ? <PaymentResultView status={route.status} navigate={navigate}/>
       : route.name === "creator" ? (

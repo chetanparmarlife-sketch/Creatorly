@@ -1,22 +1,31 @@
 import { useState } from "react";
-import { ArrowRight, Check, Puzzle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Camera, Check, MessageCircle, PlayCircle, Search, Users } from "lucide-react";
 import type { AppRoute } from "../hooks/useRoute";
-import type { PlanTier, Viewer } from "../types";
+import type { Viewer, WorkspaceKind, WorkspaceRole } from "../types";
 import { useAppData } from "../data/AppData";
+
+const goals = ["Discover creators", "Manage campaigns", "Centralize outreach", "Report results"];
 
 export function OnboardingView({ viewer, navigate, refresh }: { viewer: Viewer; navigate(route: AppRoute): void; refresh(): void }) {
   const data = useAppData();
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(viewer.onboardingStep ?? 1);
-  const [tier, setTier] = useState<PlanTier>(viewer.onboardingPlanTier ?? viewer.currentPlanTier);
-  const steps = ["Account", "Plan", "DemoPay", "Extension"];
-  async function goToStep(nextStep: 1 | 2 | 3 | 4) { await data.updateOnboardingStep(nextStep); setStep(nextStep); }
-  async function chooseTier(nextTier: PlanTier) { setTier(nextTier); await data.updateOnboardingPlan(nextTier); }
-  async function finish() { await data.completeOnboarding(); refresh(); navigate({ name: "search", query: "" }); }
-  return <main className="onboarding-page"><div className="onboarding-card">
-    <div className="stepper">{steps.map((label, index) => <span className={index + 1 <= step ? "is-active" : ""} key={label}><i>{index + 1 < step ? <Check size={13}/> : index + 1}</i>{label}</span>)}</div>
-    {step === 1 ? <section><p className="eyebrow">Account ready</p><h1>Welcome, {viewer.name.split(" ")[0]}.</h1><p>Your email is verified in this demo environment. You have 25 starter credits.</p><button className="button button-primary" onClick={() => goToStep(2)}>Choose a plan <ArrowRight size={17}/></button></section> : null}
-    {step === 2 ? <section><p className="eyebrow">Choose access</p><h1>Who do you need to reach?</h1><div className="mini-plans">{(["free","basic","pro"] as PlanTier[]).map(item => <button className={tier === item ? "is-selected" : ""} onClick={() => chooseTier(item)} key={item}><strong>{item}</strong><span>{item === "pro" ? "Creators + managers" : "Creator contacts"}</span></button>)}</div><button className="button button-primary" onClick={() => goToStep(tier === "free" ? 4 : 3)}>{tier === "free" ? "Continue free" : "Continue to DemoPay"}</button></section> : null}
-    {step === 3 ? <section><p className="eyebrow">DemoPay</p><h1>No real charge will be made.</h1><p>This build uses a mock payment partner. Confirming adds plan credits to your account for product testing.</p><button className="button button-primary" onClick={async () => { await data.changePlan(tier, "monthly", `demo_onboard_${Date.now()}`); refresh(); await goToStep(4); }}>Confirm demo payment</button><button className="text-button" onClick={() => goToStep(2)}>Back</button></section> : null}
-    {step === 4 ? <section><span className="onboarding-icon"><Puzzle/></span><p className="eyebrow">Browser companion</p><h1>Find contacts while you browse.</h1><p>Install the unpacked Chrome extension from the repository, or continue to the dashboard now.</p><div className="onboarding-actions"><a className="button button-secondary" href="https://github.com/chetanparmarlife-sketch/Creatorly/tree/main/extension" target="_blank" rel="noreferrer">Extension instructions</a><button className="button button-primary" onClick={finish}>Open dashboard</button></div></section> : null}
-  </div></main>;
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(viewer.onboardingStep ?? 1);
+  const [kind, setKind] = useState<WorkspaceKind>("agency");
+  const [workspaceName, setWorkspaceName] = useState(viewer.companyName);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>(["Discover creators", "Manage campaigns"]);
+  const [role, setRole] = useState<WorkspaceRole>("manager");
+  const [invite, setInvite] = useState("");
+  const [firstAction, setFirstAction] = useState<"discover" | "campaigns">("discover");
+  const labels = ["Workspace", "Goals", "Team", "Channels", "First result"];
+  async function go(next: 1 | 2 | 3 | 4 | 5) { await data.updateOnboardingStep(next); setStep(next); }
+  async function finish() { await data.completeOnboarding(); await refresh(); navigate({ name: firstAction }); }
+  function toggleGoal(goal: string) { setSelectedGoals(current => current.includes(goal) ? current.filter(item => item !== goal) : [...current, goal]); }
+
+  return <main className="onboarding-page workspace-onboarding"><header><strong>Creatorly</strong><span>Step {step} of 5</span></header><div className="onboarding-progress"><i style={{ width: `${step * 20}%` }}/></div><div className="onboarding-layout"><aside><p className="eyebrow">Workspace setup</p><h2>Build the operating system around your creator team.</h2><ol>{labels.map((label, index) => <li className={index + 1 === step ? "is-current" : index + 1 < step ? "is-done" : ""} key={label}><span>{index + 1 < step ? <Check size={13}/> : index + 1}</span>{label}</li>)}</ol></aside><section className="onboarding-workarea">
+    {step === 1 ? <div><span className="onboarding-glyph"><Building2/></span><p className="eyebrow">Your workspace</p><h1>Who is running creator campaigns?</h1><p>This sets the language and structure your team will see.</p><div className="choice-grid">{(["agency","brand","talent"] as WorkspaceKind[]).map(item => <button className={kind === item ? "is-selected" : ""} onClick={() => setKind(item)} key={item}><strong>{item === "talent" ? "Talent team" : item}</strong><span>{item === "agency" ? "Manage campaigns across clients" : item === "brand" ? "Run partnerships for one brand" : "Represent a creator roster"}</span></button>)}</div><label className="onboarding-field">Workspace name<input value={workspaceName} onChange={event => setWorkspaceName(event.target.value)} required/></label></div> : null}
+    {step === 2 ? <div><span className="onboarding-glyph"><Search/></span><p className="eyebrow">Your goals</p><h1>What should Creatorly help your team accomplish?</h1><p>Choose every workflow you want ready in the workspace.</p><div className="goal-grid">{goals.map(goal => <button className={selectedGoals.includes(goal) ? "is-selected" : ""} onClick={() => toggleGoal(goal)} key={goal}>{selectedGoals.includes(goal) ? <Check size={16}/> : <span/>}{goal}</button>)}</div></div> : null}
+    {step === 3 ? <div><span className="onboarding-glyph"><Users/></span><p className="eyebrow">Team and ownership</p><h1>Set the first campaign owner.</h1><p>You can invite teammates now or continue and do it from settings later.</p><div className="onboarding-form-grid"><label>Your role<select value={role} onChange={event => setRole(event.target.value as WorkspaceRole)}><option value="owner">Owner</option><option value="admin">Admin</option><option value="manager">Campaign manager</option><option value="contributor">Contributor</option><option value="reviewer">Reviewer</option></select></label><label>Teammate email <small>Optional</small><input type="email" value={invite} onChange={event => setInvite(event.target.value)} placeholder="teammate@agency.com"/></label></div><p className="onboarding-note">Invites are recorded as pending until a real email provider is connected.</p></div> : null}
+    {step === 4 ? <div><span className="onboarding-glyph"><MessageCircle/></span><p className="eyebrow">Channels</p><h1>Connect data and outreach when you are ready.</h1><p>These integrations are planned and are not represented as live in this build.</p><div className="connection-list"><div><Camera/><span><strong>Instagram</strong><small>Creator and post metrics</small></span><b>Planned</b></div><div><PlayCircle/><span><strong>YouTube</strong><small>Channel and video metrics</small></span><b>Planned</b></div><div><MessageCircle/><span><strong>WhatsApp Business</strong><small>Shared outreach and replies</small></span><b>Planned</b></div></div></div> : null}
+    {step === 5 ? <div><span className="onboarding-glyph"><ArrowRight/></span><p className="eyebrow">First result</p><h1>Where should we take you first?</h1><p>Your workspace is ready. Start with the action that creates value now.</p><div className="choice-grid first-action-grid"><button className={firstAction === "discover" ? "is-selected" : ""} onClick={() => setFirstAction("discover")}><Search/><strong>Discover creators</strong><span>Search the database and save a shortlist</span></button><button className={firstAction === "campaigns" ? "is-selected" : ""} onClick={() => setFirstAction("campaigns")}><Building2/><strong>Create a campaign</strong><span>Start the brief and add creators later</span></button></div></div> : null}
+    <footer>{step > 1 ? <button className="button button-secondary" onClick={() => go((step - 1) as 1 | 2 | 3 | 4)}><ArrowLeft size={16}/> Back</button> : <span/>}{step < 5 ? <button className="button button-primary" disabled={(step === 1 && !workspaceName.trim()) || (step === 2 && !selectedGoals.length)} onClick={() => go((step + 1) as 2 | 3 | 4 | 5)}>Continue <ArrowRight size={16}/></button> : <button className="button button-primary" onClick={finish}>Open workspace <ArrowRight size={16}/></button>}</footer>
+  </section></div></main>;
 }
