@@ -65,6 +65,19 @@ export const unlock = mutation({
     ]);
     if (!user || !creator) throw new ConvexError("Creator not found.");
 
+    const contacts = await ctx.db
+      .query("contacts")
+      .withIndex("by_creator", (q) => q.eq("creatorId", args.creatorId))
+      .collect();
+    const hasEligibleContact = contacts.some((contact) =>
+      contact.isActive
+      && contact.verificationStatus === "verified"
+      && (contact.accessTier === "basic" || user.currentPlanTier === "pro")
+    );
+    if (!hasEligibleContact) {
+      throw new ConvexError("This contact is unavailable while verification is in progress.");
+    }
+
     const now = Date.now();
     const unlocks = await ctx.db
       .query("unlockRecords")

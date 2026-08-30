@@ -11,6 +11,7 @@
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
+import type * as contactFlags from "../contactFlags.js";
 import type * as contactRequests from "../contactRequests.js";
 import type * as creators from "../creators.js";
 import type * as extensionApi from "../extensionApi.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
   billing: typeof billing;
+  contactFlags: typeof contactFlags;
   contactRequests: typeof contactRequests;
   creators: typeof creators;
   extensionApi: typeof extensionApi;

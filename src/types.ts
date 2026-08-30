@@ -1,5 +1,14 @@
 export type Platform = "instagram" | "youtube";
+export type SocialPlatform = Platform | "linkedin" | "twitter";
 export type PlanTier = "free" | "basic" | "pro";
+
+export type SocialProfile = {
+  platform: SocialPlatform;
+  handle: string;
+  url: string;
+  followerCount?: number;
+  isVerified?: boolean;
+};
 
 export type Viewer = {
   id: string;
@@ -14,6 +23,8 @@ export type Viewer = {
   subscriptionRenewalDate?: number;
   cancellationRequestedAt?: number;
   onboardingCompleted: boolean;
+  onboardingStep: 1 | 2 | 3 | 4;
+  onboardingPlanTier: PlanTier;
   isEmailVerified: boolean;
   notificationPreferences: NotificationPreferences;
 };
@@ -56,15 +67,17 @@ export type CreatorSearchResult = {
   categories?: string[];
   isVerified: boolean;
   isDemo: boolean;
+  socialProfiles?: SocialProfile[];
+  contentLanguages?: string[];
+  profileType?: string;
+  contentQuality?: string;
+  managementType?: "self_managed" | "talent_managed";
   contactCount: number;
   matchScore: number;
 };
 
-export type FollowerBand = "any" | "not_reported" | "under_1k" | "1k_5k" | "5k_10k";
-
 export type CreatorSearchFilters = {
   platform?: Platform;
-  followerBand?: FollowerBand;
   category?: string;
   location?: string;
   verifiedOnly?: boolean;
@@ -91,6 +104,7 @@ export type CreatorDetailData = {
   currentPlanTier: PlanTier;
   availableContactCount: number;
   hiddenProContactCount: number;
+  pendingContactCount: number;
   contacts: CreatorContact[];
 };
 

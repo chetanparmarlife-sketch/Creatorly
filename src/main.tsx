@@ -11,9 +11,9 @@ const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined;
 const convexClient = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 function ConnectedApp() {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   return (
-    <ConvexDataProvider authenticated={isAuthenticated}>
+    <ConvexDataProvider authenticated={isAuthenticated} authLoading={isLoading}>
       <App />
     </ConvexDataProvider>
   );
@@ -29,7 +29,7 @@ function Root() {
   }
 
   return (
-    <ConvexAuthProvider client={convexClient!}>
+    <ConvexAuthProvider client={convexClient!} storage={window.localStorage}>
       <ConnectedApp />
     </ConvexAuthProvider>
   );

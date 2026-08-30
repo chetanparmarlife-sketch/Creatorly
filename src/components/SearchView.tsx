@@ -2,11 +2,12 @@ import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Clapperboard, Dumbbell, MapPin, Palette, Plane, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import type { AppRoute } from "../hooks/useRoute";
-import type { CreatorSearchResult, FollowerBand, Platform } from "../types";
+import type { CreatorSearchResult, Platform } from "../types";
 import { CreatorResult } from "./CreatorResult";
 import { RequestContactModal } from "./RequestContactModal";
 
 const CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
+const REPOSITORY_SCOPE = "Current coverage: India-focused Instagram creators from the imported repository; follower counts are incomplete and generally under 10K. YouTube coverage is not loaded yet.";
 const CATEGORY_SHORTCUTS = [
   { label: "Lifestyle", icon: Sparkles },
   { label: "Entertainment", icon: Clapperboard },
@@ -28,7 +29,6 @@ export function SearchView({
   const [query, setQuery] = useState(initialQuery);
   const deferredQuery = useDeferredValue(query.trim());
   const [platform, setPlatform] = useState<Platform | undefined>(initialPlatform);
-  const [followerBand, setFollowerBand] = useState<FollowerBand>("any");
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
   const deferredLocation = useDeferredValue(location.trim());
@@ -48,7 +48,7 @@ export function SearchView({
       setLoading(true);
       setError("");
       setResults([]);
-      data.search(deferredQuery, { platform, followerBand, category: category || undefined, location: deferredLocation || undefined, verifiedOnly })
+      data.search(deferredQuery, { platform, category: category || undefined, location: deferredLocation || undefined, verifiedOnly })
         .then((nextResults) => {
           if (currentRequest === requestId.current) setResults(nextResults);
         })
@@ -60,16 +60,15 @@ export function SearchView({
         });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [category, data, deferredLocation, deferredQuery, followerBand, platform, verifiedOnly]);
+  }, [category, data, deferredLocation, deferredQuery, platform, verifiedOnly]);
 
   const visibleResults = deferredQuery.length === 1 ? [] : results;
   const isSearching = deferredQuery.length !== 1 && loading;
   const visibleError = deferredQuery.length !== 1 ? error : "";
-  const hasFilters = Boolean(platform || followerBand !== "any" || category || location || verifiedOnly);
+  const hasFilters = Boolean(platform || category || location || verifiedOnly);
 
   function clearFilters() {
     setPlatform(undefined);
-    setFollowerBand("any");
     setCategory("");
     setLocation("");
     setVerifiedOnly(false);
@@ -90,6 +89,7 @@ export function SearchView({
       </section>
 
       <section className="search-console" aria-label="Creator search">
+        <p className="repository-scope">{REPOSITORY_SCOPE}</p>
         <label className="search-input-wrap">
           <Search size={22} aria-hidden="true" />
           <span className="sr-only">Creator name or handle</span>
@@ -140,23 +140,13 @@ export function SearchView({
               {CATEGORIES.map(item => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
-          <label className="filter-control">
-            <span>Followers</span>
-            <select value={followerBand} onChange={(event) => setFollowerBand(event.target.value as FollowerBand)}>
-              <option value="any">Any audience</option>
-              <option value="not_reported">Count not supplied</option>
-              <option value="under_1k">Under 1K</option>
-              <option value="1k_5k">1K–5K</option>
-              <option value="5k_10k">5K–10K</option>
-            </select>
-          </label>
           <label className="filter-control filter-location">
             <span>Location</span>
             <span className="filter-input"><MapPin size={14} /><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City or state" /></span>
           </label>
           <label className="verified-filter">
             <input type="checkbox" checked={verifiedOnly} onChange={(event) => setVerifiedOnly(event.target.checked)} />
-            Verified profiles
+            Platform badge only
           </label>
           {hasFilters ? <button className="clear-filters" onClick={clearFilters}><X size={14} /> Clear</button> : null}
         </div>
@@ -184,7 +174,7 @@ export function SearchView({
           <div className="search-empty">
             <span className="empty-orbit" aria-hidden="true">?</span>
             <h3>{deferredQuery.length >= 2 ? "No creator found" : "No creators match these filters"}</h3>
-            <p>{deferredQuery.length >= 2 ? "Try another spelling or ask our research queue to find the right contact." : "Widen the audience, category, or location to see more creators."}</p>
+            <p>{deferredQuery.length >= 2 ? REPOSITORY_SCOPE : "Widen the category, platform, or location to see more creators."}</p>
             {deferredQuery.length >= 2 ? <button className="button button-primary request-empty-action" onClick={() => setRequestOpen(true)}>Request contact</button> : <button className="button button-primary request-empty-action" onClick={clearFilters}>Clear filters</button>}
           </div>
         ) : null}

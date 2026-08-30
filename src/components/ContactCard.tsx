@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Check, Copy, Mail, MessageCircle, Phone, ShieldCheck } from "lucide-react";
+import { useAppData } from "../data/AppData";
 import { contactRole, formatDate } from "../lib/format";
 import type { CreatorContact } from "../types";
 
 export function ContactCard({ contact }: { contact: CreatorContact }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [reportState, setReportState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const { reportWrongContact } = useAppData();
 
   async function copy(label: string, value: string) {
     await navigator.clipboard.writeText(value);
@@ -18,6 +21,16 @@ export function ContactCard({ contact }: { contact: CreatorContact }) {
     contact.whatsapp ? { label: "WhatsApp", value: contact.whatsapp, href: `https://wa.me/${contact.whatsapp.replace(/\D/g, "")}`, icon: MessageCircle } : null,
   ].filter((field) => field !== null);
   const statusLabel = contact.isDemo ? "Demo verified" : contact.verificationStatus === "verified" ? "Verified" : contact.verificationStatus === "pending_verification" ? "Pending verification" : "Unverified";
+
+  async function report() {
+    setReportState("sending");
+    try {
+      await reportWrongContact(contact.id);
+      setReportState("sent");
+    } catch {
+      setReportState("error");
+    }
+  }
 
   return (
     <article className="contact-card">
@@ -43,7 +56,13 @@ export function ContactCard({ contact }: { contact: CreatorContact }) {
         ))}
       </div>
       {contact.contextualNotes ? <p className="contact-note">“{contact.contextualNotes}”</p> : null}
-      <footer>{contact.isDemo ? `Demo record · checked ${formatDate(contact.lastVerifiedAt)}` : contact.verificationStatus === "verified" ? `Last verified ${formatDate(contact.lastVerifiedAt)}` : "Imported record · verification pending"}</footer>
+      <footer>
+        <span>{contact.isDemo ? `Demo record · checked ${formatDate(contact.lastVerifiedAt)}` : contact.verificationStatus === "verified" ? `Last verified ${formatDate(contact.lastVerifiedAt)}` : "Imported record · verification pending"}</span>
+        <button className="report-contact" type="button" onClick={report} disabled={reportState === "sending" || reportState === "sent"}>
+          {reportState === "sending" ? "Reporting…" : reportState === "sent" ? "Report received" : "Report wrong contact"}
+        </button>
+        {reportState === "error" ? <span className="report-error" role="alert">Could not save the report. Try again.</span> : null}
+      </footer>
     </article>
   );
 }

@@ -52,7 +52,7 @@ export function AuthScreen({ initialMode = "signup", navigate, showVerificationA
         <div className="signal-demo" aria-hidden="true">
           <span className="signal-step is-done"><Search size={16} /> Maya Kapoor</span>
           <span className="signal-line" />
-          <span className="signal-step is-done"><ShieldCheck size={16} /> Match verified</span>
+          <span className="signal-step is-done"><ShieldCheck size={16} /> Profile matched</span>
           <span className="signal-line" />
           <span className="signal-step is-active"><CheckCircle2 size={16} /> Contact ready</span>
         </div>
@@ -79,11 +79,11 @@ export function AuthScreen({ initialMode = "signup", navigate, showVerificationA
               <div className="field-row">
                 <label>
                   <span>Full name</span>
-                  <input name="name" autoComplete="name" required placeholder="Chetan Parmar" />
+                  <input name="name" autoComplete="name" required placeholder="Aisha Shah" />
                 </label>
                 <label>
                   <span>Agency name</span>
-                  <input name="companyName" autoComplete="organization" required placeholder="Wondrlab" />
+                  <input name="companyName" autoComplete="organization" required placeholder="Northstar Agency" />
                 </label>
               </div>
             ) : null}

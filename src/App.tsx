@@ -35,6 +35,10 @@ export function App() {
     return () => { active = false; };
   }, [data]);
 
+  if (data.authLoading) {
+    return <main className="auth-restore-state" role="status" aria-live="polite">Restoring your session…</main>;
+  }
+
   if (route.name === "landing") return <LandingPage navigate={navigate}/>;
 
   if (!data.authenticated) {

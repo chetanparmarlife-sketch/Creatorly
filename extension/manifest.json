@@ -1,21 +1,28 @@
 {
   "manifest_version": 3,
   "name": "Creatorly Contact Finder",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Detect creator profiles and unlock Creatorly contacts while you browse.",
-  "permissions": ["activeTab", "tabs", "storage"],
+  "minimum_chrome_version": "114",
+  "permissions": ["activeTab", "tabs", "storage", "sidePanel"],
   "host_permissions": [
     "https://www.instagram.com/*",
     "https://instagram.com/*",
     "https://www.youtube.com/*",
     "https://youtube.com/*",
+    "https://www.linkedin.com/in/*",
+    "https://linkedin.com/in/*",
+    "https://x.com/*",
+    "https://www.x.com/*",
+    "https://twitter.com/*",
+    "https://www.twitter.com/*",
     "https://effervescent-toucan-379.convex.site/*"
   ],
   "action": {
-    "default_title": "Creatorly",
-    "default_popup": "popup.html",
+    "default_title": "Open Creatorly side panel",
     "default_badge_background_color": "#237355"
   },
+  "side_panel": { "default_path": "sidepanel.html" },
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
@@ -23,9 +30,15 @@
         "https://www.instagram.com/*",
         "https://instagram.com/*",
         "https://www.youtube.com/*",
-        "https://youtube.com/*"
+        "https://youtube.com/*",
+        "https://www.linkedin.com/in/*",
+        "https://linkedin.com/in/*",
+        "https://x.com/*",
+        "https://www.x.com/*",
+        "https://twitter.com/*",
+        "https://www.twitter.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["profile-url.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

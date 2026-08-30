@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App";
 import { DemoDataProvider } from "./data/AppData";
+import { demoData } from "./lib/demoData";
 
 function renderDemo() {
   return render(
@@ -19,6 +20,30 @@ describe("Creatorly M1 user journey", () => {
   });
 
   afterEach(cleanup);
+
+  it("does not show a signed-out screen while a saved session is being restored", () => {
+    render(
+      <DemoDataProvider authLoading>
+        <App />
+      </DemoDataProvider>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Restoring your session");
+    expect(screen.queryByRole("button", { name: /create free account/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /go from shortlist/i })).not.toBeInTheDocument();
+  });
+
+  it("renders hero statuses as plain labels instead of controls", () => {
+    window.history.replaceState({}, "", "/");
+    renderDemo();
+
+    const matched = screen.getByText("Matched");
+    const access = screen.getByText("VERIFICATION IN PROGRESS");
+    expect(matched.tagName).toBe("SPAN");
+    expect(access.tagName).toBe("SPAN");
+    expect(window.getComputedStyle(matched).cursor).not.toBe("pointer");
+    expect(window.getComputedStyle(access).cursor).not.toBe("pointer");
+  });
 
   it("signs up, searches, unlocks once, and preserves access after remount", async () => {
     const user = userEvent.setup();
@@ -51,6 +76,44 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByText("hello.maya@example.test")).toBeInTheDocument();
     expect(screen.getByText("20")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /unlock for 5 credits/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps pending contacts unavailable without charging or revealing them", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+    await user.type(await screen.findByLabelText("Creator name or handle"), "pending import");
+    await user.click(await screen.findByRole("button", { name: /Pending Import/i }));
+
+    expect(await screen.findByRole("heading", { name: /contact is unavailable/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /unavailable until verified/i })).toBeDisabled();
+    await expect(demoData.unlock("pending-import")).rejects.toThrow(/unavailable while verification is in progress/i);
+    expect((await demoData.viewer())?.creditBalance).toBe(25);
+    expect(screen.queryByText("pending@example.test")).not.toBeInTheDocument();
+  });
+
+  it("persists a wrong-contact report from every revealed contact card", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+    await user.type(await screen.findByLabelText("Creator name or handle"), "maya creates");
+    await user.click(await screen.findByRole("button", { name: /Maya Kapoor/i }));
+    await user.click(await screen.findByRole("button", { name: /unlock for 5 credits/i }));
+    await user.click(await screen.findByRole("button", { name: /report wrong contact/i }));
+
+    expect(await screen.findByRole("button", { name: /report received/i })).toBeDisabled();
+    const flags = JSON.parse(window.localStorage.getItem("creatorly.demo.contact-flags.v1") ?? "[]") as Array<{ contactId: string; reason: string }>;
+    expect(flags).toEqual(expect.arrayContaining([{ contactId: "maya-direct", reason: "wrong_contact", id: expect.any(String), userId: "demo-user", status: "open", createdAt: expect.any(Number) }]));
   });
 
   it("shows empty history, then reopens an active unlock without charging again", async () => {
@@ -131,6 +194,24 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.getByText(/email when this contact is added/i)).toBeInTheDocument();
   });
 
+  it("explains repository coverage when MrBeast has no results", async () => {
+    const user = userEvent.setup();
+    renderDemo();
+
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+    expect(screen.queryByRole("combobox", { name: /followers/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/count not supplied/i)).not.toBeInTheDocument();
+    await user.type(await screen.findByLabelText("Creator name or handle"), "MrBeast");
+
+    expect(await screen.findByRole("heading", { name: /no creator found/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/India-focused Instagram creators/i)).toHaveLength(2);
+    expect(screen.getAllByText(/YouTube coverage is not loaded yet/i)).toHaveLength(2);
+  });
+
   it("lets a demo admin fulfill a pending request", async () => {
     const user = userEvent.setup();
     renderDemo();
@@ -175,6 +256,34 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByRole("heading", { name: /demo payment complete/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /return to search/i }));
     await waitFor(() => expect(screen.getByTitle("Credits available")).toHaveTextContent("275"));
+  });
+
+  it("returns to onboarding step 3 after a hard-refresh-style remount", async () => {
+    const user = userEvent.setup();
+    const firstRender = renderDemo();
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+    await screen.findByRole("heading", { name: /who do you need to reach/i });
+
+    const savedUser = JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}") as Record<string, unknown>;
+    window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({ ...savedUser, onboardingCompleted: false, onboardingStep: 1 }));
+    firstRender.unmount();
+    window.history.replaceState({}, "", "/onboarding");
+
+    const onboardingRender = renderDemo();
+    await user.click(await screen.findByRole("button", { name: /choose a plan/i }));
+    await user.click(screen.getByRole("button", { name: /^pro/i }));
+    await user.click(screen.getByRole("button", { name: /continue to demopay/i }));
+    expect(await screen.findByRole("heading", { name: /no real charge will be made/i })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}").onboardingStep).toBe(3);
+    expect(JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}").onboardingPlanTier).toBe("pro");
+
+    onboardingRender.unmount();
+    renderDemo();
+    expect(await screen.findByRole("heading", { name: /no real charge will be made/i })).toBeInTheDocument();
   });
 
   it("updates profile and notification settings", async () => {

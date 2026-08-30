@@ -32,6 +32,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           },
           isEmailVerified: true,
           onboardingCompleted: false,
+          onboardingStep: 1,
+          onboardingPlanTier: "free" as const,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };

@@ -4,30 +4,19 @@ import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { normalize, score } from "./lib/matching";
 
+function canonicalProfileUrl(platform: string, handle: string) {
+  const clean = handle.replace(/^@/, "");
+  return platform === "youtube"
+    ? `https://www.youtube.com/@${encodeURIComponent(clean)}`
+    : `https://www.instagram.com/${encodeURIComponent(clean)}/`;
+}
+
 const platformValidator = v.union(
   v.literal("instagram"),
   v.literal("youtube"),
 );
 
-const followerBandValidator = v.union(
-  v.literal("any"),
-  v.literal("not_reported"),
-  v.literal("under_1k"),
-  v.literal("1k_5k"),
-  v.literal("5k_10k"),
-);
-
-function followerRange(band: "any" | "not_reported" | "under_1k" | "1k_5k" | "5k_10k" | undefined) {
-  if (band === "not_reported") return { min: 0, max: 1 };
-  if (band === "under_1k") return { min: 1, max: 1_000 };
-  if (band === "1k_5k") return { min: 1_000, max: 5_000 };
-  if (band === "5k_10k") return { min: 5_000, max: 10_000 };
-  return { min: 0, max: Number.POSITIVE_INFINITY };
-}
-
-function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; verifiedOnly?: boolean; followerBand?: "any" | "not_reported" | "under_1k" | "1k_5k" | "5k_10k" }) {
-  const { min, max } = followerRange(args.followerBand);
-  if (creator.followerCount < min || creator.followerCount >= max) return false;
+function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; verifiedOnly?: boolean }) {
   if (args.verifiedOnly && !creator.isVerified) return false;
   if (args.location && !creator.location?.toLowerCase().includes(args.location.trim().toLowerCase())) return false;
   if (args.category && !creator.categories?.some(category => category.toLowerCase() === args.category?.toLowerCase())) return false;
@@ -38,7 +27,6 @@ export const search = query({
   args: {
     query: v.string(),
     platform: v.optional(platformValidator),
-    followerBand: v.optional(followerBandValidator),
     category: v.optional(v.string()),
     location: v.optional(v.string()),
     verifiedOnly: v.optional(v.boolean()),
@@ -60,7 +48,8 @@ export const search = query({
         .filter(creator => (!args.platform || creator.platform === args.platform) && passesFilters(creator, args))
         .map(creator => [creator._id.toString(), creator])).values()];
     } else {
-      const { min, max } = followerRange(args.followerBand);
+      const min = 0;
+      const max = Number.POSITIVE_INFINITY;
       if (args.category) {
         const term = args.category.toLowerCase();
         if (args.platform && args.verifiedOnly) {
@@ -126,7 +115,7 @@ export const search = query({
           categories: creator.categories,
           isVerified: creator.isVerified,
           isDemo: creator.isDemo,
-          contactCount: contacts.filter((contact) => contact.isActive).length,
+          contactCount: contacts.filter((contact) => contact.isActive && contact.verificationStatus === "verified").length,
           matchScore,
         };
       }),
@@ -151,12 +140,12 @@ export const getById = query({
     if (!user || !creator) return null;
 
     const now = Date.now();
-    const unlocks = await ctx.db
+    const [unlocks, socialProfiles] = await Promise.all([ctx.db
       .query("unlockRecords")
       .withIndex("by_user_creator", (q) =>
         q.eq("userId", userId).eq("creatorId", args.creatorId),
       )
-      .collect();
+      .collect(), ctx.db.query("creatorSocialProfiles").withIndex("by_creator", q => q.eq("creatorId", args.creatorId)).collect()]);
     const activeUnlock = unlocks
       .filter((unlock) => unlock.expiresAt > now)
       .sort((a, b) => b.expiresAt - a.expiresAt)[0];
@@ -167,9 +156,12 @@ export const getById = query({
         .collect()
     ).filter((contact) => contact.isActive);
     const isPro = user.currentPlanTier === "pro";
-    const permitted = allContacts.filter(
+    const verifiedContacts = allContacts.filter((contact) => contact.verificationStatus === "verified");
+    const permitted = verifiedContacts.filter(
       (contact) => contact.accessTier === "basic" || isPro,
     );
+    const pendingContactCount = allContacts.filter((contact) => contact.verificationStatus !== "verified").length;
+    const hasOpenableContact = permitted.length > 0;
 
     return {
       creator: {
@@ -182,14 +174,32 @@ export const getById = query({
         categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,
+        socialProfiles: socialProfiles.length ? socialProfiles.map(profile => ({
+          platform: profile.platform,
+          handle: profile.handle,
+          url: profile.url,
+          followerCount: profile.followerCount,
+          isVerified: profile.isVerified,
+        })) : [{
+          platform: creator.platform,
+          handle: creator.handle,
+          url: canonicalProfileUrl(creator.platform, creator.handle),
+          followerCount: creator.followerCount,
+          isVerified: creator.isVerified,
+        }],
+        contentLanguages: creator.contentLanguages,
+        profileType: creator.profileType,
+        contentQuality: creator.contentQuality,
+        managementType: creator.managementType,
       },
-      isUnlocked: Boolean(activeUnlock),
-      expiresAt: activeUnlock?.expiresAt ?? null,
+      isUnlocked: Boolean(activeUnlock && hasOpenableContact),
+      expiresAt: activeUnlock && hasOpenableContact ? activeUnlock.expiresAt : null,
       creditBalance: user.creditBalance ?? 25,
       currentPlanTier: user.currentPlanTier ?? "free",
       availableContactCount: permitted.length,
-      hiddenProContactCount: allContacts.length - permitted.length,
-      contacts: activeUnlock
+      hiddenProContactCount: verifiedContacts.length - permitted.length,
+      pendingContactCount,
+      contacts: activeUnlock && hasOpenableContact
         ? permitted.map((contact) => ({
             id: contact._id,
             contactType: contact.contactType,

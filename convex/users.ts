@@ -31,6 +31,8 @@ export const viewer = query({
       subscriptionRenewalDate: user.subscriptionRenewalDate,
       cancellationRequestedAt: user.cancellationRequestedAt,
       onboardingCompleted: user.onboardingCompleted ?? false,
+      onboardingStep: user.onboardingStep ?? 1,
+      onboardingPlanTier: user.onboardingPlanTier ?? user.currentPlanTier ?? "free",
       isEmailVerified: user.isEmailVerified ?? false,
       notificationPreferences: user.notificationPreferences ?? {
         requestFulfilled: true,
@@ -67,8 +69,26 @@ export const completeOnboarding = mutation({
   args: {},
   handler: async (ctx) => {
     const { userId } = await requireUser(ctx);
-    await ctx.db.patch(userId, { onboardingCompleted: true, updatedAt: Date.now() });
+    await ctx.db.patch(userId, { onboardingCompleted: true, onboardingStep: 4, updatedAt: Date.now() });
     return { status: "completed" as const };
+  },
+});
+
+export const updateOnboardingStep = mutation({
+  args: { step: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)) },
+  handler: async (ctx, args) => {
+    const { userId } = await requireUser(ctx);
+    await ctx.db.patch(userId, { onboardingStep: args.step, updatedAt: Date.now() });
+    return { step: args.step };
+  },
+});
+
+export const updateOnboardingPlan = mutation({
+  args: { tier: v.union(v.literal("free"), v.literal("basic"), v.literal("pro")) },
+  handler: async (ctx, args) => {
+    const { userId } = await requireUser(ctx);
+    await ctx.db.patch(userId, { onboardingPlanTier: args.tier, updatedAt: Date.now() });
+    return { tier: args.tier };
   },
 });
 

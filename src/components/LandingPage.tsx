@@ -16,7 +16,7 @@ import "./LandingPage.css";
 const workflowSteps = [
   { number: "01", label: "Profile matched", detail: "Maya Kapoor · 842K followers", icon: Search },
   { number: "02", label: "Role confirmed", detail: "Manager · Brand partnerships", icon: UserRoundCheck },
-  { number: "03", label: "Contact ready", detail: "Verified and available to unlock", icon: Mail },
+  { number: "03", label: "Contact imported", detail: "Verification in progress", icon: Mail },
 ] as const;
 
 const benefits = [
@@ -58,7 +58,7 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
           <h1>Go from shortlist to the right inbox in 5 minutes.</h1>
           <p>
             Search 17,709 creator profiles, see who handles partnerships, and
-            unlock a verified contact with the role and context your outreach needs.
+            review imported creator contacts and see which records are still being checked before they become available.
           </p>
           <div className="home-actions">
             <button className="button button-primary button-large" onClick={() => navigate({ name: "signup" })}>
@@ -81,7 +81,7 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
           <div className="home-query">
             <Search size={18} aria-hidden="true" />
             <span>@maya_creates</span>
-            <kbd>Matched</kbd>
+            <span className="home-status-label">Matched</span>
           </div>
           <div className="home-workflow">
             {workflowSteps.map(({ number, label, detail, icon: Icon }) => (
@@ -95,12 +95,12 @@ export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
           </div>
           <div className="home-contact">
             <div className="home-contact-head">
-              <p><BadgeCheck size={15} aria-hidden="true" /> VERIFIED CONTACT</p>
-              <span>PRO ACCESS</span>
+              <p><BadgeCheck size={15} aria-hidden="true" /> IMPORTED CONTACT</p>
+              <span className="home-access-label">VERIFICATION IN PROGRESS</span>
             </div>
             <strong>Rhea Malhotra</strong>
             <span>Manager · Brand partnerships</span>
-            <i><Mail size={15} aria-hidden="true" /> rhea.manager@example.test</i>
+            <i><Mail size={15} aria-hidden="true" /> Contact held until checked</i>
           </div>
         </div>
       </section>

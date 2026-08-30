@@ -22,6 +22,21 @@ const verifiedAt = new Date("2026-08-24T10:00:00+05:30").getTime();
 
 const DEMO_CREATORS: DemoCreator[] = [
   {
+    id: "pending-import",
+    platform: "instagram",
+    handle: "@pending_import",
+    normalizedHandle: "pendingimport",
+    displayName: "Pending Import",
+    followerCount: 10000,
+    location: "India",
+    categories: ["Lifestyle"],
+    isVerified: false,
+    isDemo: false,
+    contacts: [
+      { id: "pending-import-contact", contactType: "creator_direct", name: "Imported contact", email: "pending@example.test", verificationStatus: "pending_verification", lastVerifiedAt: verifiedAt, isDemo: false, accessTier: "basic" },
+    ],
+  },
+  {
     id: "maya-creates",
     platform: "instagram",
     handle: "@maya_creates",
@@ -30,6 +45,15 @@ const DEMO_CREATORS: DemoCreator[] = [
     followerCount: 842000,
     location: "Mumbai, India",
     categories: ["Lifestyle", "Fashion"],
+    socialProfiles: [
+      { platform: "instagram", handle: "maya_creates", url: "https://www.instagram.com/maya_creates/", followerCount: 842000, isVerified: true },
+      { platform: "youtube", handle: "MayaCreates", url: "https://www.youtube.com/@MayaCreates", followerCount: 118000 },
+      { platform: "linkedin", handle: "maya-kapoor-creator", url: "https://www.linkedin.com/in/maya-kapoor-creator/" },
+    ],
+    contentLanguages: ["Hindi", "English"],
+    profileType: "Individual creator",
+    contentQuality: "Studio",
+    managementType: "self_managed",
     isVerified: true,
     isDemo: true,
     contacts: [
@@ -46,6 +70,15 @@ const DEMO_CREATORS: DemoCreator[] = [
     followerCount: 1240000,
     location: "Bengaluru, India",
     categories: ["Gadgets & Tech"],
+    socialProfiles: [
+      { platform: "youtube", handle: "TheTechRishi", url: "https://www.youtube.com/@TheTechRishi", followerCount: 1240000, isVerified: true },
+      { platform: "instagram", handle: "thetechrishi", url: "https://www.instagram.com/thetechrishi/", followerCount: 486000 },
+      { platform: "twitter", handle: "TheTechRishi", url: "https://x.com/TheTechRishi", followerCount: 92000 },
+    ],
+    contentLanguages: ["Hindi", "English"],
+    profileType: "Individual creator",
+    contentQuality: "Studio",
+    managementType: "self_managed",
     isVerified: true,
     isDemo: true,
     contacts: [
@@ -77,6 +110,14 @@ const DEMO_CREATORS: DemoCreator[] = [
     followerCount: 695000,
     location: "Pune, India",
     categories: ["Food"],
+    socialProfiles: [
+      { platform: "youtube", handle: "CookWithKabirOfficial", url: "https://www.youtube.com/@CookWithKabirOfficial", followerCount: 695000, isVerified: true },
+      { platform: "instagram", handle: "cookwithkabir", url: "https://www.instagram.com/cookwithkabir/", followerCount: 312000 },
+    ],
+    contentLanguages: ["Hindi", "English"],
+    profileType: "Creator brand",
+    contentQuality: "Studio",
+    managementType: "talent_managed",
     isVerified: true,
     isDemo: true,
     contacts: [
@@ -123,6 +164,7 @@ const REQUEST_KEY = "creatorly.demo.requests.v1";
 const CUSTOM_CREATORS_KEY = "creatorly.demo.custom-creators.v1";
 const TRANSACTION_KEY = "creatorly.demo.transactions.v1";
 const NOTIFICATION_KEY = "creatorly.demo.notifications.v1";
+const CONTACT_FLAG_KEY = "creatorly.demo.contact-flags.v1";
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -195,6 +237,8 @@ export const demoData = {
       creditBalance: 25,
       subscriptionStatus: "active",
       onboardingCompleted: true,
+      onboardingStep: 1,
+      onboardingPlanTier: "free",
       isEmailVerified: true,
       notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
     };
@@ -229,7 +273,17 @@ export const demoData = {
   },
   async completeOnboarding() {
     const user = readUser();
-    if (user) saveUser({ ...user, onboardingCompleted: true });
+    if (user) saveUser({ ...user, onboardingCompleted: true, onboardingStep: 4 });
+  },
+  async updateOnboardingStep(step: 1 | 2 | 3 | 4) {
+    const user = readUser();
+    if (!user) throw new Error("Sign in to continue onboarding.");
+    saveUser({ ...user, onboardingStep: step });
+  },
+  async updateOnboardingPlan(tier: import("../types").PlanTier) {
+    const user = readUser();
+    if (!user) throw new Error("Sign in to continue onboarding.");
+    saveUser({ ...user, onboardingPlanTier: tier });
   },
   async requestCancellation() {
     const user = readUser();
@@ -273,11 +327,6 @@ export const demoData = {
       if (filters.verifiedOnly && !creator.isVerified) return [];
       if (filters.location && !creator.location?.toLowerCase().includes(filters.location.toLowerCase())) return [];
       if (filters.category && !creator.categories?.some(category => category.toLowerCase() === filters.category?.toLowerCase())) return [];
-      const followers = creator.followerCount;
-      if (filters.followerBand === "not_reported" && followers !== 0) return [];
-      if (filters.followerBand === "under_1k" && (followers < 1 || followers >= 1_000)) return [];
-      if (filters.followerBand === "1k_5k" && (followers < 1_000 || followers >= 5_000)) return [];
-      if (filters.followerBand === "5k_10k" && (followers < 5_000 || followers >= 10_000)) return [];
       const matchScore = query.trim() ? rankCreatorMatch(query, creator) : 0;
       if (matchScore === null) return [];
       return [{
@@ -290,7 +339,12 @@ export const demoData = {
         categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,
-        contactCount: creator.contacts.length,
+        socialProfiles: creator.socialProfiles,
+        contentLanguages: creator.contentLanguages,
+        profileType: creator.profileType,
+        contentQuality: creator.contentQuality,
+        managementType: creator.managementType,
+        contactCount: creator.contacts.filter((contact) => contact.verificationStatus === "verified").length,
         matchScore,
       } satisfies CreatorSearchResult];
     }).sort((a, b) => b.matchScore - a.matchScore);
@@ -302,9 +356,12 @@ export const demoData = {
     if (!creator || !user) return null;
     const expiresAt = getUnlocks()[creatorId]?.expiresAt ?? null;
     const isUnlocked = Boolean(expiresAt && expiresAt > Date.now());
-    const permitted = creator.contacts.filter(
+    const verifiedContacts = creator.contacts.filter((contact) => contact.verificationStatus === "verified");
+    const permitted = verifiedContacts.filter(
       (contact) => contact.accessTier === "basic" || user.currentPlanTier === "pro",
     );
+    const pendingContactCount = creator.contacts.length - verifiedContacts.length;
+    const hasOpenableContact = permitted.length > 0;
     return {
       creator: {
         id: creator.id,
@@ -317,13 +374,14 @@ export const demoData = {
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,
       },
-      isUnlocked,
-      expiresAt: isUnlocked ? expiresAt : null,
+      isUnlocked: isUnlocked && hasOpenableContact,
+      expiresAt: isUnlocked && hasOpenableContact ? expiresAt : null,
       creditBalance: user.creditBalance,
       currentPlanTier: user.currentPlanTier,
       availableContactCount: permitted.length,
-      hiddenProContactCount: creator.contacts.length - permitted.length,
-      contacts: isUnlocked ? permitted : [],
+      hiddenProContactCount: verifiedContacts.length - permitted.length,
+      pendingContactCount,
+      contacts: isUnlocked && hasOpenableContact ? permitted : [],
     };
   },
   async unlock(creatorId: string) {
@@ -332,6 +390,12 @@ export const demoData = {
     if (!user) throw new Error("Sign in to unlock this contact.");
     const unlocks = getUnlocks();
     if (unlocks[creatorId] && unlocks[creatorId].expiresAt > Date.now()) return;
+    const creator = allCreators().find((item) => item.id === creatorId);
+    const hasEligibleContact = creator?.contacts.some((contact) =>
+      contact.verificationStatus === "verified"
+      && (contact.accessTier === "basic" || user.currentPlanTier === "pro")
+    );
+    if (!hasEligibleContact) throw new Error("This contact is unavailable while verification is in progress.");
     if (user.creditBalance < 5) throw new Error("You need 5 credits to unlock this contact.");
     const unlockedAt = Date.now();
     user.creditBalance -= 5;
@@ -342,6 +406,17 @@ export const demoData = {
     };
     saveUser(user);
     window.localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlocks));
+  },
+  async reportWrongContact(contactId: string) {
+    await latency();
+    const user = readUser();
+    if (!user) throw new Error("Sign in to report a contact.");
+    const flags = readJson<Array<{ id: string; userId: string; contactId: string; reason: "wrong_contact"; status: "open"; createdAt: number }>>(CONTACT_FLAG_KEY, []);
+    const existing = flags.find((flag) => flag.userId === user.id && flag.contactId === contactId);
+    if (existing) return { status: "already_reported" as const };
+    flags.push({ id: `flag-${Date.now()}`, userId: user.id, contactId, reason: "wrong_contact", status: "open", createdAt: Date.now() });
+    window.localStorage.setItem(CONTACT_FLAG_KEY, JSON.stringify(flags));
+    return { status: "created" as const };
   },
   async history(): Promise<UnlockHistoryItem[]> {
     await latency();

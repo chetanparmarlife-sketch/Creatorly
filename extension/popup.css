@@ -31,6 +31,7 @@
 * { box-sizing: border-box; }
 html { background: var(--canvas); }
 body { width: 400px; min-height: 520px; max-height: 600px; margin: 0; overflow-y: auto; color: var(--ink); background: var(--canvas); }
+.side-panel { width: 100%; min-width: 300px; min-height: 100vh; max-height: none; }
 button, input { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid rgba(46,107,255,.2); outline-offset: 2px; }
@@ -79,6 +80,8 @@ main { min-height: 390px; padding: 12px; display: grid; align-content: start; }
 .creator-copy { min-width: 0; padding-bottom: 5px; }
 .creator-labels { margin-bottom: 4px; display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .verified-chip { color: var(--green); }
+.report-contact { min-height: 44px; padding: 0; border: 0; color: var(--muted); background: transparent; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.report-contact:disabled { cursor: default; text-decoration: none; }
 .creator-copy h1 { margin: 0 0 4px; overflow: hidden; font-size: 21px; line-height: 1.04; letter-spacing: -.05em; text-overflow: ellipsis; white-space: nowrap; }
 .creator-copy p { margin: 0; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .creator-chips { padding: 0 14px 12px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
@@ -98,6 +101,31 @@ main { min-height: 390px; padding: 12px; display: grid; align-content: start; }
 .metric-icon { width: 26px; height: 26px; margin-bottom: 10px; display: grid; place-items: center; border-radius: 8px; color: var(--blue); background: var(--blue-soft); font-size: 12px; font-weight: 700; }
 .metric strong { margin-bottom: 2px; overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .metric small { color: var(--muted); font-size: 8px; }
+
+.management-strip { padding: 13px 14px; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+.management-status { width: max-content; min-height: 22px; padding: 0 7px; display: inline-flex; align-items: center; border-radius: 999px; color: var(--green); background: var(--green-soft); font-size: 8px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+.management-strip strong { margin-top: 3px; font-size: 12px; line-height: 1.35; }
+.management-strip small { color: var(--muted); font-size: 9px; line-height: 1.45; }
+.dossier-section { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.section-kicker { color: var(--eyebrow); font-size: 8px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.dossier-section h2 { margin: 3px 0 12px; font-size: 17px; letter-spacing: -.035em; }
+.social-grid { display: grid; gap: 7px; }
+.social-card { min-height: 58px; padding: 9px 10px; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); text-decoration: none; }
+.social-card:hover { border-color: var(--line-strong); background: var(--canvas); }
+.social-card-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; color: var(--blue); background: var(--blue-soft); font-size: 13px; font-weight: 800; }
+.social-instagram .social-card-icon { color: #c13584; background: #fff0f8; }
+.social-youtube .social-card-icon { color: #e62117; background: #fff0ef; }
+.social-linkedin .social-card-icon { color: #0a66c2; background: #edf6ff; }
+.social-twitter .social-card-icon { color: #111; background: #f1f1f1; }
+.social-card > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.social-card strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.social-card small { color: var(--muted); font-size: 8px; }
+.social-card b { color: var(--blue); font-size: 13px; }
+.profile-facts { margin: 0; }
+.profile-facts div { padding: 11px 0; display: grid; grid-template-columns: 110px 1fr; gap: 10px; border-top: 1px solid var(--line); }
+.profile-facts div:first-child { border-top: 0; }
+.profile-facts dt { color: var(--muted); font-size: 9px; }
+.profile-facts dd { margin: 0; font-size: 10px; font-weight: 650; text-align: right; }
 
 .access-card { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: white; }
 .access-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -129,6 +157,10 @@ main { min-height: 390px; padding: 12px; display: grid; align-content: start; }
 .role { color: var(--blue); font-size: 8px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
 .contact h3 { margin: 4px 0 0; font-size: 15px; letter-spacing: -.03em; }
 .verification { color: var(--green); font-size: 8px; font-weight: 700; }
+.contact-actions { margin-bottom: 8px; display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.contact-actions a { min-height: 40px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; font-size: 9px; font-weight: 750; text-decoration: none; }
+.chat-action { color: white; background: var(--ink); }
+.call-action { min-width: 72px; border: 1px solid var(--blue); color: var(--blue); background: white; }
 .contact .copy { width: 100%; min-height: 42px; padding: 8px 9px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; border: 0; border-radius: 9px; color: var(--ink); background: var(--canvas); text-align: left; cursor: pointer; font-size: 9px; overflow-wrap: anywhere; }
 .contact .copy + .copy { margin-top: 5px; }
 .contact .copy small { grid-column: 1; color: var(--muted); font-size: 7px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
@@ -137,6 +169,7 @@ main { min-height: 390px; padding: 12px; display: grid; align-content: start; }
 .contact p { margin: 10px 0 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
 
 .app-footer { min-height: 56px; padding: 9px 16px; border-top: 1px solid var(--line); background: white; }
+.side-panel .app-footer { position: sticky; bottom: 0; z-index: 10; }
 .text-action { min-height: 36px; padding: 0; display: inline-flex; align-items: center; gap: 5px; border: 0; color: var(--ink-soft); background: none; cursor: pointer; font-size: 10px; font-weight: 700; }
 .text-action span { color: var(--blue); }
 details { color: var(--muted); font-size: 9px; }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   ArrowLeft, ArrowUpRight, BadgeCheck, CheckCircle2, Clock3, Coins,
-  Camera, LockKeyhole, MapPin, PlaySquare, Share2, ShieldCheck, Sparkles,
-  Tags, UserRound,
+  AtSign, Camera, ExternalLink, Languages, Link2, LockKeyhole, MapPin, PlaySquare,
+  Share2, ShieldCheck, Sparkles, Tags, UserRound,
 } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import type { AppRoute } from "../hooks/useRoute";
@@ -97,9 +97,27 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
 
   const creator = detail.creator;
   const upgradeRequired = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount > 0;
+  const verificationPending = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount === 0 && detail.pendingContactCount > 0;
   const insufficientCredits = detail.creditBalance < 5;
   const unlockAction = upgradeRequired || insufficientCredits ? () => navigate({ name: "pricing" }) : handleUnlock;
   const primaryContact = detail.contacts[0];
+  const socialProfiles = creator.socialProfiles?.length ? creator.socialProfiles : [{
+    platform: creator.platform,
+    handle: creator.handle,
+    url: creator.platform === "youtube"
+      ? `https://www.youtube.com/@${encodeURIComponent(creator.handle.replace(/^@/, ""))}`
+      : `https://www.instagram.com/${encodeURIComponent(creator.handle.replace(/^@/, ""))}/`,
+    followerCount: creator.followerCount,
+    isVerified: creator.isVerified,
+  }];
+  const talentManaged = creator.managementType === "talent_managed" || upgradeRequired;
+
+  function socialIcon(platform: string) {
+    if (platform === "instagram") return <Camera size={22} />;
+    if (platform === "youtube") return <PlaySquare size={23} />;
+    if (platform === "linkedin") return <Link2 size={22} />;
+    return <AtSign size={22} />;
+  }
 
   return (
     <main className="workspace detail-workspace profile-detail">
@@ -120,17 +138,17 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
         </div>
         <div className="profile-rankings" aria-label="Creator highlights">
           {creator.categories?.[0] ? <span><Sparkles size={15} /> Strong in {creator.categories[0]}</span> : null}
-          <span><ShieldCheck size={15} /> {creator.isVerified ? "Platform verified" : "Profile checked"}</span>
+          <span><ShieldCheck size={15} /> {creator.isVerified ? "Platform badge present" : "Imported profile"}</span>
         </div>
         <div className="signal-rail" aria-label="Contact readiness">
           <span className="is-done"><CheckCircle2 size={16} /> Profile matched</span><i />
-          <span className="is-done"><ShieldCheck size={16} /> Record checked</span><i />
-          <span className={detail.isUnlocked ? "is-done" : "is-current"}>{detail.isUnlocked ? <CheckCircle2 size={16} /> : <LockKeyhole size={16} />} {detail.isUnlocked ? "Contact open" : "Unlock contact"}</span>
+          <span className="is-done"><ShieldCheck size={16} /> Profile indexed</span><i />
+          <span className={detail.isUnlocked ? "is-done" : "is-current"}>{detail.isUnlocked ? <CheckCircle2 size={16} /> : <LockKeyhole size={16} />} {detail.isUnlocked ? "Contact open" : verificationPending ? "Unavailable" : "Unlock contact"}</span>
         </div>
       </section>
 
       <section className="profile-contact-strip">
-        <div><strong>{detail.isUnlocked ? "Contact access is active" : "Ready to connect?"}</strong><span>{detail.isUnlocked ? `${daysRemaining(detail.expiresAt!)} days of access remaining` : `${detail.availableContactCount + detail.hiddenProContactCount} contact route${detail.availableContactCount + detail.hiddenProContactCount === 1 ? "" : "s"} found`}</span></div>
+        <div><strong>{talentManaged ? "Talent managed" : "Self managed"} · {detail.isUnlocked ? "Contact access is active" : verificationPending ? "Contact unavailable" : "Ready to connect"}</strong><span>{detail.isUnlocked ? `${daysRemaining(detail.expiresAt!)} days of access remaining` : verificationPending ? "Imported contact · verification in progress" : talentManaged ? "Unlock the manager or representative responsible for partnerships" : `Reach ${creator.displayName} directly when a direct route is available`}</span></div>
         <button className="button button-primary" onClick={scrollToContact}>{detail.isUnlocked ? "View contacts" : "See contact options"}<ArrowUpRight size={17} /></button>
       </section>
 
@@ -139,18 +157,18 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
           <section className="profile-section social-section" aria-labelledby="socials-title">
             <div className="profile-section-heading"><div><p className="eyebrow">Audience</p><h2 id="socials-title">Socials</h2></div></div>
             <div className="social-metrics">
-              <article><span className={`social-icon social-icon-${creator.platform}`}>{creator.platform === "instagram" ? <Camera size={22} /> : <PlaySquare size={23} />}</span><strong>{formatFollowers(creator.followerCount)}</strong><small>{creator.platform === "youtube" ? "Subscribers" : "Followers"}</small><span className="social-handle">{creator.handle}</span></article>
-              <article className="social-suggestion"><span className="social-icon"><Sparkles size={22} /></span><strong>Campaign fit</strong><small>{creator.categories?.slice(0, 2).join(" · ") || "General creator"}</small><span className="social-handle">Profile signal</span></article>
+              {socialProfiles.map(profile => <a key={`${profile.platform}-${profile.handle}`} href={profile.url} target="_blank" rel="noreferrer" aria-label={`Open ${creator.displayName} on ${profile.platform}`}><span className={`social-icon social-icon-${profile.platform}`}>{socialIcon(profile.platform)}</span><strong>{profile.followerCount === undefined ? profile.platform : formatFollowers(profile.followerCount)}</strong><small>{profile.followerCount === undefined ? "Open profile" : profile.platform === "youtube" ? "Subscribers" : "Followers"}</small><span className="social-handle">{profile.handle}<ExternalLink size={12} /></span></a>)}
             </div>
           </section>
 
           <section className="profile-section profile-facts" aria-labelledby="profile-facts-title">
             <div className="profile-section-heading"><div><p className="eyebrow">About</p><h2 id="profile-facts-title">Creator profile</h2></div></div>
             <dl>
+              <div><dt><Languages size={20} /><span>Content language</span></dt><dd>{creator.contentLanguages?.join(", ") || "Not supplied"}</dd></div>
               <div><dt><MapPin size={20} /><span>Primary location</span></dt><dd>{creator.location ?? "Location unavailable"}</dd></div>
               <div><dt><Tags size={20} /><span>Content categories</span></dt><dd>{creator.categories?.join(", ") || "Not supplied"}</dd></div>
-              <div><dt><UserRound size={20} /><span>Profile type</span></dt><dd>Independent creator</dd></div>
-              <div><dt><ShieldCheck size={20} /><span>Profile status</span></dt><dd>{creator.isVerified ? "Platform verified" : "Creatorly checked"}</dd></div>
+              <div><dt><UserRound size={20} /><span>Profile type</span></dt><dd>{creator.profileType || "Creator"}</dd></div>
+              <div><dt><ShieldCheck size={20} /><span>Content quality</span></dt><dd>{creator.contentQuality || "Not rated"}</dd></div>
             </dl>
           </section>
 
@@ -162,7 +180,14 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
                 {detail.hiddenProContactCount > 0 ? <div className="pro-note"><LockKeyhole size={17} /><span><strong>{detail.hiddenProContactCount} representative contact hidden.</strong> <button className="inline-link" onClick={() => navigate({ name: "pricing" })}>Upgrade to Pro</button> to reveal it.</span></div> : null}
               </div>
             ) : (
-              <div className="unlock-panel">
+              <div className={`unlock-panel${verificationPending ? " is-unavailable" : ""}`}>
+                {verificationPending ? <>
+                  <p className="eyebrow">Verification in progress</p>
+                  <h2 id="contact-access-title">This contact is unavailable.</h2>
+                  <p>We imported a contact for this creator, but we have not checked it yet. It cannot be purchased, and no contact details will be shown.</p>
+                  <button className="button button-secondary button-wide" type="button" disabled>Unavailable until verified</button>
+                  <p className="balance-note">Your balance stays at <strong>{detail.creditBalance} credits</strong>.</p>
+                </> : <>
                 <p className="eyebrow">{upgradeRequired ? "Pro contact" : "One master unlock"}</p>
                 <h2 id="contact-access-title">{upgradeRequired ? "This creator is manager-led" : `Reveal ${detail.availableContactCount} ${detail.availableContactCount === 1 ? "contact" : "contacts"}`}</h2>
                 <p>{upgradeRequired ? "The available contact is a manager or representative. Upgrade to Pro to unlock it." : "Get the role, direct contact point, outreach note, and verification date for 30 days."}</p>
@@ -170,6 +195,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
                 {error ? <p className="form-error" role="alert">{error}</p> : null}
                 <button className="button button-primary button-wide" onClick={unlockAction} disabled={busy}>{busy ? "Unlocking…" : upgradeRequired ? "Upgrade to Pro" : insufficientCredits ? "Get credits" : "Unlock for 5 credits"}</button>
                 <p className="balance-note">Your balance: <strong>{detail.creditBalance} credits</strong>{!upgradeRequired && !insufficientCredits ? ` → ${detail.creditBalance - 5} after unlock` : ""}</p>
+                </>}
               </div>
             )}
           </section>
@@ -182,8 +208,8 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
       </div>
 
       <div className="mobile-profile-action">
-        <span><small>{detail.isUnlocked ? "Contact open" : "Contact access"}</small><strong>{detail.isUnlocked ? primaryContact?.name ?? creator.displayName : upgradeRequired ? "Pro required" : "5 credits"}</strong></span>
-        <button className="button button-primary" onClick={detail.isUnlocked ? scrollToContact : unlockAction} disabled={busy}>{detail.isUnlocked ? "View contacts" : busy ? "Unlocking…" : upgradeRequired ? "Upgrade" : "Unlock contact"}</button>
+        <span><small>{detail.isUnlocked ? "Contact open" : "Contact access"}</small><strong>{detail.isUnlocked ? primaryContact?.name ?? creator.displayName : verificationPending ? "Unavailable" : upgradeRequired ? "Pro required" : "5 credits"}</strong></span>
+        <button className="button button-primary" onClick={detail.isUnlocked ? scrollToContact : verificationPending ? scrollToContact : unlockAction} disabled={busy || verificationPending}>{detail.isUnlocked ? "View contacts" : verificationPending ? "Verification pending" : busy ? "Unlocking…" : upgradeRequired ? "Upgrade" : "Unlock contact"}</button>
       </div>
     </main>
   );

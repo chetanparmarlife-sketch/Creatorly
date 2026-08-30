@@ -4,6 +4,9 @@ import { v } from "convex/values";
 
 const planTier = v.union(v.literal("free"), v.literal("basic"), v.literal("pro"));
 const platform = v.union(v.literal("instagram"), v.literal("youtube"));
+const socialPlatform = v.union(
+  v.literal("instagram"), v.literal("youtube"), v.literal("linkedin"), v.literal("twitter"),
+);
 
 export default defineSchema({
   ...authTables,
@@ -29,6 +32,8 @@ export default defineSchema({
     subscriptionRenewalDate: v.optional(v.number()),
     cancellationRequestedAt: v.optional(v.number()),
     onboardingCompleted: v.optional(v.boolean()),
+    onboardingStep: v.optional(v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4))),
+    onboardingPlanTier: v.optional(planTier),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
     creditBalance: v.optional(v.number()),
@@ -57,6 +62,10 @@ export default defineSchema({
     primaryCategory: v.optional(v.string()),
     categorySearch: v.optional(v.string()),
     profileImageUrl: v.optional(v.string()),
+    contentLanguages: v.optional(v.array(v.string())),
+    profileType: v.optional(v.string()),
+    contentQuality: v.optional(v.string()),
+    managementType: v.optional(v.union(v.literal("self_managed"), v.literal("talent_managed"))),
     isVerified: v.boolean(),
     isDemo: v.boolean(),
     addedToRepositoryAt: v.number(),
@@ -77,6 +86,17 @@ export default defineSchema({
     .searchIndex("search_display_name", { searchField: "displayName", filterFields: ["platform"] })
     .searchIndex("search_location", { searchField: "location", filterFields: ["platform", "isVerified"] })
     .searchIndex("search_category", { searchField: "categorySearch", filterFields: ["platform", "isVerified"] }),
+  creatorSocialProfiles: defineTable({
+    creatorId: v.id("creators"),
+    platform: socialPlatform,
+    handle: v.string(),
+    normalizedHandle: v.string(),
+    url: v.string(),
+    followerCount: v.optional(v.number()),
+    isVerified: v.optional(v.boolean()),
+  })
+    .index("by_creator", ["creatorId"])
+    .index("by_platform_handle", ["platform", "normalizedHandle"]),
   contacts: defineTable({
     creatorId: v.id("creators"),
     contactType: v.union(
@@ -101,6 +121,17 @@ export default defineSchema({
     accessTier: v.union(v.literal("basic"), v.literal("pro")),
     isDemo: v.boolean(),
   }).index("by_creator", ["creatorId"]),
+  contactFlags: defineTable({
+    userId: v.id("users"),
+    creatorId: v.id("creators"),
+    contactId: v.id("contacts"),
+    reason: v.literal("wrong_contact"),
+    status: v.union(v.literal("open"), v.literal("resolved")),
+    createdAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_user_contact", ["userId", "contactId"])
+    .index("by_contact", ["contactId"]),
   unlockRecords: defineTable({
     userId: v.id("users"),
     creatorId: v.id("creators"),

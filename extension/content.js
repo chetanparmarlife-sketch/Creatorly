@@ -1,31 +1,26 @@
-const INSTAGRAM_RESERVED = new Set([
-  "accounts", "about", "developer", "direct", "directory", "emails",
-  "explore", "legal", "p", "privacy", "reel", "reels", "stories", "web",
-]);
+const { detectCreatorProfile } = CreatorlyProfileUrl;
 
-function detectCreatorProfile(url) {
-  const host = url.hostname.replace(/^www\./, "");
-  const parts = url.pathname.split("/").filter(Boolean);
+let lastUrl = window.location.href;
 
-  if (host === "instagram.com") {
-    const handle = parts[0]?.replace(/^@/, "");
-    if (!handle || parts.length > 1 || INSTAGRAM_RESERVED.has(handle.toLowerCase())) {
-      return null;
-    }
-    return { platform: "instagram", handle };
-  }
-
-  if (host === "youtube.com") {
-    const handle = parts[0];
-    if (!handle?.startsWith("@") || parts.length > 1) return null;
-    return { platform: "youtube", handle: handle.slice(1) };
-  }
-
-  return null;
+function announceProfile() {
+  const profile = detectCreatorProfile(window.location.href);
+  chrome.runtime.sendMessage({ type: "CREATORLY_PROFILE_CHANGED", profile }).catch(() => undefined);
 }
+
+setInterval(() => {
+  if (window.location.href === lastUrl) return;
+  lastUrl = window.location.href;
+  announceProfile();
+}, 700);
+
+document.addEventListener("click", event => {
+  const link = event.target.closest?.("a[href]");
+  const profile = link ? detectCreatorProfile(link.href) : null;
+  if (profile) chrome.runtime.sendMessage({ type: "CREATORLY_PROFILE_CHANGED", profile }).catch(() => undefined);
+}, true);
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "CREATORLY_PROFILE") return false;
-  sendResponse(detectCreatorProfile(new URL(window.location.href)));
+  sendResponse(detectCreatorProfile(window.location.href));
   return true;
 });

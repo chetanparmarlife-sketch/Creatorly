@@ -48,7 +48,7 @@
 
 .home-nav > nav { gap: 28px; }
 .home-nav-actions { justify-self: end; gap: 20px; }
-.home-nav-actions .button { min-height: 42px; border-radius: 11px; }
+.home-nav-actions .button { min-height: 44px; border-radius: 11px; }
 .home-page .button-primary { color: #fff; background: var(--home-ink); box-shadow: none; }
 .home-page .button-primary:hover:not(:disabled) { background: var(--home-ink-soft); box-shadow: none; }
 .home-page .button-secondary { color: var(--home-ink); border: 1px solid var(--home-line); background: #fff; }
@@ -142,7 +142,7 @@
   font-weight: 650;
 }
 .home-query span { flex: 1; }
-.home-query kbd { padding: 4px 7px; border: 0; border-radius: 999px; color: var(--home-blue); background: var(--home-blue-soft); font: 600 9px/1.2 "Plus Jakarta Sans Variable", sans-serif; text-transform: uppercase; }
+.home-query .home-status-label { flex: 0; color: var(--home-muted); background: transparent; font-size: 9px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; cursor: default; }
 .home-workflow { margin: 10px 0; overflow: hidden; border: 1px solid var(--home-line); border-radius: 13px; background: #fff; }
 .home-workflow-step {
   min-height: 66px;
@@ -163,7 +163,7 @@
 .home-contact { padding: 20px; display: grid; border: 1px solid var(--home-line); border-radius: 13px; background: #fff; }
 .home-contact-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .home-contact-head p { margin: 0; display: inline-flex; align-items: center; gap: 7px; color: var(--home-success); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
-.home-contact-head > span { padding: 4px 7px; border-radius: 999px; color: var(--home-blue); background: var(--home-blue-soft); font-size: 9px; font-weight: 700; letter-spacing: .07em; }
+.home-contact-head > .home-access-label { padding: 0; border-radius: 0; color: var(--home-muted); background: transparent; font-size: 9px; font-weight: 650; letter-spacing: .07em; cursor: default; }
 .home-contact > strong { margin-top: 16px; font-size: 24px; letter-spacing: -.04em; }
 .home-contact > span { margin-top: 3px; color: var(--home-muted); font-size: 11px; }
 .home-contact > i { margin-top: 18px; padding: 12px 14px; display: flex; align-items: center; gap: 8px; color: var(--home-ink-soft); background: var(--home-surface); font-size: 12px; font-style: normal; font-weight: 650; }
@@ -252,7 +252,7 @@
   .home-workflow-step { grid-template-columns: 24px 32px minmax(0, 1fr); }
   .home-workflow-step > svg { display: none; }
   .home-contact { padding: 17px; }
-  .home-contact-head > span { display: none; }
+  .home-contact-head > .home-access-label { display: none; }
   .home-contact > i { overflow-wrap: anywhere; }
   .home-final h2 { font-size: 38px; }
   .home-footer > span { text-align: right; }
