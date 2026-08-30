@@ -17,7 +17,6 @@ import { useWorkspaceData } from "./features/workspace/WorkspaceData";
 import type { WorkspaceSummary } from "./types";
 
 const AdminView = lazy(() => import("./components/AdminView").then((module) => ({ default: module.AdminView })));
-import { SearchView } from "./components/SearchView";
 
 export function App() {
   const data = useAppData();
@@ -69,7 +68,7 @@ export function App() {
   return (
     <AppShell
       viewer={viewer}
-      activePage={route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" ? "pricing" : route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
+      activePage={route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" || route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
       navigate={navigate}
       onSearch={() => navigate({ name: "discover" })}
       onHistory={() => navigate({ name: "history" })}
@@ -87,7 +86,7 @@ export function App() {
       : route.name === "campaigns" ? workspace ? <CampaignsWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "campaign" ? workspace ? <CampaignDetailWorkspace workspace={workspace} campaignId={route.campaignId} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "pricing" ? <PricingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>
-      : route.name === "settings" ? <SettingsView viewer={viewer} refresh={loadViewer}/>
+      : route.name === "settings" ? <SettingsView viewer={viewer} navigate={navigate} refresh={loadViewer}/>
       : route.name === "payment" ? <PaymentResultView status={route.status} navigate={navigate}/>
       : route.name === "creator" ? (
         <CreatorDetail creatorId={route.creatorId} navigate={navigate} onBalanceChange={loadViewer} />
@@ -97,9 +96,7 @@ export function App() {
         viewer === null ? <main className="workspace detail-skeleton"><span /><span /><span /></main>
           : viewer.role === "admin" ? <Suspense fallback={<main className="workspace detail-skeleton"><span /><span /><span /></main>}><AdminView /></Suspense>
             : <main className="workspace admin-denied"><p className="eyebrow">Restricted</p><h1>Admin access required</h1><p>This queue is only available to Creatorly administrators.</p></main>
-      ) : (
-        <SearchView initialQuery={route.name === "search" ? route.query : ""} initialPlatform={route.name === "search" ? route.platform : undefined} navigate={navigate} />
-      )}
+      ) : workspace ? <DiscoveryWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>}
     </AppShell>
   );
 }

@@ -178,6 +178,24 @@ export type WorkspaceOnboardingInput = {
 };
 export type CampaignStage = "discovered" | "shortlisted" | "contacted" | "replied" | "negotiating" | "contracted" | "creating" | "in_review" | "scheduled" | "live" | "paid";
 export type CampaignStatus = "draft" | "active" | "paused" | "completed" | "archived";
+export type BrandDivisionType = "brand" | "product_line" | "market" | "region";
+export type WorkspaceGroup = {
+  id: string;
+  kind: "client" | "division";
+  name: string;
+  website?: string;
+  divisionType?: BrandDivisionType;
+  parentDivisionId?: string;
+  status: "active" | "archived";
+};
+export type GroupCollaboratorRole = "client_reviewer" | "internal_stakeholder" | "agency_collaborator";
+export type GroupCollaborator = {
+  id: string;
+  groupId: string;
+  email: string;
+  role: GroupCollaboratorRole;
+  status: "invited" | "active" | "disabled";
+};
 export type DeliverableStatus = "planned" | "awaiting_content" | "in_review" | "changes_requested" | "approved" | "scheduled" | "live";
 export type ApprovalDecision = "pending" | "approved" | "changes_requested";
 export type CampaignTaskStatus = "open" | "done" | "cancelled";
@@ -267,6 +285,9 @@ export type CampaignDeliverable = {
 export type CampaignTask = { id: string; campaignCreatorId?: string; title: string; status: CampaignTaskStatus; dueAt?: number; assigneeName: string; createdAt: number; updatedAt: number };
 export type Campaign = {
   id: string;
+  clientId?: string;
+  divisionId?: string;
+  groupName?: string;
   name: string;
   goal: string;
   platforms: Platform[];

@@ -92,7 +92,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
     return <main className="workspace"><div className="detail-skeleton" aria-label="Loading creator"><span /><span /><span /></div></main>;
   }
   if (!detail) {
-    return <main className="workspace"><button className="back-button" onClick={() => navigate({ name: "search", query: "" })}><ArrowLeft size={18} /> Back to discovery</button><div className="state-card state-error">{error || "Creator not found."}</div></main>;
+    return <main className="workspace"><button className="back-button" onClick={() => navigate({ name: "discover" })}><ArrowLeft size={18} /> Back to discovery</button><div className="state-card state-error">{error || "Creator not found."}</div></main>;
   }
 
   const creator = detail.creator;
@@ -122,7 +122,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
   return (
     <main className="workspace detail-workspace profile-detail">
       <header className="profile-toolbar">
-        <button className="back-button" onClick={() => navigate({ name: "search", query: "" })}><ArrowLeft size={19} /> Back to discovery</button>
+        <button className="back-button" onClick={() => navigate({ name: "discover" })}><ArrowLeft size={19} /> Back to discovery</button>
         <button className="profile-share" onClick={shareProfile}><Share2 size={17} /> Share profile</button>
       </header>
 

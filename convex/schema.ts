@@ -266,7 +266,32 @@ export default defineSchema({
     website: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("archived")),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
   }).index("by_workspace", ["workspaceId"]),
+  brandDivisions: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    divisionType: v.union(v.literal("brand"), v.literal("product_line"), v.literal("market"), v.literal("region")),
+    parentDivisionId: v.optional(v.id("brandDivisions")),
+    status: v.union(v.literal("active"), v.literal("archived")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_parent", ["parentDivisionId"]),
+  groupCollaborators: defineTable({
+    workspaceId: v.id("workspaces"),
+    clientId: v.optional(v.id("clients")),
+    divisionId: v.optional(v.id("brandDivisions")),
+    email: v.string(),
+    role: v.union(v.literal("client_reviewer"), v.literal("internal_stakeholder"), v.literal("agency_collaborator")),
+    status: v.union(v.literal("invited"), v.literal("active"), v.literal("disabled")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_client", ["clientId"])
+    .index("by_division", ["divisionId"]),
   savedCreators: defineTable({
     workspaceId: v.id("workspaces"),
     creatorId: v.optional(v.id("creators")),
@@ -316,6 +341,7 @@ export default defineSchema({
   campaigns: defineTable({
     workspaceId: v.id("workspaces"),
     clientId: v.optional(v.id("clients")),
+    divisionId: v.optional(v.id("brandDivisions")),
     name: v.string(),
     goal: v.string(),
     platforms: v.array(platform),

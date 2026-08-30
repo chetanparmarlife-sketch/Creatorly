@@ -6,12 +6,23 @@ const platform = v.union(v.literal("instagram"), v.literal("tiktok"), v.literal(
 const stage = v.union(v.literal("discovered"), v.literal("shortlisted"), v.literal("contacted"), v.literal("replied"), v.literal("negotiating"), v.literal("contracted"), v.literal("creating"), v.literal("in_review"), v.literal("scheduled"), v.literal("live"), v.literal("paid"));
 
 export const create = mutation({
-  args: { workspaceId: v.id("workspaces"), name: v.string(), goal: v.string(), platforms: v.array(platform), currency: v.string(), budget: v.optional(v.number()) },
+  args: { workspaceId: v.id("workspaces"), clientId: v.optional(v.id("clients")), divisionId: v.optional(v.id("brandDivisions")), name: v.string(), goal: v.string(), platforms: v.array(platform), currency: v.string(), budget: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const { userId } = await requireWorkspaceRole(ctx, args.workspaceId, campaignManagers);
     if (!args.name.trim()) throw new ConvexError("Enter a campaign name.");
+    if (args.clientId && args.divisionId) throw new ConvexError("A campaign can belong to one client or division.");
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (!workspace) throw new ConvexError("Workspace not found.");
+    if (args.clientId) {
+      const client = await ctx.db.get(args.clientId);
+      if (workspace.kind !== "agency" || !client || client.workspaceId !== args.workspaceId) throw new ConvexError("Client not found in this workspace.");
+    }
+    if (args.divisionId) {
+      const division = await ctx.db.get(args.divisionId);
+      if (workspace.kind !== "brand" || !division || division.workspaceId !== args.workspaceId) throw new ConvexError("Division not found in this workspace.");
+    }
     const now = Date.now();
-    const campaignId = await ctx.db.insert("campaigns", { workspaceId: args.workspaceId, name: args.name.trim(), goal: args.goal.trim(), platforms: args.platforms, status: "active", currency: args.currency, budget: args.budget, createdBy: userId, createdAt: now, updatedAt: now });
+    const campaignId = await ctx.db.insert("campaigns", { workspaceId: args.workspaceId, clientId: args.clientId, divisionId: args.divisionId, name: args.name.trim(), goal: args.goal.trim(), platforms: args.platforms, status: "active", currency: args.currency, budget: args.budget, createdBy: userId, createdAt: now, updatedAt: now });
     await ctx.db.insert("activityEvents", { workspaceId: args.workspaceId, actorUserId: userId, entityType: "campaign", entityId: campaignId, action: "created", summary: `Created campaign ${args.name.trim()}`, createdAt: now });
     return { campaignId };
   },
@@ -24,7 +35,8 @@ export const list = query({
     const campaigns = await ctx.db.query("campaigns").withIndex("by_workspace", q => q.eq("workspaceId", args.workspaceId)).order("desc").collect();
     return Promise.all(campaigns.map(async campaign => {
       const creators = await ctx.db.query("campaignCreators").withIndex("by_campaign", q => q.eq("campaignId", campaign._id)).collect();
-      return { ...campaign, creatorCount: creators.length, creators };
+      const group = campaign.clientId ? await ctx.db.get(campaign.clientId) : campaign.divisionId ? await ctx.db.get(campaign.divisionId) : null;
+      return { ...campaign, groupName: group?.name, creatorCount: creators.length, creators };
     }));
   },
 });

@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Platform } from "../types";
-
 export type AppRoute =
   | { name: "landing" }
   | { name: "login" }
@@ -10,7 +8,6 @@ export type AppRoute =
   | { name: "pricing" }
   | { name: "settings" }
   | { name: "payment"; status: "success" | "failure" }
-  | { name: "search"; query: string; platform?: Platform }
   | { name: "history" }
   | { name: "admin" }
   | { name: "discover" }
@@ -36,25 +33,21 @@ function readRoute(): AppRoute {
   }
   if (path === "/history") return { name: "history" };
   if (path === "/admin") return { name: "admin" };
-  if (path === "/app" || path === "/app/home" || path === "/app/discover") return { name: "discover" };
+  if (path === "/app" || path === "/app/home" || path === "/app/discover" || path === "/search") return { name: "discover" };
   if (path === "/app/creators") return { name: "creators" };
   if (path === "/app/campaigns") return { name: "campaigns" };
   const campaignMatch = path.match(/^\/app\/campaigns\/([^/]+)$/);
   if (campaignMatch) return { name: "campaign", campaignId: decodeURIComponent(campaignMatch[1]) };
-  const params = new URLSearchParams(window.location.search);
-  const platform = params.get("platform");
-  return {
-    name: "search",
-    query: params.get("q") ?? "",
-    platform:
-      platform === "instagram" || platform === "tiktok" || platform === "youtube" || platform === "twitter" ? platform : undefined,
-  };
+  return { name: "discover" };
 }
 
 export function useRoute() {
   const [route, setRoute] = useState<AppRoute>(readRoute);
 
   useEffect(() => {
+    if (["/search", "/app/home", "/app/discover"].includes(window.location.pathname)) {
+      window.history.replaceState({}, "", "/app");
+    }
     const handlePopState = () => setRoute(readRoute());
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -79,10 +72,7 @@ export function useRoute() {
         : next.name === "pricing" ? "/pricing"
         : next.name === "settings" ? "/settings"
         : next.name === "payment" ? `/payment/${next.status}`
-        : `/search${next.query ? `?${new URLSearchParams({
-          q: next.query,
-          ...(next.platform ? { platform: next.platform } : {}),
-        })}` : ""}`;
+        : "/app";
     window.history.pushState({}, "", url);
     setRoute(next);
     window.scrollTo({ top: 0, behavior: "auto" });

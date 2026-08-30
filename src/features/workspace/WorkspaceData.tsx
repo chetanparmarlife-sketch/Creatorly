@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import { useConvex } from "convex/react";
 import { makeFunctionReference, type FunctionReference } from "convex/server";
 import { demoData } from "../../lib/demoData";
-import type { ApprovalDecision, Campaign, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
+import type { ApprovalDecision, Campaign, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, GroupCollaborator, GroupCollaboratorRole, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceGroup, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
 import { creatorDuplicateKey } from "./creatorImport";
 
 type WorkspaceData = {
@@ -13,7 +13,11 @@ type WorkspaceData = {
   importPrivateCreators(workspaceId: string, source: "csv_upload" | "manual", rows: PrivateCreatorInput[]): Promise<{ imported: number; duplicates: number; errors: number }>;
   listSavedCreators(workspaceId: string): Promise<SavedCreator[]>;
   updateSavedCreator(workspaceId: string, savedCreatorId: string, patch: Partial<Pick<SavedCreator, "relationshipStage" | "nextAction" | "nextActionAt" | "priority">>): Promise<void>;
-  createCampaign(workspaceId: string, input: Pick<Campaign, "name" | "goal" | "platforms" | "currency" | "budget">): Promise<string>;
+  listGroups(workspaceId: string): Promise<WorkspaceGroup[]>;
+  createGroup(workspaceId: string, input: Pick<WorkspaceGroup, "name" | "website" | "divisionType" | "parentDivisionId">): Promise<string>;
+  listGroupCollaborators(workspaceId: string): Promise<GroupCollaborator[]>;
+  addGroupCollaborator(workspaceId: string, group: WorkspaceGroup, email: string, role: GroupCollaboratorRole): Promise<void>;
+  createCampaign(workspaceId: string, input: Pick<Campaign, "name" | "goal" | "platforms" | "currency" | "budget" | "clientId" | "divisionId">): Promise<string>;
   listCampaigns(workspaceId: string): Promise<Campaign[]>;
   addCampaignCreator(workspaceId: string, campaignId: string, savedCreatorId: string): Promise<void>;
   moveCampaignCreator(workspaceId: string, campaignId: string, campaignCreatorId: string, stage: CampaignStage): Promise<void>;
@@ -39,12 +43,17 @@ const SAVED_KEY = "creatorly.saved-creators.v1";
 const CAMPAIGN_KEY = "creatorly.campaigns.v1";
 const ACTIVITY_KEY = "creatorly.workspace-activity.v1";
 const INVITES_KEY = "creatorly.workspace-invites.v1";
+const GROUPS_KEY = "creatorly.workspace-groups.v1";
+const COLLABORATORS_KEY = "creatorly.group-collaborators.v1";
 
 function read<T>(key: string, fallback: T): T {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as T : fallback; } catch { return fallback; }
 }
 function write<T>(key: string, value: T) { localStorage.setItem(key, JSON.stringify(value)); }
 function savedKey(workspaceId: string) { return workspaceId === "demo-workspace" ? SAVED_KEY : `${SAVED_KEY}.${workspaceId}`; }
+function campaignKey(workspaceId: string) { return `${CAMPAIGN_KEY}.${workspaceId}`; }
+function groupsKey(workspaceId: string) { return `${GROUPS_KEY}.${workspaceId}`; }
+function collaboratorsKey(workspaceId: string) { return `${COLLABORATORS_KEY}.${workspaceId}`; }
 function normalizeSaved(item: SavedCreator): SavedCreator { return { ...item, source: item.source ?? "creatorly" }; }
 function normalizeCampaign(campaign: Campaign): Campaign {
   return { ...campaign, tasks: campaign.tasks ?? [], creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables ?? [] })) };
@@ -131,60 +140,76 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
       write(key, items.map(item => item.id === savedCreatorId ? { ...item, ...patch, updatedAt: Date.now() } : item));
       if (current && patch.relationshipStage && current.relationshipStage !== patch.relationshipStage) record(`Moved ${current.creator.displayName} from ${current.relationshipStage} to ${patch.relationshipStage}`, "saved_creator");
     },
-    async createCampaign(_workspaceId, input) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []);
+    async listGroups(workspaceId) { return read<WorkspaceGroup[]>(groupsKey(workspaceId), []); },
+    async createGroup(workspaceId, input) {
+      const workspace = read<WorkspaceSummary | null>(WORKSPACE_KEY, null);
+      const groups = read<WorkspaceGroup[]>(groupsKey(workspaceId), []);
+      const group: WorkspaceGroup = { id: crypto.randomUUID(), kind: workspace?.kind === "brand" ? "division" : "client", name: input.name.trim(), website: input.website?.trim() || undefined, divisionType: workspace?.kind === "brand" ? (input.divisionType ?? "brand") : undefined, parentDivisionId: input.parentDivisionId, status: "active" };
+      write(groupsKey(workspaceId), [...groups, group]);
+      return group.id;
+    },
+    async listGroupCollaborators(workspaceId) { return read<GroupCollaborator[]>(collaboratorsKey(workspaceId), []); },
+    async addGroupCollaborator(workspaceId, group, email, role) {
+      const items = read<GroupCollaborator[]>(collaboratorsKey(workspaceId), []);
+      if (items.some(item => item.groupId === group.id && item.email === email.trim().toLowerCase() && item.role === role)) return;
+      write(collaboratorsKey(workspaceId), [...items, { id: crypto.randomUUID(), groupId: group.id, email: email.trim().toLowerCase(), role, status: "invited" }]);
+    },
+    async createCampaign(workspaceId, input) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []);
       const now = Date.now();
-      const campaign: Campaign = { id: crypto.randomUUID(), ...input, status: "active", ownerName: "Me", creators: [], tasks: [], createdAt: now, updatedAt: now };
-      write(CAMPAIGN_KEY, [campaign, ...campaigns]);
+      const groupId = input.clientId ?? input.divisionId;
+      const groupName = read<WorkspaceGroup[]>(groupsKey(workspaceId), []).find(item => item.id === groupId)?.name;
+      const campaign: Campaign = { id: crypto.randomUUID(), ...input, groupName, status: "active", ownerName: "Me", creators: [], tasks: [], createdAt: now, updatedAt: now };
+      write(campaignKey(workspaceId), [campaign, ...campaigns]);
       record(`Created campaign ${campaign.name}`, "campaign");
       return campaign.id;
     },
-    async listCampaigns() { return read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); },
-    async addCampaignCreator(_workspaceId, campaignId, savedCreatorId) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign);
+    async listCampaigns(workspaceId) { return read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); },
+    async addCampaignCreator(workspaceId, campaignId, savedCreatorId) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign);
       const campaign = campaigns.find(item => item.id === campaignId);
-      const saved = read<SavedCreator[]>(savedKey(_workspaceId), []).find(item => item.id === savedCreatorId);
+      const saved = read<SavedCreator[]>(savedKey(workspaceId), []).find(item => item.id === savedCreatorId);
       if (!campaign || !saved || campaign.creators.some(item => item.savedCreatorId === savedCreatorId)) return;
       const creator = { id: crypto.randomUUID(), savedCreatorId, stage: "shortlisted" as const, ownerName: saved.ownerName, nextAction: "Send campaign brief", deliverables: [] };
-      write(CAMPAIGN_KEY, campaigns.map(item => item.id === campaignId ? { ...item, creators: [...item.creators, creator], updatedAt: Date.now() } : item));
+      write(campaignKey(workspaceId), campaigns.map(item => item.id === campaignId ? { ...item, creators: [...item.creators, creator], updatedAt: Date.now() } : item));
       record(`Added ${saved.creator.displayName} to ${campaign.name}`, "campaign_creator");
     },
-    async moveCampaignCreator(_workspaceId, campaignId, campaignCreatorId, stage) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign);
+    async moveCampaignCreator(workspaceId, campaignId, campaignCreatorId, stage) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign);
       const campaign = campaigns.find(item => item.id === campaignId);
       const current = campaign?.creators.find(item => item.id === campaignCreatorId);
-      write(CAMPAIGN_KEY, campaigns.map(item => item.id === campaignId ? { ...item, creators: item.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, stage } : creator), updatedAt: Date.now() } : item));
+      write(campaignKey(workspaceId), campaigns.map(item => item.id === campaignId ? { ...item, creators: item.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, stage } : creator), updatedAt: Date.now() } : item));
       if (campaign && current) record(`Moved a creator in ${campaign.name} from ${current.stage} to ${stage}`, "campaign_creator");
     },
-    async getCampaignExecution(_workspaceId, campaignId) { return read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign).find(item => item.id === campaignId) ?? null; },
-    async addDeliverable(_workspaceId, campaignId, campaignCreatorId, input) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
-      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, deliverables: [...creator.deliverables, { id: crypto.randomUUID(), campaignCreatorId, ...input, status: "planned", approvals: [], createdAt: now, updatedAt: now }] } : creator), updatedAt: now } : campaign));
+    async getCampaignExecution(workspaceId, campaignId) { return read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign).find(item => item.id === campaignId) ?? null; },
+    async addDeliverable(workspaceId, campaignId, campaignCreatorId, input) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const now = Date.now();
+      write(campaignKey(workspaceId), campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, deliverables: [...creator.deliverables, { id: crypto.randomUUID(), campaignCreatorId, ...input, status: "planned", approvals: [], createdAt: now, updatedAt: now }] } : creator), updatedAt: now } : campaign));
       record(`Added deliverable ${input.title}`, "deliverable");
     },
-    async submitDeliverable(_workspaceId, campaignId, deliverableId, submissionUrl) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
-      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables.map(item => item.id === deliverableId ? { ...item, submissionUrl, status: "in_review", updatedAt: now } : item) })), updatedAt: now } : campaign));
+    async submitDeliverable(workspaceId, campaignId, deliverableId, submissionUrl) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const now = Date.now();
+      write(campaignKey(workspaceId), campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables.map(item => item.id === deliverableId ? { ...item, submissionUrl, status: "in_review", updatedAt: now } : item) })), updatedAt: now } : campaign));
       record("Submitted content for review", "deliverable");
     },
-    async decideDeliverable(_workspaceId, campaignId, deliverableId, decision, note) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
-      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables.map(item => item.id === deliverableId ? { ...item, status: decision, approvals: [...item.approvals, { id: crypto.randomUUID(), decision, note, reviewerName: "Me", createdAt: now }], updatedAt: now } : item) })), updatedAt: now } : campaign));
+    async decideDeliverable(workspaceId, campaignId, deliverableId, decision, note) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const now = Date.now();
+      write(campaignKey(workspaceId), campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables.map(item => item.id === deliverableId ? { ...item, status: decision, approvals: [...item.approvals, { id: crypto.randomUUID(), decision, note, reviewerName: "Me", createdAt: now }], updatedAt: now } : item) })), updatedAt: now } : campaign));
       record(decision === "approved" ? "Approved creator content" : "Requested creator content changes", "approval");
     },
-    async addCampaignTask(_workspaceId, campaignId, input) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
-      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, tasks: [...campaign.tasks, { id: crypto.randomUUID(), ...input, status: "open", assigneeName: "Me", createdAt: now, updatedAt: now }], updatedAt: now } : campaign));
+    async addCampaignTask(workspaceId, campaignId, input) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const now = Date.now();
+      write(campaignKey(workspaceId), campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, tasks: [...campaign.tasks, { id: crypto.randomUUID(), ...input, status: "open", assigneeName: "Me", createdAt: now, updatedAt: now }], updatedAt: now } : campaign));
       record(`Created task ${input.title}`, "task");
     },
-    async setCampaignTaskStatus(_workspaceId, campaignId, taskId, status) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
-      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, tasks: campaign.tasks.map(task => task.id === taskId ? { ...task, status, updatedAt: now } : task), updatedAt: now } : campaign));
+    async setCampaignTaskStatus(workspaceId, campaignId, taskId, status) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const now = Date.now();
+      write(campaignKey(workspaceId), campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, tasks: campaign.tasks.map(task => task.id === taskId ? { ...task, status, updatedAt: now } : task), updatedAt: now } : campaign));
       record(status === "done" ? "Completed campaign task" : "Updated campaign task", "task");
     },
-    async setCampaignCreatorFee(_workspaceId, campaignId, campaignCreatorId, agreedFee) {
-      const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign); const now = Date.now();
-      write(CAMPAIGN_KEY, campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, agreedFee } : creator), updatedAt: now } : campaign));
+    async setCampaignCreatorFee(workspaceId, campaignId, campaignCreatorId, agreedFee) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const now = Date.now();
+      write(campaignKey(workspaceId), campaigns.map(campaign => campaign.id === campaignId ? { ...campaign, creators: campaign.creators.map(creator => creator.id === campaignCreatorId ? { ...creator, agreedFee } : creator), updatedAt: now } : campaign));
       record("Updated creator agreed fee", "campaign_creator");
     },
     async listActivity() { return read<WorkspaceActivity[]>(ACTIVITY_KEY, []); },
@@ -200,7 +225,11 @@ const saveCreatorRef = makeFunctionReference<"mutation">("savedCreators:save") a
 const importPrivateRef = makeFunctionReference<"mutation">("savedCreators:importPrivate") as FunctionReference<"mutation", "public", { workspaceId: string; source: "csv_upload" | "manual"; rows: PrivateCreatorInput[] }, { imported: number; duplicates: number; errors: number }>;
 const listSavedRef = makeFunctionReference<"query">("savedCreators:list") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
 const updateSavedRef = makeFunctionReference<"mutation">("savedCreators:update") as FunctionReference<"mutation", "public", { workspaceId: string; savedCreatorId: string; relationshipStage?: CampaignStage; nextAction?: string; nextActionAt?: number; priority?: SavedCreator["priority"] }, unknown>;
-const createCampaignRef = makeFunctionReference<"mutation">("campaigns:create") as FunctionReference<"mutation", "public", { workspaceId: string; name: string; goal: string; platforms: Campaign["platforms"]; currency: string; budget?: number }, { campaignId: string }>;
+const listGroupsRef = makeFunctionReference<"query">("groupOperations:listGroups") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
+const createGroupRef = makeFunctionReference<"mutation">("groupOperations:createGroup") as FunctionReference<"mutation", "public", { workspaceId: string; name: string; website?: string; divisionType?: WorkspaceGroup["divisionType"]; parentDivisionId?: string }, { groupId: string }>;
+const listCollaboratorsRef = makeFunctionReference<"query">("groupOperations:listCollaborators") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
+const addCollaboratorRef = makeFunctionReference<"mutation">("groupOperations:addCollaborator") as FunctionReference<"mutation", "public", { workspaceId: string; clientId?: string; divisionId?: string; email: string; role: GroupCollaboratorRole }, unknown>;
+const createCampaignRef = makeFunctionReference<"mutation">("campaigns:create") as FunctionReference<"mutation", "public", { workspaceId: string; clientId?: string; divisionId?: string; name: string; goal: string; platforms: Campaign["platforms"]; currency: string; budget?: number }, { campaignId: string }>;
 const listCampaignsRef = makeFunctionReference<"query">("campaigns:list") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
 const addCampaignCreatorRef = makeFunctionReference<"mutation">("campaigns:addCreator") as FunctionReference<"mutation", "public", { workspaceId: string; campaignId: string; savedCreatorId: string }, unknown>;
 const moveCampaignCreatorRef = makeFunctionReference<"mutation">("campaigns:moveCreator") as FunctionReference<"mutation", "public", { workspaceId: string; campaignCreatorId: string; stage: CampaignStage }, unknown>;
@@ -215,7 +244,7 @@ const homeRef = makeFunctionReference<"query">("home:getSummary") as FunctionRef
 
 function mapCampaignRow(row: Record<string, unknown>): Campaign {
   return {
-    id: String(row._id), name: String(row.name), goal: String(row.goal), platforms: row.platforms as Campaign["platforms"], status: row.status as Campaign["status"], ownerName: "Unassigned", currency: String(row.currency), budget: row.budget as number | undefined,
+    id: String(row._id), clientId: row.clientId ? String(row.clientId) : undefined, divisionId: row.divisionId ? String(row.divisionId) : undefined, groupName: row.groupName as string | undefined, name: String(row.name), goal: String(row.goal), platforms: row.platforms as Campaign["platforms"], status: row.status as Campaign["status"], ownerName: "Unassigned", currency: String(row.currency), budget: row.budget as number | undefined,
     creators: ((row.creators as Array<Record<string, unknown>> | undefined) ?? []).map(creator => ({
       id: String(creator._id), savedCreatorId: String(creator.savedCreatorId), stage: creator.stage as CampaignStage, ownerName: "Unassigned", nextAction: creator.nextAction as string | undefined, nextActionAt: creator.nextActionAt as number | undefined, agreedFee: creator.agreedFee as number | undefined,
       deliverables: ((creator.deliverables as Array<Record<string, unknown>> | undefined) ?? []).map(item => ({
@@ -256,11 +285,15 @@ export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode 
       return [{ id, creator: profile, source: (row.source ?? (creator ? "creatorly" : "manual")) as CreatorSource, privateContact: creator ? undefined : { email: row.privateEmail as string | undefined, phone: row.privatePhone as string | undefined, whatsapp: row.privateWhatsapp as string | undefined }, relationshipStage: row.relationshipStage as CampaignStage, ownerName: "Unassigned", priority: row.priority as SavedCreator["priority"], tags: row.tags as string[], notes: row.notes as string | undefined, nextAction: row.nextAction as string | undefined, nextActionAt: row.nextActionAt as number | undefined, updatedAt: row.updatedAt as number }];
     }),
     updateSavedCreator: async (workspaceId, savedCreatorId, patch) => { await convex.mutation(updateSavedRef, { workspaceId, savedCreatorId, ...patch }); },
+    listGroups: async (workspaceId) => (await convex.query(listGroupsRef, { workspaceId })).map(row => ({ id: String(row._id), kind: row.kind as WorkspaceGroup["kind"], name: String(row.name), website: row.website as string | undefined, divisionType: row.divisionType as WorkspaceGroup["divisionType"], parentDivisionId: row.parentDivisionId ? String(row.parentDivisionId) : undefined, status: row.status as WorkspaceGroup["status"] })),
+    createGroup: async (workspaceId, input) => (await convex.mutation(createGroupRef, { workspaceId, ...input })).groupId,
+    listGroupCollaborators: async (workspaceId) => (await convex.query(listCollaboratorsRef, { workspaceId })).map(row => ({ id: String(row._id), groupId: String(row.clientId ?? row.divisionId), email: String(row.email), role: row.role as GroupCollaboratorRole, status: row.status as GroupCollaborator["status"] })),
+    addGroupCollaborator: async (workspaceId, group, email, role) => { await convex.mutation(addCollaboratorRef, { workspaceId, clientId: group.kind === "client" ? group.id : undefined, divisionId: group.kind === "division" ? group.id : undefined, email, role }); },
     createCampaign: async (workspaceId, input) => (await convex.mutation(createCampaignRef, { workspaceId, ...input })).campaignId,
     listCampaigns: async (workspaceId) => (await convex.query(listCampaignsRef, { workspaceId })).map(mapCampaignRow),
     addCampaignCreator: async (workspaceId, campaignId, savedCreatorId) => { await convex.mutation(addCampaignCreatorRef, { workspaceId, campaignId, savedCreatorId }); },
     moveCampaignCreator: async (workspaceId, _campaignId, campaignCreatorId, stage) => { await convex.mutation(moveCampaignCreatorRef, { workspaceId, campaignCreatorId, stage }); },
-    getCampaignExecution: async (workspaceId, campaignId) => mapCampaignRow(await convex.query(getExecutionRef, { workspaceId, campaignId })),
+    getCampaignExecution: async (workspaceId, campaignId) => { const row = await convex.query(getExecutionRef, { workspaceId, campaignId }); return row ? mapCampaignRow(row) : null; },
     addDeliverable: async (workspaceId, campaignId, campaignCreatorId, input) => { await convex.mutation(addDeliverableRef, { workspaceId, campaignId, campaignCreatorId, ...input }); },
     submitDeliverable: async (workspaceId, _campaignId, deliverableId, submissionUrl) => { await convex.mutation(submitDeliverableRef, { workspaceId, deliverableId, submissionUrl }); },
     decideDeliverable: async (workspaceId, _campaignId, deliverableId, decision, note) => { await convex.mutation(decideDeliverableRef, { workspaceId, deliverableId, decision, note }); },

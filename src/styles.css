@@ -609,7 +609,9 @@ select:focus-visible, textarea:focus-visible {
 .topbar .logo-mark span { background: var(--ink); }
 .topbar .logo-mark span:nth-child(3) { background: var(--signal); }
 .sidebar-panel { min-height: 0; display: flex; flex: 1; flex-direction: column; }
-.topbar nav { width: 100%; margin-top: 30px; display: grid; gap: 4px; }
+.topbar nav { width: 100%; min-height: 0; margin-top: 30px; padding-right: 3px; display: grid; flex: 1; align-content: start; gap: 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; }
+.topbar nav::-webkit-scrollbar { width: 5px; }
+.topbar nav::-webkit-scrollbar-thumb { border-radius: 9999px; background: rgba(255,255,255,.2); }
 .topbar .nav-item {
   width: 100%;
   min-height: 44px;
@@ -629,7 +631,7 @@ select:focus-visible, textarea:focus-visible {
   margin-top: auto;
   padding: 16px 0 0;
   display: grid;
-  grid-template-columns: minmax(0,1fr) auto auto;
+  grid-template-columns: auto minmax(0,1fr);
   align-items: center;
   gap: 8px;
   position: static;
@@ -637,24 +639,26 @@ select:focus-visible, textarea:focus-visible {
   color: white;
   background: transparent;
 }
-.account-strip .credit-pill { min-width: 0; min-height: 42px; padding: 0 9px; color: white; border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.07); }
-.credit-pill > span:last-child { min-width: 0; display: grid; gap: 1px; }
-.credit-pill > span:last-child small { overflow: hidden; color: rgba(255,255,255,.42); font-size: 8px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
-.account-strip .profile-menu { grid-column: 1 / -1; }
+.account-strip .profile-menu { min-width: 0; }
 .account-strip .profile-trigger { width: 100%; min-height: 52px; padding: 0 10px; color: white; border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.07); }
 .profile-trigger > span { min-width: 0; display: grid; flex: 1; gap: 2px; text-align: left; }
 .profile-trigger > span strong, .profile-trigger > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-trigger > span strong { color: white; font-size: 11px; }
 .profile-trigger > span small { color: rgba(255,255,255,.42); font-size: 8px; font-weight: 550; }
-.credit-dot { background: var(--signal); box-shadow: 0 0 0 3px var(--signal-wash); }
-.account-strip .plan-badge { color: #9cb7ff; background: rgba(46,107,255,.16); border-radius: 9999px; }
 .account-strip .icon-button { color: rgba(255,255,255,.72); }
 .account-strip .icon-button:hover { color: white; background: rgba(255,255,255,.08); }
 .topbar .profile-popover, .topbar .notification-popover { top: auto; right: auto; bottom: 0; left: calc(100% + 12px); color: var(--ink); }
-.credit-pill.is-low { color: #ad5a11; border-color: rgba(245,130,31,.2); background: var(--warning-wash); }
 .icon-button:hover { background: var(--inset); }
 .workspace { width: auto; max-width: 1440px; margin: 0 auto; padding: 32px; }
 .workspace-mode { color: #ad5a11; background: var(--warning-wash); }
+.settings-billing { grid-column: 1 / -1; }
+.settings-account-summary { display: grid; grid-template-columns: minmax(160px,.7fr) minmax(160px,.7fr) 1fr; align-items: end; border-top: 1px solid var(--line); }
+.settings-account-summary > span { min-height: 92px; padding: 18px 20px 0 0; display: grid; align-content: start; gap: 4px; }
+.settings-account-summary > span + span { padding-left: 20px; border-left: 1px solid var(--line); }
+.settings-account-summary small { color: var(--eyebrow); font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.settings-account-summary strong { color: var(--ink); font-size: 28px; line-height: 1; letter-spacing: -.04em; text-transform: capitalize; font-variant-numeric: tabular-nums; }
+.settings-account-summary em { color: var(--ink-muted); font-size: 11px; font-style: normal; text-transform: capitalize; }
+.settings-account-summary .button { justify-self: end; margin-bottom: 18px; }
 
 /* Shared flat architectural surfaces */
 .search-console, .creator-list, .history-controls, .history-row,
@@ -825,9 +829,13 @@ select:focus-visible, textarea:focus-visible {
   .landing-hero { padding-top: 48px; }
   .landing-copy h1 { font-size: 42px; }
   .admin-layout { grid-template-columns: 1fr; }
+  .settings-account-summary { grid-template-columns: 1fr 1fr; }
+  .settings-account-summary .button { grid-column: 1 / -1; width: 100%; margin: 4px 0 0; }
 }
 
 @media (max-width: 520px) {
+  .settings-account-summary { grid-template-columns: 1fr; }
+  .settings-account-summary > span + span { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
   .account-strip .profile-trigger span, .account-strip .profile-trigger > svg:last-child { display: grid; }
   .landing-copy h1 { font-size: 38px; }
   .request-dialog-card, .checkout-card { border-radius: 14px; }

@@ -145,7 +145,7 @@ export function HistoryView({
           <span className="empty-orbit" aria-hidden="true"><History size={23} /></span>
           <h2>No unlocks yet</h2>
           <p>Your paid contact windows will stay organized here.</p>
-          <button className="button button-primary" onClick={() => navigate({ name: "search", query: "" })}>Find a creator</button>
+          <button className="button button-primary" onClick={() => navigate({ name: "discover" })}>Find a creator</button>
         </section>
       ) : null}
 

@@ -14,6 +14,10 @@ function renderDemo() {
   );
 }
 
+function storedCreditBalance() {
+  return JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}").creditBalance;
+}
+
 describe("Creatorly M1 user journey", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -59,8 +63,8 @@ describe("Creatorly M1 user journey", () => {
     await user.type(screen.getByLabelText("Password"), "creatorly123");
     await user.click(screen.getByRole("button", { name: /create free account/i }));
 
-    expect(await screen.findByRole("heading", { name: /who do you need to reach/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /browse lifestyle creators/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/app");
     await user.type(screen.getByLabelText("Creator name or handle"), "maya.creates.official");
     const mayaResult = await screen.findByRole("button", { name: /Maya Kapoor/i });
     expect(mayaResult).toHaveTextContent("Lifestyle");
@@ -72,13 +76,13 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("button", { name: /unlock for 5 credits/i }));
 
     expect(await screen.findByText("hello.maya@example.test")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("20")).toBeInTheDocument());
+    await waitFor(() => expect(storedCreditBalance()).toBe(20));
 
     firstRender.unmount();
     renderDemo();
 
     expect(await screen.findByText("hello.maya@example.test")).toBeInTheDocument();
-    expect(screen.getByText("20")).toBeInTheDocument();
+    expect(storedCreditBalance()).toBe(20);
     expect(screen.queryByRole("button", { name: /unlock for 5 credits/i })).not.toBeInTheDocument();
   });
 
@@ -145,7 +149,7 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("button", { name: /view Maya Kapoor contact/i }));
 
     expect(await screen.findByText("hello.maya@example.test")).toBeInTheDocument();
-    expect(screen.getByText("20")).toBeInTheDocument();
+    expect(storedCreditBalance()).toBe(20);
   });
 
   it("re-unlocks expired history for five credits", async () => {
@@ -172,7 +176,7 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("button", { name: /re-unlock · 5 credits/i }));
 
     expect(await screen.findByText(/days remaining/i)).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("20")).toBeInTheDocument());
+    await waitFor(() => expect(storedCreditBalance()).toBe(20));
     expect(screen.getByRole("tab", { name: /active 1/i })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -212,8 +216,8 @@ describe("Creatorly M1 user journey", () => {
     await user.type(await screen.findByLabelText("Creator name or handle"), "MrBeast");
 
     expect(await screen.findByRole("heading", { name: /no creator found/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/India-focused Instagram creators/i)).toHaveLength(2);
-    expect(screen.getAllByText(/YouTube coverage is not loaded yet/i)).toHaveLength(2);
+    expect(screen.getByText(/India-focused Instagram creators/i)).toBeInTheDocument();
+    expect(screen.getByText(/YouTube creator data is not loaded yet/i)).toBeInTheDocument();
   });
 
   it("lets a demo admin fulfill a pending request", async () => {
@@ -253,13 +257,19 @@ describe("Creatorly M1 user journey", () => {
     await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
     await user.type(screen.getByLabelText("Password"), "creatorly123");
     await user.click(screen.getByRole("button", { name: /create free account/i }));
-    await user.click(await screen.findByRole("button", { name: /^pricing$/i }));
+    await user.click(await screen.findByRole("button", { name: /^settings$/i }));
+    expect(await screen.findByRole("heading", { name: /plan and credits/i })).toBeInTheDocument();
+    expect(screen.queryByTitle("Credits available")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /manage billing/i }));
     await user.click(screen.getByRole("button", { name: /choose pro/i }));
     expect(screen.getByRole("dialog", { name: /pro plan/i })).toHaveTextContent(/no real money/i);
     await user.click(screen.getByRole("button", { name: /confirm demo payment/i }));
     expect(await screen.findByRole("heading", { name: /demo payment complete/i })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /return to search/i }));
-    await waitFor(() => expect(screen.getByTitle("Credits available")).toHaveTextContent("275"));
+    await user.click(screen.getByRole("button", { name: /return to discovery/i }));
+    await user.click(await screen.findByRole("button", { name: /^settings$/i }));
+    const billing = (await screen.findByRole("heading", { name: /plan and credits/i })).closest("section");
+    expect(billing).not.toBeNull();
+    await waitFor(() => expect(within(billing!).getByText("275")).toBeInTheDocument());
   });
 
   it("returns to workspace onboarding step 3 after a hard-refresh-style remount", async () => {
@@ -270,7 +280,7 @@ describe("Creatorly M1 user journey", () => {
     await user.type(screen.getByLabelText("Work email"), "aisha@northstar.test");
     await user.type(screen.getByLabelText("Password"), "creatorly123");
     await user.click(screen.getByRole("button", { name: /create free account/i }));
-    await screen.findByRole("heading", { name: /who do you need to reach/i });
+    await screen.findByRole("heading", { name: /discover creators/i });
 
     const savedUser = JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}") as Record<string, unknown>;
     window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({ ...savedUser, onboardingCompleted: false, onboardingStep: 1 }));
@@ -495,5 +505,37 @@ describe("Creatorly M1 user journey", () => {
     expect((await within(drawer).findAllByText("Changes requested")).length).toBeGreaterThan(0);
     await user.click(within(drawer).getByRole("button", { name: /^approve$/i }));
     expect((await within(drawer).findAllByText("Approved")).length).toBeGreaterThan(0);
+  });
+
+  it("groups agency campaigns by client and shows brand division review roles", async () => {
+    const user = userEvent.setup();
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.history.replaceState({}, "", "/app/campaigns");
+    const agency = renderDemo();
+
+    await user.click(await screen.findByRole("button", { name: /manage clients/i }));
+    await user.type(screen.getByLabelText("Client name"), "Northstar Foods");
+    await user.click(screen.getByRole("button", { name: /^add client$/i }));
+    expect(await screen.findByRole("button", { name: /Northstar Foods 0/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /invite client reviewer/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /create campaign/i }));
+    await user.type(screen.getByLabelText("Campaign name"), "Festive Creator Launch");
+    await user.click(within(screen.getByLabelText("Campaign name").closest("form")!).getByRole("button", { name: /^create campaign$/i }));
+    const savedCampaigns = JSON.parse(window.localStorage.getItem("creatorly.campaigns.v1.demo-workspace") ?? "[]") as Array<{ clientId?: string }>;
+    expect(savedCampaigns[0].clientId).toBeTruthy();
+
+    agency.unmount();
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Brand", kind: "brand", role: "owner" }));
+    window.localStorage.removeItem("creatorly.workspace-groups.v1.demo-workspace");
+    window.history.replaceState({}, "", "/app/campaigns");
+    renderDemo();
+    await user.click(await screen.findByRole("button", { name: /manage divisions/i }));
+    expect(screen.getByRole("option", { name: "Product line" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Market" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Region" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Internal stakeholder" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Agency collaborator" })).toBeInTheDocument();
   });
 });
