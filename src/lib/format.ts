@@ -1,4 +1,6 @@
 export function formatFollowers(value: number) {
+  if (value <= 0) return "—";
+  if (value < 10_000) return new Intl.NumberFormat("en-IN").format(value);
   return new Intl.NumberFormat("en", {
     notation: "compact",
     maximumFractionDigits: 1,

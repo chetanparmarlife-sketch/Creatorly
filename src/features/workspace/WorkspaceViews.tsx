@@ -8,14 +8,23 @@ import { CampaignExecution } from "./CampaignExecution";
 import { CreatorImportPanel } from "./CreatorImportPanel";
 import { RequestContactModal } from "../../components/RequestContactModal";
 import { exportCreatorsCsv } from "./creatorImport";
+import { formatFollowers } from "../../lib/format";
 import "./workspace.css";
 
 const stageLabel = (stage: CampaignStage) => stage.replaceAll("_", " ").replace(/^./, value => value.toUpperCase());
-const formatFollowers = (value: number) => value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : value >= 1_000 ? `${Math.round(value / 1_000)}K` : String(value);
 const repositoryScope = "The original imported repository currently covers India-focused Instagram creators. YouTube creator data is not loaded yet.";
 const CREATOR_PAGE_SIZE = 24;
 const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
 type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" } | null;
+type AudienceBand = "all" | "unavailable" | "under1k" | "1k5k" | "5k10k";
+
+function audienceRange(band: AudienceBand) {
+  if (band === "unavailable") return { minFollowers: 0, maxFollowers: 1 };
+  if (band === "under1k") return { minFollowers: 1, maxFollowers: 1_000 };
+  if (band === "1k5k") return { minFollowers: 1_000, maxFollowers: 5_000 };
+  if (band === "5k10k") return { minFollowers: 5_000, maxFollowers: 10_000 };
+  return {};
+}
 
 function PageHeader({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy: string; action?: React.ReactNode }) {
   return <header className="ops-header"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
@@ -28,35 +37,35 @@ function Empty({ icon, title, copy, action, onAction }: { icon: React.ReactNode;
 export function DiscoveryWorkspace({ workspace, navigate }: { workspace: WorkspaceSummary; navigate(route: AppRoute): void }) {
   const data = useAppData(); const store = useWorkspaceData();
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<Platform | "all">("all");
-  const [creatorFilter, setCreatorFilter] = useState(""); const [category, setCategory] = useState(""); const [audience, setAudience] = useState<"all" | "under100k" | "100k500k" | "500k1m" | "over1m">("all");
+  const [creatorFilter, setCreatorFilter] = useState(""); const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
   const [location, setLocation] = useState(""); const [sort, setSort] = useState<CreatorSort>(null); const [contact, setContact] = useState<"all" | "available" | "missing">("all");
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Set<string>>(new Set()); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
-  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location) => {
+  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience) => {
     setLoading(true); setError("");
     try {
       if (nextQuery.trim()) {
         setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined }));
         setCursor(null); setIsDone(true);
       } else {
-        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined });
+        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, ...audienceRange(nextAudience) });
         setResults(result.page); setCursor(result.continueCursor); setIsDone(result.isDone);
       }
     } catch {
       setResults([]); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
     } finally { setLoading(false); }
-  }, [category, data, location, platform, query]);
+  }, [audience, category, data, location, platform, query]);
   async function loadMore() {
     if (loadingMore || isDone || query.trim()) return;
     setLoadingMore(true); setError("");
     try {
-      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined });
+      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined, ...audienceRange(audience) });
       setResults(current => [...new Map([...current, ...result.page].map(creator => [creator.id, creator])).values()]);
       setCursor(result.continueCursor); setIsDone(result.isDone);
     } catch { setError("More creators could not be loaded. Try again."); }
     finally { setLoadingMore(false); }
   }
   useEffect(() => { let active = true; void store.listSavedCreators(workspace.id).then(saved => { if (active) setSavedIds(new Set(saved.map(item => item.creator.id))); }); return () => { active = false; }; }, [store, workspace.id]);
-  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location); }, 180); return () => window.clearTimeout(timer); }, [category, location, platform, query, run]);
+  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location, audience); }, 180); return () => window.clearTimeout(timer); }, [audience, category, location, platform, query, run]);
   const visibleResults = useMemo(() => results.filter(creator => {
     const creatorText = `${creator.displayName} ${creator.handle}`.toLowerCase();
     const creatorMatches = creatorText.includes(creatorFilter.trim().toLowerCase());
@@ -64,10 +73,10 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     const locationMatches = `${creator.location ?? ""}`.toLowerCase().includes(location.trim().toLowerCase());
     const contactMatches = contact === "all" || (contact === "available" ? creator.contactCount > 0 : creator.contactCount === 0);
     const audienceMatches = audience === "all"
-      || (audience === "under100k" && creator.followerCount < 100_000)
-      || (audience === "100k500k" && creator.followerCount >= 100_000 && creator.followerCount < 500_000)
-      || (audience === "500k1m" && creator.followerCount >= 500_000 && creator.followerCount < 1_000_000)
-      || (audience === "over1m" && creator.followerCount >= 1_000_000);
+      || (audience === "unavailable" && creator.followerCount === 0)
+      || (audience === "under1k" && creator.followerCount > 0 && creator.followerCount < 1_000)
+      || (audience === "1k5k" && creator.followerCount >= 1_000 && creator.followerCount < 5_000)
+      || (audience === "5k10k" && creator.followerCount >= 5_000 && creator.followerCount < 10_000);
     return creatorMatches && categoryMatches && locationMatches && contactMatches && audienceMatches;
   }).sort((left, right) => {
     if (!sort) return 0;
@@ -104,7 +113,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
       <span className="table-filter-cell"><b className="sortable-filter-title">Creator <button type="button" onClick={() => cycleSort("name")} aria-label={`Sort creator name ${sort?.field === "name" && sort.direction === "asc" ? "descending" : sort?.field === "name" ? "by default" : "ascending"}`} aria-pressed={sort?.field === "name"}><ArrowUpDown size={12}/><span>{sortStatus("name")}</span></button></b><label><Search size={14}/><span className="sr-only">Filter creator column</span><input aria-label="Filter creator column" value={creatorFilter} onChange={event => setCreatorFilter(event.target.value)} placeholder="Name or handle"/></label></span>
       <span className="table-filter-cell"><b>Category</b><label><span className="sr-only">Filter category column</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="Search category"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
       <span className="table-filter-cell"><b>Platform</b><label><span className="sr-only">Filter platform column</span><select aria-label="Filter platform column" value={platform} onChange={event => setPlatform(event.target.value as Platform | "all")}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="twitter">X</option></select></label></span>
-      <span className="table-filter-cell"><b className="sortable-filter-title">Audience <button type="button" onClick={() => cycleSort("audience")} aria-label={`Sort audience ${sort?.field === "audience" && sort.direction === "desc" ? "low to high" : sort?.field === "audience" ? "by default" : "high to low"}`} aria-pressed={sort?.field === "audience"}><ArrowUpDown size={12}/><span>{sortStatus("audience")}</span></button></b><label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="under100k">Under 100K</option><option value="100k500k">100K–500K</option><option value="500k1m">500K–1M</option><option value="over1m">1M+</option></select></label></span>
+      <span className="table-filter-cell"><b className="sortable-filter-title">Audience <button type="button" onClick={() => cycleSort("audience")} aria-label={`Sort audience ${sort?.field === "audience" && sort.direction === "desc" ? "low to high" : sort?.field === "audience" ? "by default" : "high to low"}`} aria-pressed={sort?.field === "audience"}><ArrowUpDown size={12}/><span>{sortStatus("audience")}</span></button></b><label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="unavailable">0 or unavailable</option><option value="under1k">1–999</option><option value="1k5k">1K–5K</option><option value="5k10k">5K–10K</option></select></label></span>
       <span className="table-filter-cell"><b className="sortable-filter-title">City / Country <button type="button" onClick={() => cycleSort("location")} aria-label={`Sort city and country ${sort?.field === "location" && sort.direction === "asc" ? "descending" : sort?.field === "location" ? "by default" : "ascending"}`} aria-pressed={sort?.field === "location"}><ArrowUpDown size={12}/><span>{sortStatus("location")}</span></button></b><label><span className="sr-only">Filter city or country column</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search location"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></span>
       <span className="table-filter-cell"><b>Contact</b><label><span className="sr-only">Filter contact column</span><select aria-label="Filter contact column" value={contact} onChange={event => setContact(event.target.value as typeof contact)}><option value="all">Any contact</option><option value="available">Available</option><option value="missing">Not available</option></select></label></span>
       <span className="table-filter-actions"><b>Reset</b><button type="button" className="filter-reset-icon" onClick={clearTableFilters} disabled={!filtersActive} aria-label="Reset table filters"><RotateCcw size={15}/></button></span>
