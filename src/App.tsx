@@ -32,7 +32,7 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    if (viewer) workspaceData.ensureWorkspace(viewer).then(item => { if (active) setWorkspace(item); });
+    if (viewer?.onboardingCompleted) workspaceData.ensureWorkspace(viewer).then(item => { if (active) setWorkspace(item); });
     return () => { active = false; };
   }, [viewer, workspaceData]);
 

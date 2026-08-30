@@ -319,6 +319,102 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not sync, but you can keep going/i);
   });
 
+  it("persists a brand workspace from onboarding without creating a duplicate", async () => {
+    window.localStorage.setItem("creatorly.demo.session.v1", "active");
+    window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({
+      id: "demo-user",
+      name: "Aisha Shah",
+      email: "aisha@northstar.test",
+      companyName: "Northstar Agency",
+      role: "user",
+      currentPlanTier: "free",
+      creditBalance: 25,
+      subscriptionStatus: "active",
+      onboardingCompleted: false,
+      onboardingStep: 1,
+      onboardingPlanTier: "free",
+      isEmailVerified: true,
+      notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
+    }));
+    window.history.replaceState({}, "", "/onboarding");
+    const user = userEvent.setup();
+    const firstRender = renderDemo();
+
+    await user.click(await screen.findByRole("button", { name: /^brand/i }));
+    const workspaceName = screen.getByLabelText(/workspace name/i);
+    await user.clear(workspaceName);
+    await user.type(workspaceName, "Northstar Beauty");
+    await user.click(screen.getByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /open workspace/i }));
+
+    expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
+    const saved = JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}") as Record<string, unknown>;
+    expect(saved).toMatchObject({ name: "Northstar Beauty", kind: "brand", role: "owner" });
+    expect(saved.goals).toEqual(["Discover creators", "Manage campaigns"]);
+    const workspaceId = saved.id;
+
+    firstRender.unmount();
+    window.history.replaceState({}, "", "/app/home");
+    renderDemo();
+    expect(await screen.findByRole("heading", { name: /good morning, Northstar Beauty/i })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}").id).toBe(workspaceId);
+  });
+
+  it("adds manual and CSV creators to the private CRM with source labels", async () => {
+    window.localStorage.setItem("creatorly.demo.session.v1", "active");
+    window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({
+      id: "demo-user", name: "Aisha Shah", email: "aisha@northstar.test", companyName: "Northstar Beauty", role: "user",
+      currentPlanTier: "free", creditBalance: 25, subscriptionStatus: "active", onboardingCompleted: true, onboardingStep: 5,
+      onboardingPlanTier: "free", isEmailVerified: true,
+      notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
+    }));
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Beauty", kind: "brand", role: "owner" }));
+    window.history.replaceState({}, "", "/app/creators");
+    const user = userEvent.setup();
+    const firstRender = renderDemo();
+
+    await user.click(await screen.findByRole("button", { name: /add creators/i }));
+    const manualTab = screen.getByRole("button", { name: /add manually/i });
+    await user.click(manualTab);
+    await user.type(screen.getByLabelText(/creator name/i), "Nina Studio");
+    await user.selectOptions(screen.getByLabelText(/^platform/i), "instagram");
+    await user.type(screen.getByLabelText(/^handle/i), "@nina.studio");
+    await user.type(screen.getByLabelText(/^email/i), "team@nina.test");
+    await user.click(screen.getByRole("button", { name: /^add private creator$/i }));
+
+    expect(await screen.findByText("Added manually")).toBeInTheDocument();
+    expect(screen.getByText("team@nina.test")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /add creators/i }));
+    const file = new File([
+      "name,platform,handle,email\nNina duplicate,instagram,@nina.studio,\nArjun Tech,youtube,@arjuntech,hello@arjun.test\n,instagram,@broken,",
+    ], "creators.csv", { type: "text/csv" });
+    await user.upload(screen.getByLabelText(/csv file/i), file);
+    const previewSummary = await screen.findByLabelText("Import preview summary");
+    expect(previewSummary).toHaveTextContent("1 ready");
+    expect(previewSummary).toHaveTextContent("1 duplicate");
+    expect(previewSummary).toHaveTextContent("1 error");
+    expect(screen.getByRole("button", { name: /download error report/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /import 1 ready/i }));
+
+    expect(await screen.findByText("Uploaded by your team")).toBeInTheDocument();
+    expect(screen.getByText("hello@arjun.test")).toBeInTheDocument();
+    const createObjectUrl = vi.fn(() => "blob:creatorly-crm");
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectUrl });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    await user.click(screen.getByRole("button", { name: /export csv/i }));
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+
+    firstRender.unmount();
+    renderDemo();
+    expect(await screen.findByText("Added manually")).toBeInTheDocument();
+    expect(screen.getByText("Uploaded by your team")).toBeInTheDocument();
+  });
+
   it("updates profile and notification settings", async () => {
     const user = userEvent.setup();
     renderDemo();

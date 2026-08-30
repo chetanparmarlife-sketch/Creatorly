@@ -52,6 +52,7 @@ export const profile = query({
         categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,
+        profileImageUrl: creator.profileImageUrl,
         socialProfiles: socialProfiles.length ? socialProfiles.map(profile => ({
           platform: profile.platform,
           handle: profile.handle,

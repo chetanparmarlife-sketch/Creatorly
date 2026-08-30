@@ -1,12 +1,16 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useConvex } from "convex/react";
 import { makeFunctionReference, type FunctionReference } from "convex/server";
-import type { ApprovalDecision, Campaign, CampaignStage, CampaignTaskStatus, CreatorSearchResult, Platform, SavedCreator, Viewer, WorkspaceActivity, WorkspaceSummary } from "../../types";
+import { demoData } from "../../lib/demoData";
+import type { ApprovalDecision, Campaign, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
+import { creatorDuplicateKey } from "./creatorImport";
 
 type WorkspaceData = {
   ensureWorkspace(viewer: Viewer): Promise<WorkspaceSummary>;
+  completeWorkspaceOnboarding(input: WorkspaceOnboardingInput): Promise<WorkspaceSummary>;
   listWorkspaces(): Promise<WorkspaceSummary[]>;
   saveCreator(workspaceId: string, creator: CreatorSearchResult): Promise<{ savedCreatorId: string; alreadySaved: boolean }>;
+  importPrivateCreators(workspaceId: string, source: Exclude<CreatorSource, "creatorly">, rows: PrivateCreatorInput[]): Promise<{ imported: number; duplicates: number; errors: number }>;
   listSavedCreators(workspaceId: string): Promise<SavedCreator[]>;
   updateSavedCreator(workspaceId: string, savedCreatorId: string, patch: Partial<Pick<SavedCreator, "relationshipStage" | "nextAction" | "nextActionAt" | "priority">>): Promise<void>;
   createCampaign(workspaceId: string, input: Pick<Campaign, "name" | "goal" | "platforms" | "currency" | "budget">): Promise<string>;
@@ -34,11 +38,14 @@ const WORKSPACE_KEY = "creatorly.workspace.v1";
 const SAVED_KEY = "creatorly.saved-creators.v1";
 const CAMPAIGN_KEY = "creatorly.campaigns.v1";
 const ACTIVITY_KEY = "creatorly.workspace-activity.v1";
+const INVITES_KEY = "creatorly.workspace-invites.v1";
 
 function read<T>(key: string, fallback: T): T {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as T : fallback; } catch { return fallback; }
 }
 function write<T>(key: string, value: T) { localStorage.setItem(key, JSON.stringify(value)); }
+function savedKey(workspaceId: string) { return workspaceId === "demo-workspace" ? SAVED_KEY : `${SAVED_KEY}.${workspaceId}`; }
+function normalizeSaved(item: SavedCreator): SavedCreator { return { ...item, source: item.source ?? "creatorly" }; }
 function normalizeCampaign(campaign: Campaign): Campaign {
   return { ...campaign, tasks: campaign.tasks ?? [], creators: campaign.creators.map(creator => ({ ...creator, deliverables: creator.deliverables ?? [] })) };
 }
@@ -57,21 +64,71 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
       record(`Created workspace ${workspace.name}`, "workspace");
       return workspace;
     },
+    async completeWorkspaceOnboarding(input) {
+      const existing = read<WorkspaceSummary | null>(WORKSPACE_KEY, null);
+      const workspace: WorkspaceSummary = {
+        id: existing?.id ?? "demo-workspace",
+        name: input.name.trim(),
+        kind: input.kind,
+        role: "owner",
+        goals: [...new Set(input.goals)],
+        defaultCampaignRole: input.role,
+      };
+      write(WORKSPACE_KEY, workspace);
+      if (input.inviteEmail?.trim()) write(INVITES_KEY, [{ email: input.inviteEmail.trim().toLowerCase(), role: "contributor", status: "invited" }]);
+      const viewer = await demoData.viewer();
+      if (viewer) await demoData.updateProfile({ name: viewer.name, companyName: workspace.name });
+      await demoData.completeOnboarding();
+      if (!existing) record(`Created ${workspace.kind} workspace ${workspace.name}`, "workspace");
+      return workspace;
+    },
     async listWorkspaces() { const item = read<WorkspaceSummary | null>(WORKSPACE_KEY, null); return item ? [item] : []; },
-    async saveCreator(_workspaceId, creator) {
-      const items = read<SavedCreator[]>(SAVED_KEY, []);
+    async saveCreator(workspaceId, creator) {
+      const key = savedKey(workspaceId); const items = read<SavedCreator[]>(key, []).map(normalizeSaved);
       const existing = items.find(item => item.creator.id === creator.id);
       if (existing) return { savedCreatorId: existing.id, alreadySaved: true };
-      const saved: SavedCreator = { id: crypto.randomUUID(), creator, relationshipStage: "discovered", ownerName: "Me", priority: "normal", tags: [], updatedAt: Date.now() };
-      write(SAVED_KEY, [saved, ...items]);
+      const saved: SavedCreator = { id: crypto.randomUUID(), creator, source: "creatorly", relationshipStage: "discovered", ownerName: "Me", priority: "normal", tags: [], updatedAt: Date.now() };
+      write(key, [saved, ...items]);
       record(`Saved ${creator.displayName}`, "saved_creator");
       return { savedCreatorId: saved.id, alreadySaved: false };
     },
-    async listSavedCreators() { return read<SavedCreator[]>(SAVED_KEY, []); },
-    async updateSavedCreator(_workspaceId, savedCreatorId, patch) {
-      const items = read<SavedCreator[]>(SAVED_KEY, []);
+    async importPrivateCreators(workspaceId, source, rows) {
+      const key = savedKey(workspaceId); const items = read<SavedCreator[]>(key, []).map(normalizeSaved);
+      const known = new Set(items.flatMap(item => {
+        const profile = creatorDuplicateKey({ platform: item.creator.platform, handle: item.creator.handle });
+        const email = creatorDuplicateKey({ email: item.privateContact?.email });
+        return [profile, email].filter(Boolean);
+      }));
+      let imported = 0; let duplicates = 0; let errors = 0; const additions: SavedCreator[] = [];
+      for (const row of rows) {
+        const keys = [creatorDuplicateKey(row), creatorDuplicateKey({ email: row.email })].filter(Boolean);
+        if (!row.displayName.trim() || (!row.handle && !row.email && !row.phone && !row.whatsapp)) { errors += 1; continue; }
+        if (keys.some(keyValue => known.has(keyValue))) { duplicates += 1; continue; }
+        keys.forEach(keyValue => known.add(keyValue));
+        const id = crypto.randomUUID();
+        additions.push({
+          id,
+          creator: { id: `private:${id}`, displayName: row.displayName.trim(), platform: row.platform, handle: row.handle?.trim(), followerCount: row.followerCount, location: row.location?.trim() },
+          source,
+          privateContact: { email: row.email?.trim().toLowerCase(), phone: row.phone?.trim(), whatsapp: row.whatsapp?.trim() },
+          relationshipStage: "discovered",
+          ownerName: "Me",
+          priority: "normal",
+          tags: row.tags ?? [],
+          notes: row.notes?.trim(),
+          updatedAt: Date.now(),
+        });
+        record(`${source === "manual" ? "Added" : "Imported"} private creator ${row.displayName.trim()}`, "saved_creator");
+        imported += 1;
+      }
+      write(key, [...additions, ...items]);
+      return { imported, duplicates, errors };
+    },
+    async listSavedCreators(workspaceId) { return read<SavedCreator[]>(savedKey(workspaceId), []).map(normalizeSaved); },
+    async updateSavedCreator(workspaceId, savedCreatorId, patch) {
+      const key = savedKey(workspaceId); const items = read<SavedCreator[]>(key, []).map(normalizeSaved);
       const current = items.find(item => item.id === savedCreatorId);
-      write(SAVED_KEY, items.map(item => item.id === savedCreatorId ? { ...item, ...patch, updatedAt: Date.now() } : item));
+      write(key, items.map(item => item.id === savedCreatorId ? { ...item, ...patch, updatedAt: Date.now() } : item));
       if (current && patch.relationshipStage && current.relationshipStage !== patch.relationshipStage) record(`Moved ${current.creator.displayName} from ${current.relationshipStage} to ${patch.relationshipStage}`, "saved_creator");
     },
     async createCampaign(_workspaceId, input) {
@@ -86,7 +143,7 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
     async addCampaignCreator(_workspaceId, campaignId, savedCreatorId) {
       const campaigns = read<Campaign[]>(CAMPAIGN_KEY, []).map(normalizeCampaign);
       const campaign = campaigns.find(item => item.id === campaignId);
-      const saved = read<SavedCreator[]>(SAVED_KEY, []).find(item => item.id === savedCreatorId);
+      const saved = read<SavedCreator[]>(savedKey(_workspaceId), []).find(item => item.id === savedCreatorId);
       if (!campaign || !saved || campaign.creators.some(item => item.savedCreatorId === savedCreatorId)) return;
       const creator = { id: crypto.randomUUID(), savedCreatorId, stage: "shortlisted" as const, ownerName: saved.ownerName, nextAction: "Send campaign brief", deliverables: [] };
       write(CAMPAIGN_KEY, campaigns.map(item => item.id === campaignId ? { ...item, creators: [...item.creators, creator], updatedAt: Date.now() } : item));
@@ -138,7 +195,9 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
 type Empty = Record<string, never>;
 const listWorkspacesRef = makeFunctionReference<"query">("workspaces:listMine") as FunctionReference<"query", "public", Empty, Array<{ id: string; name: string; kind: WorkspaceSummary["kind"]; role: WorkspaceSummary["role"] }>>;
 const createWorkspaceRef = makeFunctionReference<"mutation">("workspaces:create") as FunctionReference<"mutation", "public", { name: string; kind: WorkspaceSummary["kind"]; website?: string }, { workspaceId: string }>;
+const completeSetupRef = makeFunctionReference<"mutation">("workspaces:completeSetup") as FunctionReference<"mutation", "public", WorkspaceOnboardingInput, WorkspaceSummary>;
 const saveCreatorRef = makeFunctionReference<"mutation">("savedCreators:save") as FunctionReference<"mutation", "public", { workspaceId: string; creatorId: string }, { savedCreatorId: string; alreadySaved: boolean }>;
+const importPrivateRef = makeFunctionReference<"mutation">("savedCreators:importPrivate") as FunctionReference<"mutation", "public", { workspaceId: string; source: Exclude<CreatorSource, "creatorly">; rows: PrivateCreatorInput[] }, { imported: number; duplicates: number; errors: number }>;
 const listSavedRef = makeFunctionReference<"query">("savedCreators:list") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
 const updateSavedRef = makeFunctionReference<"mutation">("savedCreators:update") as FunctionReference<"mutation", "public", { workspaceId: string; savedCreatorId: string; relationshipStage?: CampaignStage; nextAction?: string; nextActionAt?: number; priority?: SavedCreator["priority"] }, unknown>;
 const createCampaignRef = makeFunctionReference<"mutation">("campaigns:create") as FunctionReference<"mutation", "public", { workspaceId: string; name: string; goal: string; platforms: Campaign["platforms"]; currency: string; budget?: number }, { campaignId: string }>;
@@ -179,12 +238,22 @@ export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode 
   }, [convex]);
   const value = useMemo<WorkspaceData>(() => ({
     ensureWorkspace,
+    completeWorkspaceOnboarding: (input) => convex.mutation(completeSetupRef, input),
     listWorkspaces: () => convex.query(listWorkspacesRef, {}),
     saveCreator: (workspaceId, creator) => convex.mutation(saveCreatorRef, { workspaceId, creatorId: creator.id }),
+    importPrivateCreators: (workspaceId, source, rows) => convex.mutation(importPrivateRef, { workspaceId, source, rows }),
     listSavedCreators: async (workspaceId) => (await convex.query(listSavedRef, { workspaceId })).flatMap(row => {
       const creator = row.creator as (CreatorSearchResult & { _id?: string }) | null;
-      if (!creator) return [];
-      return [{ id: String(row._id), creator: { ...creator, id: String(creator._id ?? creator.id), contactCount: creator.contactCount ?? 0, matchScore: 0 }, relationshipStage: row.relationshipStage as CampaignStage, ownerName: "Unassigned", priority: row.priority as SavedCreator["priority"], tags: row.tags as string[], nextAction: row.nextAction as string | undefined, nextActionAt: row.nextActionAt as number | undefined, updatedAt: row.updatedAt as number }];
+      const id = String(row._id);
+      const profile = creator ? { ...creator, id: String(creator._id ?? creator.id), contactCount: creator.contactCount ?? 0 } : {
+        id: `private:${id}`,
+        displayName: String(row.privateDisplayName ?? "Private creator"),
+        platform: row.privatePlatform as Platform | undefined,
+        handle: row.privateHandle as string | undefined,
+        followerCount: row.privateFollowerCount as number | undefined,
+        location: row.privateLocation as string | undefined,
+      };
+      return [{ id, creator: profile, source: (row.source ?? (creator ? "creatorly" : "manual")) as CreatorSource, privateContact: creator ? undefined : { email: row.privateEmail as string | undefined, phone: row.privatePhone as string | undefined, whatsapp: row.privateWhatsapp as string | undefined }, relationshipStage: row.relationshipStage as CampaignStage, ownerName: "Unassigned", priority: row.priority as SavedCreator["priority"], tags: row.tags as string[], notes: row.notes as string | undefined, nextAction: row.nextAction as string | undefined, nextActionAt: row.nextActionAt as number | undefined, updatedAt: row.updatedAt as number }];
     }),
     updateSavedCreator: async (workspaceId, savedCreatorId, patch) => { await convex.mutation(updateSavedRef, { workspaceId, savedCreatorId, ...patch }); },
     createCampaign: async (workspaceId, input) => (await convex.mutation(createCampaignRef, { workspaceId, ...input })).campaignId,

@@ -62,27 +62,29 @@ async function copy(value, button) {
 
 function updateBalance(value) {
   balance.innerHTML = Number.isFinite(value)
-    ? `<i></i><b>${value}</b> credits`
-    : `<i></i><b>—</b> credits`;
+    ? `<b>${value}</b><small>credits</small>`
+    : `<b>—</b><small>credits</small>`;
 }
 
 function creatorCardHtml(result, openState) {
   const creator = result.creator;
   const category = creator.categories?.[0] || "Creator profile";
   const location = creator.location || creator.handle;
+  const portrait = creator.profileImageUrl
+    ? `<img src="${escapeHtml(creator.profileImageUrl)}" alt="" />`
+    : escapeHtml(initials(creator.displayName));
   return `
     <section class="creator-card">
-      <div class="creator-cover" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="creator-cover"><span class="intelligence-label">Creator intelligence</span><span class="source-label">${escapeHtml(creator.platform)} profile</span><i></i><i></i><i></i></div>
       <div class="creator-identity">
-        <span class="portrait" aria-hidden="true">${escapeHtml(initials(creator.displayName))}</span>
+        <span class="portrait">${portrait}</span>
         <div class="creator-copy">
-          <div class="creator-labels"><span>${escapeHtml(creator.platform)}</span>${creator.isVerified ? `<span class="verified-chip">✓ Platform badge</span>` : ""}</div>
-          <h1>${escapeHtml(creator.displayName)}</h1>
-          <p>⌖ ${escapeHtml(location)}</p>
+          <div class="creator-labels">${creator.isVerified ? `<span class="verified-chip">✓ Verified profile</span>` : `<span>Indexed profile</span>`}</div>
+          <h1>${escapeHtml(creator.displayName)}</h1><p>⌖ ${escapeHtml(location)}</p>
         </div>
       </div>
-      <div class="creator-chips"><span>✣ ${escapeHtml(category)}</span><span>${creator.isVerified ? "✓ Platform badge" : "Profile indexed"}</span></div>
-      <div class="signal-rail" aria-label="Contact readiness"><span class="done">Matched</span><span class="done">Indexed</span><span class="${openState ? "done" : "current"}">${openState ? "Contact open" : "Contact status"}</span></div>
+      <div class="creator-chips"><span>${escapeHtml(category)}</span><span>${escapeHtml(creator.categories?.[1] || creator.platform)}</span></div>
+      <div class="signal-rail" aria-label="Contact readiness"><span class="done"><i>1</i>Matched</span><b></b><span class="done"><i>2</i>Indexed</span><b></b><span class="${openState ? "done" : "current"}"><i>3</i>${openState ? "Contact open" : "Unlock route"}</span></div>
     </section>`;
 }
 
@@ -102,10 +104,10 @@ const SOCIAL_ICONS = { instagram: "◎", youtube: "▶", linkedin: "in", twitter
 function socialsHtml(result) {
   const profiles = result.creator.socialProfiles || [];
   if (!profiles.length) return "";
-  return `<section class="dossier-section"><div class="section-kicker">Audience</div><h2>Socials</h2><div class="social-grid">${profiles.map(profile => `
+  return `<section class="dossier-section social-section"><div class="section-heading"><span><small>Audience map</small><h2>Social profiles</h2></span><b>${profiles.length} linked</b></div><div class="social-grid">${profiles.map(profile => `
     <a class="social-card social-${escapeHtml(profile.platform)}" href="${escapeHtml(profile.url)}" target="_blank" rel="noreferrer">
       <span class="social-card-icon">${SOCIAL_ICONS[profile.platform] || "↗"}</span>
-      <span><strong>${Number.isFinite(profile.followerCount) ? formatFollowers(profile.followerCount) : SOCIAL_LABELS[profile.platform] || profile.platform}</strong><small>${Number.isFinite(profile.followerCount) ? profile.platform === "youtube" ? "Subscribers" : "Followers" : "Open profile"}</small></span>
+      <span><small>${SOCIAL_LABELS[profile.platform] || profile.platform}</small><strong>${Number.isFinite(profile.followerCount) ? formatFollowers(profile.followerCount) : `@${escapeHtml(profile.handle)}`}</strong><em>${Number.isFinite(profile.followerCount) ? profile.platform === "youtube" ? "subscribers" : "followers" : "Open profile"}</em></span>
       <b aria-hidden="true">↗</b>
     </a>`).join("")}</div></section>`;
 }
@@ -118,12 +120,12 @@ function factsHtml(result) {
     ["Profile type", creator.profileType || "Creator"],
     ["Content quality", creator.contentQuality || "Not rated"],
   ];
-  return `<section class="dossier-section"><div class="section-kicker">About</div><h2>Creator profile</h2><dl class="profile-facts">${facts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></section>`;
+  return `<section class="dossier-section facts-section"><div class="section-heading"><span><small>Profile evidence</small><h2>At a glance</h2></span></div><dl class="profile-facts">${facts.map(([label, value], index) => `<div><dt><i>${index + 1}</i>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></section>`;
 }
 
 function routeHtml(result) {
   const representative = result.creator.managementType === "talent_managed" || result.contacts?.some(contact => contact.contactType !== "creator_direct");
-  return `<section class="management-strip"><span class="management-status">${representative ? "Talent managed" : "Self managed"}</span><strong>${representative ? "Connect through the creator’s representative" : `Reach ${escapeHtml(result.creator.displayName)} directly`}</strong><small>${representative ? "Manager or agent details appear after unlock." : "Direct partnership contact when available."}</small></section>`;
+  return `<section class="management-strip"><span class="route-icon">${representative ? "M" : "D"}</span><span><small>${representative ? "Talent managed" : "Self managed"}</small><strong>${representative ? "Representative route confirmed" : `Direct route to ${escapeHtml(result.creator.displayName)}`}</strong><em>${representative ? "Manager or agent details appear after unlock" : "Official partnership contact when available"}</em></span><b>✓</b></section>`;
 }
 
 function renderConnect() {
@@ -177,11 +179,11 @@ function renderUnlocked(result) {
       ${creatorCardHtml(result, true)}
       ${routeHtml(result)}
       ${socialsHtml(result)}
-      ${factsHtml(result)}
       <section class="contacts-view">
-        <div class="contacts-title"><span><small>Contact details</small><h2>Ready for outreach</h2></span><b>${days} days left</b></div>
+        <div class="contacts-title"><span><small>Unlocked route</small><h2>Ready for outreach</h2></span><b>${days} days left</b></div>
         <div class="contacts">${contactsHtml(result.contacts)}</div>
       </section>
+      ${factsHtml(result)}
       <button class="secondary" id="view">Open full creator profile ↗</button>
     </div>`;
   bindCopies();
@@ -202,11 +204,11 @@ function renderLocked(result) {
       ${creatorCardHtml(result, false)}
       ${routeHtml(result)}
       ${socialsHtml(result)}
-      ${factsHtml(result)}
       <section class="access-card">
-        <div class="access-heading"><span><strong>Contact access</strong><small>${verificationPending ? "Imported contact · verification in progress" : `${contacts} available route${contacts === 1 ? "" : "s"} found`}</small></span><span class="status-pill ${statusClass}">${statusLabel}</span></div>
+        <div class="access-heading"><span><small>Next action</small><strong>${needsPro ? "Unlock the representative" : "Open the partnership route"}</strong><em>${verificationPending ? "Imported contact · verification in progress" : `${contacts} verified route${contacts === 1 ? "" : "s"} available for 30 days`}</em></span><span class="status-pill ${statusClass}">${statusLabel}</span></div>
         <div class="button-row"><button class="primary" id="primary">${buttonLabel}</button><button class="secondary icon-action" id="view" aria-label="Open full creator profile">↗</button></div>
       </section>
+      ${factsHtml(result)}
     </div>`;
   document.querySelector("#view").onclick = () => openPath(`/creator/${result.creator.id}`);
   const primary = document.querySelector("#primary");

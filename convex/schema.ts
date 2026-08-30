@@ -241,6 +241,8 @@ export default defineSchema({
     name: v.string(),
     kind: workspaceKind,
     website: v.optional(v.string()),
+    goals: v.optional(v.array(v.string())),
+    defaultCampaignRole: v.optional(workspaceRole),
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -267,7 +269,18 @@ export default defineSchema({
   }).index("by_workspace", ["workspaceId"]),
   savedCreators: defineTable({
     workspaceId: v.id("workspaces"),
-    creatorId: v.id("creators"),
+    creatorId: v.optional(v.id("creators")),
+    source: v.optional(v.union(v.literal("creatorly"), v.literal("csv_upload"), v.literal("manual"))),
+    privateDisplayName: v.optional(v.string()),
+    privatePlatform: v.optional(platform),
+    privateHandle: v.optional(v.string()),
+    privateNormalizedHandle: v.optional(v.string()),
+    privateFollowerCount: v.optional(v.number()),
+    privateLocation: v.optional(v.string()),
+    privateEmail: v.optional(v.string()),
+    privateNormalizedEmail: v.optional(v.string()),
+    privatePhone: v.optional(v.string()),
+    privateWhatsapp: v.optional(v.string()),
     ownerMemberId: v.optional(v.id("workspaceMembers")),
     relationshipStage: campaignStage,
     priority: v.union(v.literal("low"), v.literal("normal"), v.literal("high")),
@@ -281,6 +294,8 @@ export default defineSchema({
   })
     .index("by_workspace", ["workspaceId"])
     .index("by_workspace_creator", ["workspaceId", "creatorId"])
+    .index("by_workspace_private_profile", ["workspaceId", "privatePlatform", "privateNormalizedHandle"])
+    .index("by_workspace_private_email", ["workspaceId", "privateNormalizedEmail"])
     .index("by_workspace_stage", ["workspaceId", "relationshipStage"]),
   creatorLists: defineTable({
     workspaceId: v.id("workspaces"),

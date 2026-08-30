@@ -169,6 +169,13 @@ export type DataMode = "convex" | "demo";
 
 export type WorkspaceKind = "agency" | "brand" | "talent";
 export type WorkspaceRole = "owner" | "admin" | "manager" | "contributor" | "reviewer";
+export type WorkspaceOnboardingInput = {
+  name: string;
+  kind: WorkspaceKind;
+  role: WorkspaceRole;
+  goals: string[];
+  inviteEmail?: string;
+};
 export type CampaignStage = "discovered" | "shortlisted" | "contacted" | "replied" | "negotiating" | "contracted" | "creating" | "in_review" | "scheduled" | "live" | "paid";
 export type CampaignStatus = "draft" | "active" | "paused" | "completed" | "archived";
 export type DeliverableStatus = "planned" | "awaiting_content" | "in_review" | "changes_requested" | "approved" | "scheduled" | "live";
@@ -179,14 +186,55 @@ export const CAMPAIGN_STAGES: CampaignStage[] = ["discovered", "shortlisted", "c
 export const canManageCampaign = (role: WorkspaceRole) => role !== "reviewer";
 export const canRevealContacts = (role: WorkspaceRole) => role !== "reviewer";
 
-export type WorkspaceSummary = { id: string; name: string; kind: WorkspaceKind; role: WorkspaceRole };
+export type WorkspaceSummary = { id: string; name: string; kind: WorkspaceKind; role: WorkspaceRole; goals?: string[]; defaultCampaignRole?: WorkspaceRole };
+export type CreatorSource = "creatorly" | "csv_upload" | "manual";
+export type PrivateCreatorInput = {
+  displayName: string;
+  platform?: Platform;
+  handle?: string;
+  followerCount?: number;
+  location?: string;
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  notes?: string;
+  tags?: string[];
+};
+export type PrivateCreatorContact = Pick<PrivateCreatorInput, "email" | "phone" | "whatsapp">;
+export type CreatorImportStatus = "ready" | "duplicate" | "error";
+export type CreatorImportPreviewRow = {
+  rowNumber: number;
+  status: CreatorImportStatus;
+  input: PrivateCreatorInput;
+  errors: string[];
+};
+export type CreatorImportPreview = {
+  rows: CreatorImportPreviewRow[];
+  readyCount: number;
+  duplicateCount: number;
+  errorCount: number;
+};
+export type CrmCreatorProfile = {
+  id: string;
+  displayName: string;
+  platform?: Platform;
+  handle?: string;
+  followerCount?: number;
+  location?: string;
+  categories?: string[];
+  isVerified?: boolean;
+  contactCount?: number;
+};
 export type SavedCreator = {
   id: string;
-  creator: CreatorSearchResult;
+  creator: CrmCreatorProfile;
+  source: CreatorSource;
+  privateContact?: PrivateCreatorContact;
   relationshipStage: CampaignStage;
   ownerName: string;
   priority: "low" | "normal" | "high";
   tags: string[];
+  notes?: string;
   nextAction?: string;
   nextActionAt?: number;
   updatedAt: number;
