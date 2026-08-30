@@ -4,6 +4,7 @@ const content = document.querySelector("#content");
 const urlInput = document.querySelector("#dashboard-url");
 const keyInput = document.querySelector("#connection-key");
 const balance = document.querySelector("#balance");
+const workspaceContext = document.querySelector("#workspace-context");
 let currentProfile = null;
 let currentResult = null;
 
@@ -64,6 +65,39 @@ function updateBalance(value) {
   balance.innerHTML = Number.isFinite(value)
     ? `<b>${value}</b><small>credits</small>`
     : `<b>—</b><small>credits</small>`;
+}
+
+function updateWorkspaceContext(result) {
+  if (!result?.authenticated) {
+    workspaceContext.className = "workspace-context is-disconnected";
+    workspaceContext.innerHTML = `<span class="workspace-dot"></span><span><small>Active CRM</small><strong>Connect Creatorly</strong></span><b>Not connected</b>`;
+    return;
+  }
+  if (!result.workspace) {
+    workspaceContext.className = "workspace-context is-warning";
+    workspaceContext.innerHTML = `<span class="workspace-dot"></span><span><small>Active CRM</small><strong>No active workspace</strong></span><button id="choose-workspace">Open dashboard ↗</button>`;
+    document.querySelector("#choose-workspace").onclick = () => openPath("/app");
+    return;
+  }
+  workspaceContext.className = "workspace-context";
+  workspaceContext.innerHTML = `<span class="workspace-dot"></span><span><small>Active CRM</small><strong>${escapeHtml(result.workspace.name)}</strong></span><b>${escapeHtml(result.workspace.kind)} workspace</b>`;
+}
+
+function crmActionHtml(result) {
+  const hasWorkspace = Boolean(result.workspace);
+  const canSave = Boolean(result.workspace?.canSave);
+  const buttonLabel = result.isSaved ? "Already in CRM" : !hasWorkspace ? "Choose a workspace first" : !canSave ? "Read-only workspace" : "Save to active CRM";
+  return `<section class="crm-action ${result.isSaved ? "is-saved" : ""}">
+    <span class="crm-action-icon">${result.isSaved ? "✓" : "+"}</span>
+    <span><small>Workspace record</small><strong>${result.isSaved ? "Saved to this CRM" : "Keep this creator with your team"}</strong><em>${result.isSaved ? escapeHtml(result.workspace?.name || "Active workspace") : "Add stage, owner, notes, and campaign work in Creatorly."}</em></span>
+    <button id="crm-save" ${result.isSaved || !hasWorkspace || !canSave ? "disabled" : ""}>${buttonLabel}</button>
+  </section>`;
+}
+
+function bindCrmSave() {
+  const button = document.querySelector("#crm-save");
+  if (!button || button.disabled) return;
+  button.onclick = () => saveToCrm(false);
 }
 
 function creatorCardHtml(result, openState) {
@@ -139,9 +173,13 @@ function renderWrongPage() {
   chrome.action.setBadgeText({ text: "" });
 }
 
-function renderMissing(profile) {
-  content.innerHTML = `<section class="state"><span class="wrong-icon">+</span><h1>Contact not available yet</h1><p>@${escapeHtml(profile.handle)} is not in the Creatorly repository.</p><button class="primary" id="request">Request this contact</button><button class="secondary" id="search">Search dashboard</button></section>`;
-  document.querySelector("#request").onclick = () => openPath(`/search?q=${encodeURIComponent(profile.handle)}&platform=${profile.platform}&request=1`);
+function renderMissing(profile, result) {
+  const hasWorkspace = Boolean(result.workspace);
+  const canSave = Boolean(result.workspace?.canSave);
+  const label = result.isSaved ? "Already in CRM" : !hasWorkspace ? "Choose a workspace first" : !canSave ? "Read-only workspace" : "Add privately to CRM";
+  content.innerHTML = `<section class="state missing-profile"><span class="wrong-icon">+</span><span class="private-chip">Private workspace profile</span><h1>@${escapeHtml(profile.handle)} is not in Creatorly data</h1><p>You can still add this social profile privately to ${escapeHtml(result.workspace?.name || "your CRM")}. It will not change Creatorly's global database.</p><button class="primary ${result.isSaved ? "saved-button" : ""}" id="private-save" ${result.isSaved || !hasWorkspace || !canSave ? "disabled" : ""}>${label}</button><button class="secondary" id="search">Search Creatorly data</button></section>`;
+  const privateSave = document.querySelector("#private-save");
+  if (!privateSave.disabled) privateSave.onclick = () => saveToCrm(true);
   document.querySelector("#search").onclick = () => openDashboard(profile);
 }
 
@@ -177,6 +215,7 @@ function renderUnlocked(result) {
   content.innerHTML = `
     <div class="creator-view">
       ${creatorCardHtml(result, true)}
+      ${crmActionHtml(result)}
       ${routeHtml(result)}
       ${socialsHtml(result)}
       <section class="contacts-view">
@@ -187,6 +226,7 @@ function renderUnlocked(result) {
       <button class="secondary" id="view">Open full creator profile ↗</button>
     </div>`;
   bindCopies();
+  bindCrmSave();
   document.querySelector("#view").onclick = () => openPath(`/creator/${result.creator.id}`);
   chrome.action.setBadgeText({ text: "✓" });
 }
@@ -202,6 +242,7 @@ function renderLocked(result) {
   content.innerHTML = `
     <div class="creator-view">
       ${creatorCardHtml(result, false)}
+      ${crmActionHtml(result)}
       ${routeHtml(result)}
       ${socialsHtml(result)}
       <section class="access-card">
@@ -211,6 +252,7 @@ function renderLocked(result) {
       ${factsHtml(result)}
     </div>`;
   document.querySelector("#view").onclick = () => openPath(`/creator/${result.creator.id}`);
+  bindCrmSave();
   const primary = document.querySelector("#primary");
   primary.disabled = verificationPending;
   primary.onclick = verificationPending ? null : needsPro || noCredits ? () => openPath("/pricing") : unlock;
@@ -220,10 +262,31 @@ function renderLocked(result) {
 function renderResult(result, profile) {
   currentResult = result;
   updateBalance(result.creditBalance);
+  updateWorkspaceContext(result);
   if (!result.authenticated) return renderConnect();
-  if (!result.found) return renderMissing(profile);
+  if (!result.found) return renderMissing(profile, result);
   if (result.isUnlocked) return renderUnlocked(result);
   renderLocked(result);
+}
+
+async function saveToCrm(privateProfile) {
+  const button = document.querySelector(privateProfile ? "#private-save" : "#crm-save");
+  if (!button || !currentProfile) return;
+  button.disabled = true;
+  button.textContent = privateProfile ? "Adding privately…" : "Saving…";
+  const config = await settings();
+  const endpoint = privateProfile ? "/extension/save-private" : "/extension/save";
+  const body = privateProfile
+    ? { platform: currentProfile.platform, handle: currentProfile.handle }
+    : { creatorId: currentResult.creator.id, platform: currentProfile.platform, handle: currentProfile.handle };
+  const response = await fetch(`${DEFAULT_API_URL}${endpoint}`, { method: "POST", headers: { Authorization: `Bearer ${config.connectionKey}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const result = await response.json();
+  if (!response.ok) {
+    button.disabled = false;
+    button.textContent = result.error || "Could not save · try again";
+    return;
+  }
+  await fetchProfile(currentProfile);
 }
 
 async function fetchProfile(profile) {

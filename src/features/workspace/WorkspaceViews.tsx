@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarClock, Check, ChevronRight, CircleDollarSign, Download, FolderKanban, Plus, Search, Sparkles, Users } from "lucide-react";
+import { Check, ChevronRight, CircleDollarSign, Download, FolderKanban, Plus, RotateCcw, Search, Sparkles, Users } from "lucide-react";
 import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
-import { CAMPAIGN_STAGES, type Campaign, type CampaignStage, type CreatorSearchResult, type Platform, type SavedCreator, type WorkspaceActivity, type WorkspaceSummary } from "../../types";
+import { CAMPAIGN_STAGES, type Campaign, type CampaignStage, type CreatorSearchResult, type Platform, type SavedCreator, type WorkspaceSummary } from "../../types";
 import { useWorkspaceData } from "./WorkspaceData";
 import { CampaignExecution } from "./CampaignExecution";
 import { CreatorImportPanel } from "./CreatorImportPanel";
@@ -16,30 +16,6 @@ function PageHeader({ eyebrow, title, copy, action }: { eyebrow: string; title: 
   return <header className="ops-header"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
 }
 
-export function WorkspaceHome({ workspace, navigate }: { workspace: WorkspaceSummary; navigate(route: AppRoute): void }) {
-  const store = useWorkspaceData();
-  const [saved, setSaved] = useState<SavedCreator[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [activity, setActivity] = useState<WorkspaceActivity[]>([]);
-  useEffect(() => { void Promise.all([store.listSavedCreators(workspace.id), store.listCampaigns(workspace.id), store.listActivity(workspace.id)]).then(([nextSaved, nextCampaigns, nextActivity]) => { setSaved(nextSaved); setCampaigns(nextCampaigns); setActivity(nextActivity); }); }, [store, workspace.id]);
-  const due = saved.filter(item => item.nextAction);
-  return <main className="workspace ops-page">
-    <PageHeader eyebrow={workspace.kind} title={`Good morning, ${workspace.name}.`} copy="The next decisions across your creator pipeline, in one place." action={<button className="button button-primary" onClick={() => navigate({ name: "discover" })}><Search size={16}/> Discover creators</button>}/>
-    <section className="ops-summary" aria-label="Workspace summary">
-      <button onClick={() => navigate({ name: "creators" })}><span>Saved creators</span><strong>{saved.length}</strong><small>{saved.length ? "Ready to activate" : "Start your roster"}</small></button>
-      <button onClick={() => navigate({ name: "campaigns" })}><span>Active campaigns</span><strong>{campaigns.filter(item => item.status === "active").length}</strong><small>{campaigns.length ? `${campaigns.reduce((total, item) => total + item.creators.length, 0)} creator placements` : "Create your first campaign"}</small></button>
-      <div><span>Actions due</span><strong>{due.length}</strong><small>{due.length ? "Needs attention" : "Nothing overdue"}</small></div>
-    </section>
-    <div className="ops-home-grid">
-      <section className="ops-panel"><header><div><p className="eyebrow">Priority queue</p><h2>Next actions</h2></div><button className="text-button" onClick={() => navigate({ name: "creators" })}>View CRM <ArrowRight size={14}/></button></header>
-        {due.length ? <div className="next-action-list">{due.slice(0, 6).map(item => <article key={item.id}><span className="creator-monogram">{item.creator.displayName[0]}</span><div><strong>{item.creator.displayName}</strong><p>{item.nextAction}</p></div><span className="status-chip status-review">{stageLabel(item.relationshipStage)}</span></article>)}</div> : <Empty icon={<CalendarClock/>} title="Your queue is clear" copy="Add a next action to a saved creator and it will appear here." action="Open creators" onAction={() => navigate({ name: "creators" })}/>}</section>
-      <section className="ops-panel"><header><div><p className="eyebrow">Campaign pulse</p><h2>Active campaigns</h2></div></header>
-        {campaigns.length ? <div className="campaign-mini-list">{campaigns.slice(0, 4).map(campaign => <button key={campaign.id} onClick={() => navigate({ name: "campaign", campaignId: campaign.id })}><span><strong>{campaign.name}</strong><small>{campaign.goal}</small></span><b>{campaign.creators.length} creators</b><ChevronRight size={16}/></button>)}</div> : <Empty icon={<FolderKanban/>} title="No campaign is running" copy="Create a campaign and turn your saved roster into a shared execution plan." action="Create campaign" onAction={() => navigate({ name: "campaigns" })}/>}</section>
-    </div>
-    <section className="ops-panel activity-panel"><header><div><p className="eyebrow">Workspace log</p><h2>Recent activity</h2></div></header>{activity.length ? <ol>{activity.slice(0, 8).map(item => <li key={item.id}><span/><p>{item.summary}</p><time>{new Date(item.createdAt).toLocaleDateString()}</time></li>)}</ol> : <p className="panel-empty-copy">Workspace changes will appear here.</p>}</section>
-  </main>;
-}
-
 function Empty({ icon, title, copy, action, onAction }: { icon: React.ReactNode; title: string; copy: string; action: string; onAction(): void }) {
   return <div className="ops-empty"><span>{icon}</span><h3>{title}</h3><p>{copy}</p><button className="button button-secondary" onClick={onAction}>{action}</button></div>;
 }
@@ -47,20 +23,44 @@ function Empty({ icon, title, copy, action, onAction }: { icon: React.ReactNode;
 export function DiscoveryWorkspace({ workspace, navigate }: { workspace: WorkspaceSummary; navigate(route: AppRoute): void }) {
   const data = useAppData(); const store = useWorkspaceData();
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<Platform | "all">("all");
+  const [creatorFilter, setCreatorFilter] = useState(""); const [audience, setAudience] = useState<"all" | "under100k" | "100k500k" | "500k1m" | "over1m">("all");
+  const [market, setMarket] = useState(""); const [contact, setContact] = useState<"all" | "available" | "missing">("all");
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Set<string>>(new Set()); const [loading, setLoading] = useState(false);
   const run = useCallback(async (nextQuery = query, nextPlatform = platform) => { setLoading(true); try { setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform })); } finally { setLoading(false); } }, [data, platform, query]);
   useEffect(() => { let active = true; void Promise.all([data.search("", {}), store.listSavedCreators(workspace.id)]).then(([creators, saved]) => { if (active) { setResults(creators); setSavedIds(new Set(saved.map(item => item.creator.id))); } }); return () => { active = false; }; }, [data, store, workspace.id]);
+  const visibleResults = useMemo(() => results.filter(creator => {
+    const creatorText = `${creator.displayName} ${creator.handle} ${creator.categories?.join(" ") ?? ""}`.toLowerCase();
+    const creatorMatches = creatorText.includes(creatorFilter.trim().toLowerCase());
+    const marketMatches = `${creator.location ?? ""}`.toLowerCase().includes(market.trim().toLowerCase());
+    const contactMatches = contact === "all" || (contact === "available" ? creator.contactCount > 0 : creator.contactCount === 0);
+    const audienceMatches = audience === "all"
+      || (audience === "under100k" && creator.followerCount < 100_000)
+      || (audience === "100k500k" && creator.followerCount >= 100_000 && creator.followerCount < 500_000)
+      || (audience === "500k1m" && creator.followerCount >= 500_000 && creator.followerCount < 1_000_000)
+      || (audience === "over1m" && creator.followerCount >= 1_000_000);
+    return creatorMatches && marketMatches && contactMatches && audienceMatches;
+  }), [audience, contact, creatorFilter, market, results]);
+  const filtersActive = Boolean(creatorFilter || market || platform !== "all" || audience !== "all" || contact !== "all");
+  function clearTableFilters() { setCreatorFilter(""); setPlatform("all"); setAudience("all"); setMarket(""); setContact("all"); void run(query, "all"); }
   async function save(creator: CreatorSearchResult) { await store.saveCreator(workspace.id, creator); setSavedIds(current => new Set(current).add(creator.id)); }
   return <main className="workspace ops-page">
     <PageHeader eyebrow="Creator database" title="Discover creators" copy="Search the current Creatorly repository, then save the strongest profiles to your team workspace." action={<span className="data-source-chip">Demo repository · official connections planned</span>}/>
     <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void run(); }} placeholder="Search by creator, handle, category, or market"/><button className="button button-primary" onClick={() => run()}><Sparkles size={15}/> Search</button></section>
-    <div className="platform-filter" role="group" aria-label="Platform filters">{(["all", "instagram", "tiktok", "youtube", "twitter"] as const).map(item => <button className={platform === item ? "is-active" : ""} key={item} onClick={() => { setPlatform(item); void run(query, item); }}>{item === "twitter" ? "X" : item[0].toUpperCase() + item.slice(1)}</button>)}</div>
+    <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> of {results.length} creators</span>{filtersActive ? <button type="button" onClick={clearTableFilters}><RotateCcw size={13}/> Reset filters</button> : <span>Use any column to narrow the table</span>}</div>
     <section className="ops-table-card"><div className="ops-table-head"><span>Creator</span><span>Platform</span><span>Audience</span><span>Market</span><span>Contact</span><span/></div>
-      {loading ? <div className="ops-loading" role="status">Searching creators…</div> : results.length ? results.map(creator => <article className="ops-table-row" key={creator.id}>
+      <div className="ops-table-filters" aria-label="Creator table filters">
+        <label><Search size={14}/><span className="sr-only">Filter creator column</span><input aria-label="Filter creator column" value={creatorFilter} onChange={event => setCreatorFilter(event.target.value)} placeholder="Name or handle"/></label>
+        <label><span className="sr-only">Filter platform column</span><select aria-label="Filter platform column" value={platform} onChange={event => { const value = event.target.value as Platform | "all"; setPlatform(value); void run(query, value); }}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="twitter">X</option></select></label>
+        <label><span className="sr-only">Filter audience column</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as typeof audience)}><option value="all">Any audience</option><option value="under100k">Under 100K</option><option value="100k500k">100K–500K</option><option value="500k1m">500K–1M</option><option value="over1m">1M+</option></select></label>
+        <label><span className="sr-only">Filter market column</span><input aria-label="Filter market column" value={market} onChange={event => setMarket(event.target.value)} placeholder="City or country"/></label>
+        <label><span className="sr-only">Filter contact column</span><select aria-label="Filter contact column" value={contact} onChange={event => setContact(event.target.value as typeof contact)}><option value="all">Any contact</option><option value="available">Available</option><option value="missing">Not available</option></select></label>
+        <button type="button" className="filter-reset-icon" onClick={clearTableFilters} disabled={!filtersActive} aria-label="Reset table filters"><RotateCcw size={15}/></button>
+      </div>
+      {loading ? <div className="ops-loading" role="status">Searching creators…</div> : visibleResults.length ? visibleResults.map(creator => <article className="ops-table-row" key={creator.id}>
         <button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><span className="creator-monogram">{creator.displayName[0]}</span><span><strong>{creator.displayName}</strong><small>{creator.handle} · {creator.categories?.[0] ?? "Creator"}</small></span></button>
         <span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span><b className="numeric">{formatFollowers(creator.followerCount)}</b><span>{creator.location ?? "—"}</span><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span>
         <button className={savedIds.has(creator.id) ? "button button-saved" : "button button-secondary"} disabled={savedIds.has(creator.id)} onClick={() => save(creator)}>{savedIds.has(creator.id) ? <><Check size={15}/> Saved</> : <><Plus size={15}/> Save</>}</button>
-      </article>) : <Empty icon={<Search/>} title="No creators match yet" copy="Try a broader name, platform, or category. Live platform coverage will appear only after an official connection is enabled." action="Clear search" onAction={() => { setQuery(""); setPlatform("all"); void run("", "all"); }}/>}</section>
+      </article>) : <Empty icon={<Search/>} title="No creators match these filters" copy="Broaden one of the column filters or reset the table to see the full result set." action="Reset filters" onAction={clearTableFilters}/>}</section>
   </main>;
 }
 
@@ -73,7 +73,7 @@ export function CreatorsWorkspace({ workspace, navigate }: { workspace: Workspac
     const csv = exportCreatorsCsv(items.map(item => ({ displayName: item.creator.displayName, source: sourceLabel(item), platform: item.creator.platform, handle: item.creator.handle, followerCount: item.creator.followerCount, location: item.creator.location, email: item.privateContact?.email, phone: item.privateContact?.phone, whatsapp: item.privateContact?.whatsapp, stage: item.relationshipStage, owner: item.ownerName, nextAction: item.nextAction, priority: item.priority, tags: item.tags, notes: item.notes })));
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = `creatorly-crm-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(url);
   }
-  const sourceLabel = (item: SavedCreator) => item.source === "creatorly" ? "Creatorly data" : item.source === "csv_upload" ? "Uploaded by your team" : "Added manually";
+  const sourceLabel = (item: SavedCreator) => item.source === "creatorly" ? "Creatorly data" : item.source === "csv_upload" ? "Uploaded by your team" : item.source === "extension" ? "Added from extension" : "Added manually";
   const contactLabel = (item: SavedCreator) => item.privateContact?.email ?? item.privateContact?.whatsapp ?? item.privateContact?.phone ?? (item.source === "creatorly" ? "Use Creatorly contact access" : "No contact added");
   return <main className="workspace ops-page"><PageHeader eyebrow="Relationship workspace" title="Creator CRM" copy="Creatorly profiles and your team’s private creator data in one workspace." action={<div className="crm-header-actions"><button className="button button-secondary" disabled={!items.length} onClick={downloadCrm}><Download size={15}/> Export CSV</button><button className="button button-primary" onClick={() => setImporting(true)}><Plus size={16}/> Add creators</button></div>}/>
     <div className="crm-toolbar"><label><Search size={16}/><span className="sr-only">Search saved creators</span><input value={filter} onChange={event => setFilter(event.target.value)} placeholder="Search creators, handles, or private contacts"/></label><span>{visible.length} creators · private to {workspace.name}</span></div>

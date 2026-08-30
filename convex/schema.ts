@@ -270,9 +270,9 @@ export default defineSchema({
   savedCreators: defineTable({
     workspaceId: v.id("workspaces"),
     creatorId: v.optional(v.id("creators")),
-    source: v.optional(v.union(v.literal("creatorly"), v.literal("csv_upload"), v.literal("manual"))),
+    source: v.optional(v.union(v.literal("creatorly"), v.literal("csv_upload"), v.literal("manual"), v.literal("extension"))),
     privateDisplayName: v.optional(v.string()),
-    privatePlatform: v.optional(platform),
+    privatePlatform: v.optional(socialPlatform),
     privateHandle: v.optional(v.string()),
     privateNormalizedHandle: v.optional(v.string()),
     privateFollowerCount: v.optional(v.number()),

@@ -17,7 +17,7 @@ async function updateBadge(tabId, url, reportedProfile) {
     const params = new URLSearchParams({ platform: profile.platform, handle: profile.handle });
     const response = await fetch(`${API_URL}/extension/profile?${params}`, { headers: { Authorization: `Bearer ${stored.connectionKey}` } });
     const result = await response.json();
-    await chrome.action.setBadgeText({ tabId, text: result.found ? result.isUnlocked ? "✓" : "•" : "" });
+    await chrome.action.setBadgeText({ tabId, text: result.isSaved ? "S" : result.found ? result.isUnlocked ? "✓" : "•" : "" });
   } catch {
     await chrome.action.setBadgeText({ tabId, text: "!" });
   }

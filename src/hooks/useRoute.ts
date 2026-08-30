@@ -13,7 +13,6 @@ export type AppRoute =
   | { name: "search"; query: string; platform?: Platform }
   | { name: "history" }
   | { name: "admin" }
-  | { name: "home" }
   | { name: "discover" }
   | { name: "creators" }
   | { name: "campaigns" }
@@ -37,8 +36,7 @@ function readRoute(): AppRoute {
   }
   if (path === "/history") return { name: "history" };
   if (path === "/admin") return { name: "admin" };
-  if (path === "/app" || path === "/app/home") return { name: "home" };
-  if (path === "/app/discover") return { name: "discover" };
+  if (path === "/app" || path === "/app/home" || path === "/app/discover") return { name: "discover" };
   if (path === "/app/creators") return { name: "creators" };
   if (path === "/app/campaigns") return { name: "campaigns" };
   const campaignMatch = path.match(/^\/app\/campaigns\/([^/]+)$/);
@@ -66,8 +64,7 @@ export function useRoute() {
     const url = next.name === "creator"
       ? `/creator/${encodeURIComponent(next.creatorId)}`
       : next.name === "campaign" ? `/app/campaigns/${encodeURIComponent(next.campaignId)}`
-      : next.name === "home" ? "/app/home"
-      : next.name === "discover" ? "/app/discover"
+      : next.name === "discover" ? "/app"
       : next.name === "creators" ? "/app/creators"
       : next.name === "campaigns" ? "/app/campaigns"
       : next.name === "history"

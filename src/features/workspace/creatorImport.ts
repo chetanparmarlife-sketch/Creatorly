@@ -1,4 +1,4 @@
-import type { CreatorImportPreview, CreatorImportPreviewRow, Platform, PrivateCreatorInput } from "../../types";
+import type { CreatorImportPreview, CreatorImportPreviewRow, PrivateCreatorInput, SocialPlatform } from "../../types";
 
 type DuplicateCandidate = Pick<PrivateCreatorInput, "platform" | "handle" | "email">;
 export type CreatorExportRow = {
@@ -19,12 +19,14 @@ export type CreatorExportRow = {
   notes?: string;
 };
 
-const platformNames: Record<string, Platform> = {
+const platformNames: Record<string, SocialPlatform> = {
   instagram: "instagram",
   ig: "instagram",
   tiktok: "tiktok",
   youtube: "youtube",
   yt: "youtube",
+  linkedin: "linkedin",
+  li: "linkedin",
   x: "twitter",
   twitter: "twitter",
 };
@@ -99,7 +101,7 @@ function parseCsvRows(text: string): string[][] {
   return rows;
 }
 
-function parsePlatform(value: string): Platform | undefined {
+function parsePlatform(value: string): SocialPlatform | undefined {
   return platformNames[value.trim().toLowerCase()];
 }
 

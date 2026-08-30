@@ -17,6 +17,14 @@ http.route({ path: "/extension/unlock", method: "POST", handler: httpAction(asyn
   const authorization=request.headers.get("Authorization")??"";const token=authorization.replace(/^Bearer\s+/i,"");const body=await request.json() as {creatorId:string};
   try { const result=await ctx.runMutation(api.extensionApi.unlock,{token,creatorId:body.creatorId as never});return new Response(JSON.stringify(result),{headers:cors}); } catch(error) { return new Response(JSON.stringify({error:error instanceof Error?error.message:"Unlock failed."}),{status:400,headers:cors}); }
 })});
+http.route({ path: "/extension/save", method: "POST", handler: httpAction(async (ctx,request) => {
+  const authorization=request.headers.get("Authorization")??"";const token=authorization.replace(/^Bearer\s+/i,"");const body=await request.json() as {creatorId:string;platform:"instagram"|"youtube"|"linkedin"|"twitter";handle:string};
+  try { const result=await ctx.runMutation(api.extensionApi.saveMatched,{token,creatorId:body.creatorId as never,platform:body.platform,handle:body.handle});return new Response(JSON.stringify(result),{headers:cors}); } catch(error) { return new Response(JSON.stringify({error:error instanceof Error?error.message:"Save failed."}),{status:400,headers:cors}); }
+})});
+http.route({ path: "/extension/save-private", method: "POST", handler: httpAction(async (ctx,request) => {
+  const authorization=request.headers.get("Authorization")??"";const token=authorization.replace(/^Bearer\s+/i,"");const body=await request.json() as {platform:"instagram"|"youtube"|"linkedin"|"twitter";handle:string;displayName?:string};
+  try { const result=await ctx.runMutation(api.extensionApi.savePrivate,{token,platform:body.platform,handle:body.handle,displayName:body.displayName});return new Response(JSON.stringify(result),{headers:cors}); } catch(error) { return new Response(JSON.stringify({error:error instanceof Error?error.message:"Private save failed."}),{status:400,headers:cors}); }
+})});
 http.route({ path: "/extension/report-contact", method: "POST", handler: httpAction(async (ctx,request) => {
   const authorization=request.headers.get("Authorization")??"";const token=authorization.replace(/^Bearer\s+/i,"");const body=await request.json() as {contactId:string};
   try { const result=await ctx.runMutation(api.extensionApi.reportWrongContact,{token,contactId:body.contactId as never});return new Response(JSON.stringify(result),{headers:cors}); } catch(error) { return new Response(JSON.stringify({error:error instanceof Error?error.message:"Report failed."}),{status:400,headers:cors}); }

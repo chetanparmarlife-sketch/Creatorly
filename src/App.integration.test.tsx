@@ -351,6 +351,15 @@ describe("Creatorly M1 user journey", () => {
     await user.click(await screen.findByRole("button", { name: /open workspace/i }));
 
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter creator column")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter platform column")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter market column")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter contact column")).toBeInTheDocument();
+    await screen.findByRole("button", { name: /view Pending Import profile/i });
+    await user.selectOptions(screen.getByLabelText("Filter contact column"), "missing");
+    expect(screen.getByRole("button", { name: /view Pending Import profile/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /view Maya Kapoor profile/i })).not.toBeInTheDocument();
     const saved = JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}") as Record<string, unknown>;
     expect(saved).toMatchObject({ name: "Northstar Beauty", kind: "brand", role: "owner" });
     expect(saved.goals).toEqual(["Discover creators", "Manage campaigns"]);
@@ -359,7 +368,7 @@ describe("Creatorly M1 user journey", () => {
     firstRender.unmount();
     window.history.replaceState({}, "", "/app/home");
     renderDemo();
-    expect(await screen.findByRole("heading", { name: /good morning, Northstar Beauty/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}").id).toBe(workspaceId);
   });
 

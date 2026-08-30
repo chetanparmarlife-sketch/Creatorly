@@ -10,7 +10,7 @@ type WorkspaceData = {
   completeWorkspaceOnboarding(input: WorkspaceOnboardingInput): Promise<WorkspaceSummary>;
   listWorkspaces(): Promise<WorkspaceSummary[]>;
   saveCreator(workspaceId: string, creator: CreatorSearchResult): Promise<{ savedCreatorId: string; alreadySaved: boolean }>;
-  importPrivateCreators(workspaceId: string, source: Exclude<CreatorSource, "creatorly">, rows: PrivateCreatorInput[]): Promise<{ imported: number; duplicates: number; errors: number }>;
+  importPrivateCreators(workspaceId: string, source: "csv_upload" | "manual", rows: PrivateCreatorInput[]): Promise<{ imported: number; duplicates: number; errors: number }>;
   listSavedCreators(workspaceId: string): Promise<SavedCreator[]>;
   updateSavedCreator(workspaceId: string, savedCreatorId: string, patch: Partial<Pick<SavedCreator, "relationshipStage" | "nextAction" | "nextActionAt" | "priority">>): Promise<void>;
   createCampaign(workspaceId: string, input: Pick<Campaign, "name" | "goal" | "platforms" | "currency" | "budget">): Promise<string>;
@@ -197,7 +197,7 @@ const listWorkspacesRef = makeFunctionReference<"query">("workspaces:listMine") 
 const createWorkspaceRef = makeFunctionReference<"mutation">("workspaces:create") as FunctionReference<"mutation", "public", { name: string; kind: WorkspaceSummary["kind"]; website?: string }, { workspaceId: string }>;
 const completeSetupRef = makeFunctionReference<"mutation">("workspaces:completeSetup") as FunctionReference<"mutation", "public", WorkspaceOnboardingInput, WorkspaceSummary>;
 const saveCreatorRef = makeFunctionReference<"mutation">("savedCreators:save") as FunctionReference<"mutation", "public", { workspaceId: string; creatorId: string }, { savedCreatorId: string; alreadySaved: boolean }>;
-const importPrivateRef = makeFunctionReference<"mutation">("savedCreators:importPrivate") as FunctionReference<"mutation", "public", { workspaceId: string; source: Exclude<CreatorSource, "creatorly">; rows: PrivateCreatorInput[] }, { imported: number; duplicates: number; errors: number }>;
+const importPrivateRef = makeFunctionReference<"mutation">("savedCreators:importPrivate") as FunctionReference<"mutation", "public", { workspaceId: string; source: "csv_upload" | "manual"; rows: PrivateCreatorInput[] }, { imported: number; duplicates: number; errors: number }>;
 const listSavedRef = makeFunctionReference<"query">("savedCreators:list") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
 const updateSavedRef = makeFunctionReference<"mutation">("savedCreators:update") as FunctionReference<"mutation", "public", { workspaceId: string; savedCreatorId: string; relationshipStage?: CampaignStage; nextAction?: string; nextActionAt?: number; priority?: SavedCreator["priority"] }, unknown>;
 const createCampaignRef = makeFunctionReference<"mutation">("campaigns:create") as FunctionReference<"mutation", "public", { workspaceId: string; name: string; goal: string; platforms: Campaign["platforms"]; currency: string; budget?: number }, { campaignId: string }>;

@@ -12,7 +12,7 @@ import { PaymentResultView } from "./components/PaymentResultView";
 import { PricingView } from "./components/PricingView";
 import { SettingsView } from "./components/SettingsView";
 import { VerificationView } from "./components/VerificationView";
-import { CampaignDetailWorkspace, CampaignsWorkspace, CreatorsWorkspace, DiscoveryWorkspace, WorkspaceHome } from "./features/workspace/WorkspaceViews";
+import { CampaignDetailWorkspace, CampaignsWorkspace, CreatorsWorkspace, DiscoveryWorkspace } from "./features/workspace/WorkspaceViews";
 import { useWorkspaceData } from "./features/workspace/WorkspaceData";
 import type { WorkspaceSummary } from "./types";
 
@@ -69,7 +69,7 @@ export function App() {
   return (
     <AppShell
       viewer={viewer}
-      activePage={route.name === "home" ? "home" : route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" ? "pricing" : route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
+      activePage={route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" ? "pricing" : route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
       navigate={navigate}
       onSearch={() => navigate({ name: "discover" })}
       onHistory={() => navigate({ name: "history" })}
@@ -82,8 +82,7 @@ export function App() {
       }}
     >
       {data.mode === "demo" ? <div className="workspace-mode">Local demo · connect Convex for shared data</div> : null}
-      {route.name === "home" ? workspace ? <WorkspaceHome workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
-      : route.name === "discover" ? workspace ? <DiscoveryWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      {route.name === "discover" ? workspace ? <DiscoveryWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "creators" ? workspace ? <CreatorsWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "campaigns" ? workspace ? <CampaignsWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "campaign" ? workspace ? <CampaignDetailWorkspace workspace={workspace} campaignId={route.campaignId} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>

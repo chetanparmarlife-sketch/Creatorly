@@ -187,10 +187,10 @@ export const canManageCampaign = (role: WorkspaceRole) => role !== "reviewer";
 export const canRevealContacts = (role: WorkspaceRole) => role !== "reviewer";
 
 export type WorkspaceSummary = { id: string; name: string; kind: WorkspaceKind; role: WorkspaceRole; goals?: string[]; defaultCampaignRole?: WorkspaceRole };
-export type CreatorSource = "creatorly" | "csv_upload" | "manual";
+export type CreatorSource = "creatorly" | "csv_upload" | "manual" | "extension";
 export type PrivateCreatorInput = {
   displayName: string;
-  platform?: Platform;
+  platform?: SocialPlatform;
   handle?: string;
   followerCount?: number;
   location?: string;
@@ -217,7 +217,7 @@ export type CreatorImportPreview = {
 export type CrmCreatorProfile = {
   id: string;
   displayName: string;
-  platform?: Platform;
+  platform?: SocialPlatform;
   handle?: string;
   followerCount?: number;
   location?: string;
