@@ -11,6 +11,7 @@
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
+import type * as campaignExecution from "../campaignExecution.js";
 import type * as campaigns from "../campaigns.js";
 import type * as contactFlags from "../contactFlags.js";
 import type * as contactRequests from "../contactRequests.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
   billing: typeof billing;
+  campaignExecution: typeof campaignExecution;
   campaigns: typeof campaigns;
   contactFlags: typeof contactFlags;
   contactRequests: typeof contactRequests;
