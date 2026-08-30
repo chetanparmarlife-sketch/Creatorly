@@ -9,6 +9,8 @@ const goals = ["Discover creators", "Manage campaigns", "Centralize outreach", "
 export function OnboardingView({ viewer, navigate, refresh }: { viewer: Viewer; navigate(route: AppRoute): void; refresh(): void }) {
   const data = useAppData();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(viewer.onboardingStep ?? 1);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [kind, setKind] = useState<WorkspaceKind>("agency");
   const [workspaceName, setWorkspaceName] = useState(viewer.companyName);
   const [selectedGoals, setSelectedGoals] = useState<string[]>(["Discover creators", "Manage campaigns"]);
@@ -16,8 +18,31 @@ export function OnboardingView({ viewer, navigate, refresh }: { viewer: Viewer; 
   const [invite, setInvite] = useState("");
   const [firstAction, setFirstAction] = useState<"discover" | "campaigns">("discover");
   const labels = ["Workspace", "Goals", "Team", "Channels", "First result"];
-  async function go(next: 1 | 2 | 3 | 4 | 5) { await data.updateOnboardingStep(next); setStep(next); }
-  async function finish() { await data.completeOnboarding(); await refresh(); navigate({ name: firstAction }); }
+  async function go(next: 1 | 2 | 3 | 4 | 5) {
+    setStep(next);
+    setSaveError("");
+    setSaving(true);
+    try {
+      await data.updateOnboardingStep(next);
+    } catch {
+      setSaveError("Your progress could not sync, but you can keep going. Opening the workspace will try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function finish() {
+    setSaveError("");
+    setSaving(true);
+    try {
+      await data.completeOnboarding();
+      await refresh();
+      navigate({ name: firstAction });
+    } catch {
+      setSaveError("We could not open your workspace yet. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
   function toggleGoal(goal: string) { setSelectedGoals(current => current.includes(goal) ? current.filter(item => item !== goal) : [...current, goal]); }
 
   return <main className="onboarding-page workspace-onboarding"><header><strong>Creatorly</strong><span>Step {step} of 5</span></header><div className="onboarding-progress"><i style={{ width: `${step * 20}%` }}/></div><div className="onboarding-layout"><aside><p className="eyebrow">Workspace setup</p><h2>Build the operating system around your creator team.</h2><ol>{labels.map((label, index) => <li className={index + 1 === step ? "is-current" : index + 1 < step ? "is-done" : ""} key={label}><span>{index + 1 < step ? <Check size={13}/> : index + 1}</span>{label}</li>)}</ol></aside><section className="onboarding-workarea">
@@ -26,6 +51,7 @@ export function OnboardingView({ viewer, navigate, refresh }: { viewer: Viewer; 
     {step === 3 ? <div><span className="onboarding-glyph"><Users/></span><p className="eyebrow">Team and ownership</p><h1>Set the first campaign owner.</h1><p>You can invite teammates now or continue and do it from settings later.</p><div className="onboarding-form-grid"><label>Your role<select value={role} onChange={event => setRole(event.target.value as WorkspaceRole)}><option value="owner">Owner</option><option value="admin">Admin</option><option value="manager">Campaign manager</option><option value="contributor">Contributor</option><option value="reviewer">Reviewer</option></select></label><label>Teammate email <small>Optional</small><input type="email" value={invite} onChange={event => setInvite(event.target.value)} placeholder="teammate@agency.com"/></label></div><p className="onboarding-note">Invites are recorded as pending until a real email provider is connected.</p></div> : null}
     {step === 4 ? <div><span className="onboarding-glyph"><MessageCircle/></span><p className="eyebrow">Channels</p><h1>Connect data and outreach when you are ready.</h1><p>These integrations are planned and are not represented as live in this build.</p><div className="connection-list"><div><Camera/><span><strong>Instagram</strong><small>Creator and post metrics</small></span><b>Planned</b></div><div><PlayCircle/><span><strong>YouTube</strong><small>Channel and video metrics</small></span><b>Planned</b></div><div><MessageCircle/><span><strong>WhatsApp Business</strong><small>Shared outreach and replies</small></span><b>Planned</b></div></div></div> : null}
     {step === 5 ? <div><span className="onboarding-glyph"><ArrowRight/></span><p className="eyebrow">First result</p><h1>Where should we take you first?</h1><p>Your workspace is ready. Start with the action that creates value now.</p><div className="choice-grid first-action-grid"><button className={firstAction === "discover" ? "is-selected" : ""} onClick={() => setFirstAction("discover")}><Search/><strong>Discover creators</strong><span>Search the database and save a shortlist</span></button><button className={firstAction === "campaigns" ? "is-selected" : ""} onClick={() => setFirstAction("campaigns")}><Building2/><strong>Create a campaign</strong><span>Start the brief and add creators later</span></button></div></div> : null}
-    <footer>{step > 1 ? <button className="button button-secondary" onClick={() => go((step - 1) as 1 | 2 | 3 | 4)}><ArrowLeft size={16}/> Back</button> : <span/>}{step < 5 ? <button className="button button-primary" disabled={(step === 1 && !workspaceName.trim()) || (step === 2 && !selectedGoals.length)} onClick={() => go((step + 1) as 2 | 3 | 4 | 5)}>Continue <ArrowRight size={16}/></button> : <button className="button button-primary" onClick={finish}>Open workspace <ArrowRight size={16}/></button>}</footer>
+    {saveError ? <p className="onboarding-save-error" role="alert">{saveError}</p> : null}
+    <footer>{step > 1 ? <button className="button button-secondary" disabled={saving} onClick={() => void go((step - 1) as 1 | 2 | 3 | 4)}><ArrowLeft size={16}/> Back</button> : <span/>}{step < 5 ? <button className="button button-primary" disabled={saving || (step === 1 && !workspaceName.trim()) || (step === 2 && !selectedGoals.length)} onClick={() => void go((step + 1) as 2 | 3 | 4 | 5)}>{saving ? "Saving…" : "Continue"} {saving ? null : <ArrowRight size={16}/>}</button> : <button className="button button-primary" disabled={saving} onClick={() => void finish()}>{saving ? "Saving…" : "Open workspace"} {saving ? null : <ArrowRight size={16}/>}</button>}</footer>
   </section></div></main>;
 }

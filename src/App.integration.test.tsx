@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { DemoDataProvider } from "./data/AppData";
 import { demoData } from "./lib/demoData";
@@ -20,7 +20,10 @@ describe("Creatorly M1 user journey", () => {
     window.history.replaceState({}, "", "/search");
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
 
   it("does not show a signed-out screen while a saved session is being restored", () => {
     render(
@@ -285,6 +288,35 @@ describe("Creatorly M1 user journey", () => {
     onboardingRender.unmount();
     renderDemo();
     expect(await screen.findByRole("heading", { name: /set the first campaign owner/i })).toBeInTheDocument();
+  });
+
+  it("does not trap onboarding when progress syncing fails", async () => {
+    window.localStorage.setItem("creatorly.demo.session.v1", "active");
+    window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({
+      id: "demo-user",
+      name: "Aisha Shah",
+      email: "aisha@northstar.test",
+      companyName: "Northstar Agency",
+      role: "user",
+      currentPlanTier: "free",
+      creditBalance: 25,
+      subscriptionStatus: "active",
+      onboardingCompleted: false,
+      onboardingStep: 4,
+      onboardingPlanTier: "free",
+      isEmailVerified: true,
+      notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
+    }));
+    window.history.replaceState({}, "", "/onboarding");
+    vi.spyOn(demoData, "updateOnboardingStep").mockRejectedValueOnce(new Error("Backend unavailable"));
+    const user = userEvent.setup();
+    renderDemo();
+
+    expect(await screen.findByRole("heading", { name: /connect data and outreach/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^continue/i }));
+
+    expect(await screen.findByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not sync, but you can keep going/i);
   });
 
   it("updates profile and notification settings", async () => {
