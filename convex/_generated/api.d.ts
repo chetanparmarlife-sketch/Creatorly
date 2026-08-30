@@ -17,6 +17,7 @@ import type * as contactFlags from "../contactFlags.js";
 import type * as contactRequests from "../contactRequests.js";
 import type * as creators from "../creators.js";
 import type * as extensionApi from "../extensionApi.js";
+import type * as groupOperations from "../groupOperations.js";
 import type * as home from "../home.js";
 import type * as http from "../http.js";
 import type * as importCreators from "../importCreators.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   contactRequests: typeof contactRequests;
   creators: typeof creators;
   extensionApi: typeof extensionApi;
+  groupOperations: typeof groupOperations;
   home: typeof home;
   http: typeof http;
   importCreators: typeof importCreators;

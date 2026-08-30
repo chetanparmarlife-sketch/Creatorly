@@ -520,7 +520,7 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByRole("button", { name: /Northstar Foods 0/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /invite client reviewer/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /create campaign/i }));
+    await user.click(screen.getAllByRole("button", { name: /create campaign/i })[0]);
     await user.type(screen.getByLabelText("Campaign name"), "Festive Creator Launch");
     await user.click(within(screen.getByLabelText("Campaign name").closest("form")!).getByRole("button", { name: /^create campaign$/i }));
     const savedCampaigns = JSON.parse(window.localStorage.getItem("creatorly.campaigns.v1.demo-workspace") ?? "[]") as Array<{ clientId?: string }>;
