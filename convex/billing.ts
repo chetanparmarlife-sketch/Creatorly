@@ -52,7 +52,6 @@ export const createCheckout = action({
         customer: user.dodoCustomerId
           ? { customer_id: user.dodoCustomerId }
           : { email: user.email, name: user.name },
-        customer_business_name: user.companyName,
         metadata,
         return_url: `${appUrl}/payment/success`,
         cancel_url: `${appUrl}/pricing`,
