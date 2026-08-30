@@ -83,6 +83,12 @@ export type CreatorSearchFilters = {
   verifiedOnly?: boolean;
 };
 
+export type CreatorSearchPage = {
+  page: CreatorSearchResult[];
+  continueCursor: string;
+  isDone: boolean;
+};
+
 export type CreatorContact = {
   id: string;
   contactType: "creator_direct" | "manager" | "agent" | "assistant" | "pr_rep";

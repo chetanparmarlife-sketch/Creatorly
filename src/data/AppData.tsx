@@ -22,6 +22,7 @@ import type {
   ContactRequestResult,
   CreatorDetailData,
   CreatorSearchFilters,
+  CreatorSearchPage,
   CreatorSearchResult,
   DataMode,
   FulfillRequestInput,
@@ -42,6 +43,7 @@ type AppData = {
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
   search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
+  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform }): Promise<CreatorSearchPage>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
   requestContact(input: ContactRequestInput): Promise<ContactRequestResult>;
@@ -92,6 +94,13 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     },
     getViewer: demoData.viewer,
     search: demoData.search,
+    browseCreators: async ({ cursor, numItems, platform }) => {
+      const creators = await demoData.search("", { platform });
+      const start = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
+      const page = creators.slice(start, start + numItems);
+      const next = start + page.length;
+      return { page, continueCursor: String(next), isDone: next >= creators.length };
+    },
     getDetail: demoData.detail,
     getHistory: demoData.history,
     requestContact: demoData.requestContact,
@@ -119,6 +128,7 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
 
 type EmptyArgs = Record<string, never>;
 type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean };
+type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform };
 type DetailArgs = { creatorId: string };
 
 const viewerRef = makeFunctionReference<"query">("users:viewer") as FunctionReference<
@@ -126,6 +136,9 @@ const viewerRef = makeFunctionReference<"query">("users:viewer") as FunctionRefe
 >;
 const searchRef = makeFunctionReference<"query">("creators:search") as FunctionReference<
   "query", "public", SearchArgs, CreatorSearchResult[]
+>;
+const browseRef = makeFunctionReference<"query">("creators:browsePage") as FunctionReference<
+  "query", "public", BrowseArgs, CreatorSearchPage
 >;
 const detailRef = makeFunctionReference<"query">("creators:getById") as FunctionReference<
   "query", "public", DetailArgs, CreatorDetailData | null
@@ -201,6 +214,7 @@ export function ConvexDataProvider({
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
+    browseCreators: ({ cursor, numItems, platform }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform }),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
     getHistory: () => convex.query(historyRef, {}),
     requestContact: (input) => convex.mutation(requestContactRef, input),

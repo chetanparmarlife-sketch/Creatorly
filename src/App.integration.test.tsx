@@ -518,7 +518,7 @@ describe("Creatorly M1 user journey", () => {
     await user.type(screen.getByLabelText("Client name"), "Northstar Foods");
     await user.click(screen.getByRole("button", { name: /^add client$/i }));
     expect(await screen.findByRole("button", { name: /Northstar Foods 0/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /invite client reviewer/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /add client reviewer/i })).toBeInTheDocument();
 
     await user.click(screen.getAllByRole("button", { name: /create campaign/i })[0]);
     await user.type(screen.getByLabelText("Campaign name"), "Festive Creator Launch");

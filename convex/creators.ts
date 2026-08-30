@@ -1,4 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
@@ -25,6 +26,63 @@ function passesFilters(creator: Doc<"creators">, args: { category?: string; loca
   if (args.category && !creator.categories?.some(category => category.toLowerCase() === args.category?.toLowerCase())) return false;
   return true;
 }
+
+export const browsePage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    platform: v.optional(platformValidator),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return {
+        page: [],
+        continueCursor: args.paginationOpts.cursor ?? "",
+        isDone: true,
+      };
+    }
+
+    const result = args.platform
+      ? await ctx.db
+          .query("creators")
+          .withIndex("by_platform_followers", (q) => q.eq("platform", args.platform!))
+          .filter((q) => q.eq(q.field("isDemo"), false))
+          .order("desc")
+          .paginate(args.paginationOpts)
+      : await ctx.db
+          .query("creators")
+          .withIndex("by_followers")
+          .filter((q) => q.eq(q.field("isDemo"), false))
+          .order("desc")
+          .paginate(args.paginationOpts);
+
+    const page = await Promise.all(result.page.map(async (creator) => {
+      const contacts = await ctx.db
+        .query("contacts")
+        .withIndex("by_creator", (q) => q.eq("creatorId", creator._id))
+        .collect();
+      return {
+        id: creator._id,
+        platform: creator.platform,
+        handle: creator.handle,
+        displayName: creator.displayName,
+        followerCount: creator.followerCount,
+        location: creator.location,
+        categories: creator.categories,
+        isVerified: creator.isVerified,
+        isDemo: creator.isDemo,
+        contentLanguages: creator.contentLanguages,
+        profileType: creator.profileType,
+        contentQuality: creator.contentQuality,
+        managementType: creator.managementType,
+        contactCount: contacts.filter((contact) => contact.isActive && contact.verificationStatus === "verified").length,
+        matchScore: 0,
+      };
+    }));
+
+    return { ...result, page };
+  },
+});
 
 export const search = query({
   args: {
