@@ -5,6 +5,9 @@ export type ImportedCreatorRow = {
   displayName?: string;
   followerCount?: number;
   location?: string;
+  country?: string;
+  city?: string;
+  postalCode?: string;
   categories?: string[];
   profileImageUrl?: string;
   biography?: string;
@@ -38,10 +41,14 @@ export function facebookPageUrl(pageId: string, handle?: string) {
 
 export function buildImportedCreatorFields<T extends ImportedCreatorRow>(row: T, now: number) {
   const categories = row.categories ?? [];
+  const locationParts = row.location?.split(",").map(part => part.trim()).filter(Boolean) ?? [];
   return {
     displayName: row.displayName ?? "Creator",
     followerCount: row.followerCount ?? 0,
     location: row.location,
+    country: row.country ?? (locationParts.length > 1 ? locationParts.at(-1) : undefined),
+    city: row.city ?? (locationParts.length > 1 ? locationParts[0] : undefined),
+    postalCode: row.postalCode,
     categories,
     primaryCategory: categories[0]?.toLowerCase() ?? "",
     categorySearch: categories.join(" ").toLowerCase(),

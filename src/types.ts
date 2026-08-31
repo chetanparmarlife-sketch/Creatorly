@@ -137,6 +137,9 @@ export type CreatorSearchResult = {
   displayName: string;
   followerCount: number;
   location?: string;
+  country?: string;
+  city?: string;
+  postalCode?: string;
   categories?: string[];
   isVerified: boolean;
   isDemo: boolean;
@@ -166,6 +169,9 @@ export type CreatorSearchFilters = {
   platform?: Platform;
   category?: string;
   location?: string;
+  country?: string;
+  city?: string;
+  postalCode?: string;
   verifiedOnly?: boolean;
   minFollowers?: number;
   maxFollowers?: number;
@@ -177,6 +183,13 @@ export type CreatorSearchPage = {
   page: CreatorSearchResult[];
   continueCursor: string;
   isDone: boolean;
+  totalCount?: number;
+};
+
+export type CreatorLocationFacets = {
+  countries: string[];
+  cities: Array<{ city: string; country?: string }>;
+  postalCodes: Array<{ postalCode: string; city?: string; country?: string }>;
 };
 
 export type CreatorContact = {

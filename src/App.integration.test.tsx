@@ -453,8 +453,12 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
     await user.click(within(creatorFilters).getByRole("button", { name: /^Category/i }));
     expect(screen.getByLabelText("Filter category column")).toBeInTheDocument();
-    await user.click(within(creatorFilters).getByRole("button", { name: /^City or country/i }));
-    expect(screen.getByLabelText("Filter city or country column")).toBeInTheDocument();
+    await user.click(within(creatorFilters).getByRole("button", { name: /^Country/i }));
+    expect(screen.getByLabelText("Filter creator country")).toHaveAttribute("list", "creator-country-options");
+    await user.click(within(creatorFilters).getByRole("button", { name: /^City/i }));
+    expect(screen.getByLabelText("Filter creator city")).toHaveAttribute("list", "creator-city-options");
+    await user.click(within(creatorFilters).getByRole("button", { name: /^PIN \/ postal code/i }));
+    expect(screen.getByLabelText("Filter creator PIN or postal code")).toHaveAttribute("list", "creator-postal-options");
     expect(screen.queryByLabelText("Filter contact column")).not.toBeInTheDocument();
     const discoveryTable = screen.getByRole("table", { name: /creator discovery results/i });
     expect(within(discoveryTable).getByRole("columnheader", { name: "Contact" })).toBeInTheDocument();
@@ -755,9 +759,12 @@ describe("Creatorly M1 user journey", () => {
     const user = userEvent.setup();
 
     expect(await screen.findByRole("button", { name: /view Maya Kapoor profile/i })).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector(".data-source-chip")).toHaveTextContent(/^\d+ profiles available$/));
     await user.click(screen.getByRole("button", { name: /^Growth/i }));
     expect(screen.getByLabelText("Minimum audience size")).toHaveValue(100000);
     expect(screen.getByLabelText("Maximum audience size")).toHaveValue(500000);
+    await waitFor(() => expect(document.querySelector(".data-source-chip")).toHaveTextContent(/^3 matching profiles$/));
+    expect(document.querySelector(".discovery-filter-summary")).toHaveTextContent(/3 of 3 creators loaded/i);
     await waitFor(() => expect(screen.queryByRole("button", { name: /view Maya Kapoor profile/i })).not.toBeInTheDocument());
     expect(await screen.findByRole("button", { name: /view Arjun Builds profile/i })).toBeInTheDocument();
 
@@ -775,5 +782,27 @@ describe("Creatorly M1 user journey", () => {
     await user.clear(screen.getByLabelText("Maximum audience size"));
     await user.type(screen.getByLabelText("Maximum audience size"), "100000");
     expect(screen.getByRole("alert")).toHaveTextContent("Maximum audience must be greater than minimum");
+  });
+
+  it("narrows searchable creator locations from country to city to PIN code", async () => {
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.history.replaceState({}, "", "/app/discover");
+    renderDemo();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /^Country/i }));
+    await waitFor(() => expect(document.querySelector('#creator-country-options option[value="India"]')).toBeInTheDocument());
+    await user.type(screen.getByLabelText("Filter creator country"), "India");
+    await user.click(screen.getByRole("button", { name: /^City/i }));
+    expect(document.querySelector('#creator-city-options option[value="Mumbai"]')).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Filter creator city"), "Mumbai");
+    await user.click(screen.getByRole("button", { name: /^PIN \/ postal code/i }));
+    expect(document.querySelector('#creator-postal-options option[value="400001"]')).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Filter creator PIN or postal code"), "400001");
+
+    await waitFor(() => expect(document.querySelector(".data-source-chip")).toHaveTextContent(/^2 matching profiles$/));
+    expect(screen.getByRole("button", { name: /view Maya Kapoor profile/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view Riya On The Go profile/i })).toBeInTheDocument();
   });
 });

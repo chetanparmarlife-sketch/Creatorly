@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUpDown, BadgeCheck, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, MapPin, MonitorSmartphone, Plus, RotateCcw, Search, SlidersHorizontal, Sparkles, Tags, UserPlus, Users, X } from "lucide-react";
 import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
-import { CAMPAIGN_STAGES, type BrandDivisionType, type Campaign, type CampaignStage, type CreatorSearchResult, type GroupCollaborator, type GroupCollaboratorRole, type Platform, type SavedCreator, type WorkspaceGroup, type WorkspaceSummary } from "../../types";
+import { CAMPAIGN_STAGES, type BrandDivisionType, type Campaign, type CampaignStage, type CreatorLocationFacets, type CreatorSearchResult, type GroupCollaborator, type GroupCollaboratorRole, type Platform, type SavedCreator, type WorkspaceGroup, type WorkspaceSummary } from "../../types";
 import { useWorkspaceData } from "./WorkspaceData";
 import { CampaignExecution } from "./CampaignExecution";
 import { CreatorImportPanel } from "./CreatorImportPanel";
@@ -22,7 +22,7 @@ const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainmen
 type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" };
 type AudienceBand = "all" | "nano" | "micro" | "mid" | "macro" | "mega";
 type PlatformFilter = "all" | Extract<Platform, "instagram" | "youtube" | "facebook">;
-type DiscoveryFilterSection = "platform" | "category" | "audience" | "location" | "priority";
+type DiscoveryFilterSection = "platform" | "category" | "audience" | "country" | "city" | "postal" | "priority";
 
 const AUDIENCE_LABELS: Record<AudienceBand, string> = {
   all: "Any audience",
@@ -105,52 +105,60 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
   const [audienceMin, setAudienceMin] = useState(""); const [audienceMax, setAudienceMax] = useState("");
-  const [location, setLocation] = useState(""); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
+  const [countryInput, setCountryInput] = useState(""); const [country, setCountry] = useState(""); const [cityInput, setCityInput] = useState(""); const [city, setCity] = useState(""); const [postalCodeInput, setPostalCodeInput] = useState(""); const [postalCode, setPostalCode] = useState(""); const [locationFacets, setLocationFacets] = useState<CreatorLocationFacets>({ countries: [], cities: [], postalCodes: [] }); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
   const [openFilters, setOpenFilters] = useState<Set<DiscoveryFilterSection>>(() => new Set(["platform"]));
-  const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Map<string, string>>(new Map()); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [campaignTarget, setCampaignTarget] = useState(""); const [bulkMessage, setBulkMessage] = useState(""); const [bulkWorking, setBulkWorking] = useState(false); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
+  const [results, setResults] = useState<CreatorSearchResult[]>([]); const [totalCount, setTotalCount] = useState<number | null>(null); const [savedIds, setSavedIds] = useState<Map<string, string>>(new Map()); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [campaignTarget, setCampaignTarget] = useState(""); const [bulkMessage, setBulkMessage] = useState(""); const [bulkWorking, setBulkWorking] = useState(false); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
   const exactAudienceMin = followerBoundary(audienceMin); const exactAudienceMax = followerBoundary(audienceMax);
   const audienceError = (audienceMin.trim() && exactAudienceMin === undefined) || (audienceMax.trim() && exactAudienceMax === undefined)
     ? "Use positive numbers for the audience range."
     : exactAudienceMin !== undefined && exactAudienceMax !== undefined && exactAudienceMax <= exactAudienceMin
       ? "Maximum audience must be greater than minimum."
       : "";
-  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort, nextAudienceMin = audienceMin, nextAudienceMax = audienceMax) => {
+  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextCountry = country, nextCity = city, nextPostalCode = postalCode, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort, nextAudienceMin = audienceMin, nextAudienceMax = audienceMax) => {
     const nextMin = followerBoundary(nextAudienceMin); const nextMax = followerBoundary(nextAudienceMax);
     if ((nextAudienceMin.trim() && nextMin === undefined) || (nextAudienceMax.trim() && nextMax === undefined) || (nextMin !== undefined && nextMax !== undefined && nextMax <= nextMin)) return;
-    setLoading(true); setError("");
+    setLoading(true); setTotalCount(null); setError("");
     try {
       const range = audienceRange(nextAudience, nextAudienceMin, nextAudienceMax);
       const sorting = { sortField: nextSort.field, sortDirection: nextSort.direction };
       if (nextQuery.trim()) {
-        setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting }));
+        const nextResults = await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, country: nextCountry || undefined, city: nextCity || undefined, postalCode: nextPostalCode || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting });
+        setResults(nextResults); setTotalCount(nextResults.length);
         setCursor(null); setIsDone(true);
       } else {
-        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting });
-        setResults(result.page); setCursor(result.continueCursor); setIsDone(result.isDone);
+        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, country: nextCountry || undefined, city: nextCity || undefined, postalCode: nextPostalCode || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting });
+        setResults(result.page); setTotalCount(result.totalCount ?? result.page.length); setCursor(result.continueCursor); setIsDone(result.isDone);
       }
     } catch {
-      setResults([]); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
+      setResults([]); setTotalCount(0); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
     } finally { setLoading(false); }
-  }, [audience, audienceMax, audienceMin, category, data, location, platform, query, sort, verifiedOnly]);
+  }, [audience, audienceMax, audienceMin, category, city, country, data, platform, postalCode, query, sort, verifiedOnly]);
   async function loadMore() {
     if (audienceError || loadingMore || isDone || query.trim()) return;
     setLoadingMore(true); setError("");
     try {
-      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined, verifiedOnly: verifiedOnly || undefined, ...audienceRange(audience, audienceMin, audienceMax), sortField: sort.field, sortDirection: sort.direction });
+      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, country: country || undefined, city: city || undefined, postalCode: postalCode || undefined, verifiedOnly: verifiedOnly || undefined, ...audienceRange(audience, audienceMin, audienceMax), sortField: sort.field, sortDirection: sort.direction });
       setResults(current => [...new Map([...current, ...result.page].map(creator => [creator.id, creator])).values()]);
+      if (result.totalCount !== undefined) setTotalCount(result.totalCount);
       setCursor(result.continueCursor); setIsDone(result.isDone);
     } catch { setError("More creators could not be loaded. Try again."); }
     finally { setLoadingMore(false); }
   }
   useEffect(() => { let active = true; void Promise.all([store.listSavedCreators(workspace.id), store.listCampaigns(workspace.id)]).then(([saved, nextCampaigns]) => { if (active) { setSavedIds(new Map(saved.map(item => [item.creator.id, item.id]))); setCampaigns(nextCampaigns); setCampaignTarget(current => current || nextCampaigns[0]?.id || ""); } }); return () => { active = false; }; }, [store, workspace.id]);
-  useEffect(() => { if (audienceError) return; const timer = window.setTimeout(() => { void run(query, platform, category, location, audience, verifiedOnly, sort, audienceMin, audienceMax); }, 180); return () => window.clearTimeout(timer); }, [audience, audienceError, audienceMax, audienceMin, category, location, platform, query, run, sort, verifiedOnly]);
+  useEffect(() => { let active = true; void data.listCreatorLocations().then(nextLocationFacets => { if (active) setLocationFacets(nextLocationFacets); }).catch(() => undefined); return () => { active = false; }; }, [data]);
+  useEffect(() => { if (audienceError) return; const timer = window.setTimeout(() => { void run(query, platform, category, country, city, postalCode, audience, verifiedOnly, sort, audienceMin, audienceMax); }, 180); return () => window.clearTimeout(timer); }, [audience, audienceError, audienceMax, audienceMin, category, city, country, platform, postalCode, query, run, sort, verifiedOnly]);
   const visibleResults = results;
   const categoryOptions = useMemo(() => [...new Set([...CREATOR_CATEGORIES, ...results.flatMap(creator => creator.categories ?? [])])].sort(), [results]);
-  const locationOptions = useMemo(() => [...new Set(results.map(creator => creator.location).filter((item): item is string => Boolean(item)))].sort(), [results]);
+  const cityOptions = useMemo(() => locationFacets.cities.filter(item => !country || item.country?.toLowerCase() === country.toLowerCase()), [country, locationFacets.cities]);
+  const postalCodeOptions = useMemo(() => locationFacets.postalCodes.filter(item => (!country || item.country?.toLowerCase() === country.toLowerCase()) && (!city || item.city?.toLowerCase() === city.toLowerCase())), [city, country, locationFacets.postalCodes]);
   const audienceActive = audience !== "all" || Boolean(audienceMin || audienceMax);
-  const activeFilterCount = Number(platform !== "all") + Number(Boolean(category)) + Number(audienceActive) + Number(Boolean(location)) + Number(verifiedOnly);
+  const activeFilterCount = Number(platform !== "all") + Number(Boolean(category)) + Number(audienceActive) + Number(Boolean(country)) + Number(Boolean(city)) + Number(Boolean(postalCode)) + Number(verifiedOnly);
   const filtersActive = activeFilterCount > 0;
-  function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setAudienceMin(""); setAudienceMax(""); setLocation(""); setVerifiedOnly(false); }
+  const remainingCount = totalCount === null ? null : Math.max(0, totalCount - visibleResults.length);
+  function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setAudienceMin(""); setAudienceMax(""); setCountryInput(""); setCountry(""); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); setVerifiedOnly(false); }
+  function updateCountryInput(value: string) { const exact = locationFacets.countries.find(item => item.toLowerCase() === value.trim().toLowerCase()) ?? ""; setCountryInput(value); if (exact !== country) { setCountry(exact); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); } }
+  function updateCityInput(value: string) { const exact = cityOptions.find(item => item.city.toLowerCase() === value.trim().toLowerCase())?.city ?? ""; setCityInput(value); if (exact !== city) { setCity(exact); setPostalCodeInput(""); setPostalCode(""); } }
+  function updatePostalCodeInput(value: string) { const exact = postalCodeOptions.find(item => item.postalCode.toLowerCase() === value.trim().toLowerCase())?.postalCode ?? ""; setPostalCodeInput(value); setPostalCode(exact); }
   function toggleFilter(section: DiscoveryFilterSection) { setOpenFilters(current => { const next = new Set(current); if (next.has(section)) next.delete(section); else next.add(section); return next; }); }
   function choosePlatform(nextPlatform: PlatformFilter) { setPlatform(nextPlatform); setSelectedIds(new Set()); setBulkMessage(""); }
   function chooseAudience(nextAudience: AudienceBand) { setAudience(nextAudience); setAudienceMin(""); setAudienceMax(""); }
@@ -178,7 +186,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     finally { setBulkWorking(false); }
   }
   return <main className="workspace ops-page discovery-page">
-    <PageHeader eyebrow="India-first · Global reach" title="Discover creators" copy="Search Instagram, YouTube, and Facebook profiles across India and worldwide." action={data.mode === "convex" ? <span className="data-source-chip">Instagram + YouTube + Facebook</span> : undefined}/>
+    <PageHeader eyebrow="India-first · Global reach" title="Discover creators" copy="Search Instagram, YouTube, and Facebook profiles across India and worldwide." action={<span className="data-source-chip" aria-live="polite">{totalCount === null ? "Counting profiles…" : <><strong>{totalCount.toLocaleString()}</strong> {filtersActive || query.trim() ? "matching profiles" : "profiles available"}</>}</span>}/>
     <div className="discovery-layout">
       <WorkspaceSidebarPortal><div className="discovery-filter-panel">
         <header><div><p>Discovery</p><h2>Filters</h2></div><div><span>{activeFilterCount} active</span><button type="button" onClick={clearTableFilters} disabled={!filtersActive}>Clear</button></div></header>
@@ -194,7 +202,9 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
           {platform !== "all" ? <button type="button" onClick={() => choosePlatform("all")} aria-label={`Remove ${platformLabel(platform)} platform filter`}>{platformLabel(platform)}<X size={11}/></button> : null}
           {category ? <button type="button" onClick={() => setCategory("")} aria-label={`Remove ${category} category filter`}>{category}<X size={11}/></button> : null}
           {audienceActive ? <button type="button" onClick={() => chooseAudience("all")} aria-label="Remove audience filter">{audienceValueLabel(audience, audienceMin, audienceMax)}<X size={11}/></button> : null}
-          {location ? <button type="button" onClick={() => setLocation("")} aria-label={`Remove ${location} location filter`}>{location}<X size={11}/></button> : null}
+          {country ? <button type="button" onClick={() => { setCountryInput(""); setCountry(""); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${country} country filter`}>{country}<X size={11}/></button> : null}
+          {city ? <button type="button" onClick={() => { setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${city} city filter`}>{city}<X size={11}/></button> : null}
+          {postalCode ? <button type="button" onClick={() => { setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${postalCode} postal code filter`}>{postalCode}<X size={11}/></button> : null}
           {verifiedOnly ? <button type="button" onClick={() => setVerifiedOnly(false)} aria-label="Remove verified profiles filter">Verified<X size={11}/></button> : null}
         </div> : null}
         <div className="discovery-filter-stack">
@@ -211,7 +221,9 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
               {audienceError ? <p className="discovery-filter-error" role="alert">{audienceError}</p> : null}
             </div>
           </DiscoveryFilterDisclosure>
-          <DiscoveryFilterDisclosure id="location" label="City or country" value={location || "All locations"} icon={<MapPin size={17}/>} open={openFilters.has("location")} onToggle={() => toggleFilter("location")}><label className="discovery-filter-field"><span className="sr-only">City or country</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search locations"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="country" label="Country" value={country || "All countries"} icon={<MapPin size={17}/>} open={openFilters.has("country")} onToggle={() => toggleFilter("country")}><label className="discovery-filter-field"><span className="sr-only">Country</span><input list="creator-country-options" aria-label="Filter creator country" value={countryInput} onChange={event => updateCountryInput(event.target.value)} placeholder="Type to search countries" autoComplete="off"/><datalist id="creator-country-options">{locationFacets.countries.map(item => <option key={item} value={item}/>)}</datalist></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="city" label="City" value={city || "All cities"} icon={<Building2 size={17}/>} open={openFilters.has("city")} onToggle={() => toggleFilter("city")}><label className="discovery-filter-field"><span className="sr-only">City</span><input list="creator-city-options" aria-label="Filter creator city" value={cityInput} onChange={event => updateCityInput(event.target.value)} placeholder={country ? `Search cities in ${country}` : "Type to search cities"} autoComplete="off"/><datalist id="creator-city-options">{cityOptions.map(item => <option key={`${item.city}:${item.country ?? ""}`} value={item.city}>{item.country && !country ? item.country : undefined}</option>)}</datalist></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="postal" label="PIN / postal code" value={postalCode || "Any postal code"} icon={<MapPin size={17}/>} open={openFilters.has("postal")} onToggle={() => toggleFilter("postal")}><label className="discovery-filter-field"><span className="sr-only">PIN or postal code</span><input list="creator-postal-options" aria-label="Filter creator PIN or postal code" value={postalCodeInput} onChange={event => updatePostalCodeInput(event.target.value)} placeholder={city ? `Search codes in ${city}` : "Type a PIN or postal code"} inputMode="numeric" autoComplete="postal-code"/><datalist id="creator-postal-options">{postalCodeOptions.map(item => <option key={`${item.postalCode}:${item.city ?? ""}`} value={item.postalCode}>{[item.city, item.country].filter(Boolean).join(", ")}</option>)}</datalist></label></DiscoveryFilterDisclosure>
           <button type="button" className={`discovery-filter-toggle ${verifiedOnly ? "is-active" : ""}`} aria-pressed={verifiedOnly} onClick={() => setVerifiedOnly(value => !value)}><span className="discovery-filter-section-icon"><BadgeCheck size={17}/></span><span><strong>Verified profiles only</strong><small>{verifiedOnly ? "Enabled" : "Exclude unverified imports"}</small></span><span className="discovery-filter-check" aria-hidden="true">{verifiedOnly ? <Check size={13}/> : null}</span></button>
           <DiscoveryFilterDisclosure id="priority" label="Result priority" value={priorityLabel(sort)} icon={<SlidersHorizontal size={17}/>} open={openFilters.has("priority")} onToggle={() => toggleFilter("priority")}><label className="discovery-filter-field"><span className="sr-only">Result priority</span><select aria-label="Prioritize discovery results" value={`${sort.field}:${sort.direction}`} onChange={event => { const option = PRIORITY_OPTIONS.find(item => `${item.sort.field}:${item.sort.direction}` === event.target.value); if (option) setSort(option.sort); }}>{PRIORITY_OPTIONS.map(option => <option key={option.label} value={`${option.sort.field}:${option.sort.direction}`}>{option.label}</option>)}</select></label></DiscoveryFilterDisclosure>
         </div>
@@ -219,7 +231,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
 
       <div className="discovery-results">
         <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !audienceError) void run(); }} placeholder="Search creator name or handle"/><button className="button button-primary" disabled={Boolean(audienceError)} onClick={() => run()}><Sparkles size={15}/> Search</button></section>
-        <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> creators shown · {activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied` : "All profiles"}</span><span>{query.trim() ? "Search results" : isDone ? "Full repository loaded" : "More creators available"}</span></div>
+        <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong>{totalCount === null ? " creators loaded" : <> of <strong>{totalCount.toLocaleString()}</strong> creators loaded</>} · {activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied` : "All profiles"}</span><span>{remainingCount === null ? "Counting results…" : remainingCount > 0 ? `${remainingCount.toLocaleString()} more available` : "All matching creators loaded"}</span></div>
         {visibleResults.length ? <section className="discovery-selection" aria-label="Creator selection actions"><button type="button" className="button button-secondary" onClick={() => setSelectedIds(selectedIds.size === visibleResults.length ? new Set() : new Set(visibleResults.map(item => item.id)))}>{selectedIds.size === visibleResults.length ? "Clear page" : "Select page"}</button><span>{selectedIds.size} selected</span><select aria-label="Campaign for selected creators" value={campaignTarget} onChange={event => setCampaignTarget(event.target.value)}><option value="">{campaigns.length ? "Choose campaign" : "No campaigns yet"}</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select><button type="button" className="button button-secondary" disabled={!selectedIds.size || bulkWorking} onClick={() => void saveSelected()}>Save to CRM</button><button type="button" className="button button-primary" disabled={!selectedIds.size || bulkWorking} onClick={() => void addToCampaign([...selectedIds])}>Add to campaign</button>{!campaigns.length ? <button type="button" className="text-button" onClick={() => navigate({ name: "campaigns" })}>Create campaign</button> : null}{bulkMessage ? <p role="status">{bulkMessage}</p> : null}</section> : null}
         <section className="ops-table-card discovery-table-card"><div className="discovery-table-scroll"><table className="discovery-data-table" aria-label="Creator discovery results"><colgroup><col className="creator-column"/><col className="category-column"/><col className="platform-column"/><col className="audience-column"/><col className="location-column"/><col className="contact-column"/><col className="actions-column"/></colgroup><thead><tr>
           <th><button className="table-sort-button" type="button" onClick={() => cycleSort("name")} aria-label={`Sort creator name ${sort.field === "name" && sort.direction === "asc" ? "descending" : sort.field === "name" ? "by default" : "ascending"}`} aria-pressed={sort.field === "name"}>Creator <ArrowUpDown size={12}/></button></th>
@@ -234,7 +246,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
         <td><div className="discovery-row-actions"><button className={savedIds.has(creator.id) ? "button button-saved" : "button button-secondary"} disabled={savedIds.has(creator.id)} onClick={() => void save(creator)}>{savedIds.has(creator.id) ? <><Check size={15}/> Saved</> : <><Plus size={15}/> Save</>}</button><button className="text-button" disabled={bulkWorking} onClick={() => void addToCampaign([creator.id])}>Add to campaign</button></div></td>
       </tr>) : <tr><td colSpan={7}>{query.trim().length >= 2 ? <Empty icon={<Search/>} title="No creator found" copy={repositoryScope} action="Request contact" onAction={() => setRequestOpen(true)}/> : <Empty icon={<Search/>} title="No creators match these filters" copy="Broaden one of the filters or reset the search to see the full result set." action="Reset filters" onAction={clearTableFilters}/>}</td></tr>}
         </tbody></table></div>
-      {!loading && !query.trim() && results.length ? <footer className="creator-page-actions"><span><strong>{results.length}</strong> creators loaded{!isDone ? " · continue exploring the repository" : " · you reached the end"}</span>{isDone ? <span className="creator-page-complete"><Check size={15}/> All creators loaded</span> : <button type="button" className="button button-secondary" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading creators…" : <><ArrowDown size={15}/> Load more creators</>}</button>}</footer> : null}
+      {!loading && !query.trim() && results.length ? <footer className="creator-page-actions"><span><strong>{results.length}</strong>{totalCount === null ? " creators loaded" : ` of ${totalCount.toLocaleString()} creators loaded`}</span>{isDone ? <span className="creator-page-complete"><Check size={15}/> All creators loaded</span> : <button type="button" className="button button-secondary" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading creators…" : <><ArrowDown size={15}/> Load more creators</>}</button>}</footer> : null}
       {error && results.length ? <p className="creator-page-error" role="alert">{error}</p> : null}
         </section>
       </div>

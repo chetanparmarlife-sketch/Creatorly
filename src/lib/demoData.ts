@@ -30,6 +30,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Riya On The Go",
     followerCount: 612000,
     location: "Mumbai, India",
+    city: "Mumbai",
+    country: "India",
+    postalCode: "400001",
     categories: ["Travel", "Lifestyle"],
     socialProfiles: [{ platform: "tiktok", handle: "riyaonthego", url: "https://www.tiktok.com/@riyaonthego", followerCount: 612000, isVerified: true }],
     isVerified: true,
@@ -44,6 +47,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Arjun Builds",
     followerCount: 184000,
     location: "Bengaluru, India",
+    city: "Bengaluru",
+    country: "India",
+    postalCode: "560001",
     categories: ["Technology", "Business"],
     socialProfiles: [{ platform: "twitter", handle: "arjunbuilds", url: "https://x.com/arjunbuilds", followerCount: 184000, isVerified: true }],
     isVerified: true,
@@ -58,6 +64,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Pending Import",
     followerCount: 10000,
     location: "India",
+    country: "India",
     categories: ["Lifestyle"],
     isVerified: false,
     isDemo: false,
@@ -73,6 +80,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Maya Kapoor",
     followerCount: 842000,
     location: "Mumbai, India",
+    city: "Mumbai",
+    country: "India",
+    postalCode: "400001",
     categories: ["Lifestyle", "Fashion"],
     socialProfiles: [
       { platform: "instagram", handle: "maya_creates", url: "https://www.instagram.com/maya_creates/", followerCount: 842000, isVerified: true },
@@ -98,6 +108,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Rishi Verma",
     followerCount: 1240000,
     location: "Bengaluru, India",
+    city: "Bengaluru",
+    country: "India",
+    postalCode: "560001",
     categories: ["Gadgets & Tech"],
     socialProfiles: [
       { platform: "youtube", handle: "TheTechRishi", url: "https://www.youtube.com/@TheTechRishi", followerCount: 1240000, isVerified: true },
@@ -123,6 +136,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Aanchal Mehta",
     followerCount: 376000,
     location: "Delhi, India",
+    city: "Delhi",
+    country: "India",
+    postalCode: "110001",
     categories: ["Fitness", "Lifestyle"],
     isVerified: false,
     isDemo: true,
@@ -138,6 +154,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Kabir Arora",
     followerCount: 695000,
     location: "Pune, India",
+    city: "Pune",
+    country: "India",
+    postalCode: "411001",
     categories: ["Food"],
     socialProfiles: [
       { platform: "youtube", handle: "CookWithKabirOfficial", url: "https://www.youtube.com/@CookWithKabirOfficial", followerCount: 695000, isVerified: true },
@@ -161,6 +180,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Noor Khan",
     followerCount: 518000,
     location: "Hyderabad, India",
+    city: "Hyderabad",
+    country: "India",
+    postalCode: "500001",
     categories: ["Travel", "Photography"],
     isVerified: true,
     isDemo: true,
@@ -177,6 +199,9 @@ const DEMO_CREATORS: DemoCreator[] = [
     displayName: "Money Made Clear",
     followerCount: 289000,
     location: "Chennai, India",
+    city: "Chennai",
+    country: "India",
+    postalCode: "600001",
     categories: ["Business", "Education"],
     isVerified: false,
     isDemo: true,
@@ -355,6 +380,9 @@ export const demoData = {
       if (filters.platform && creator.platform !== filters.platform) return [];
       if (filters.verifiedOnly && !creator.isVerified) return [];
       if (filters.location && !creator.location?.toLowerCase().includes(filters.location.toLowerCase())) return [];
+      if (filters.country && creator.country?.toLowerCase() !== filters.country.toLowerCase()) return [];
+      if (filters.city && creator.city?.toLowerCase() !== filters.city.toLowerCase()) return [];
+      if (filters.postalCode && creator.postalCode?.toLowerCase() !== filters.postalCode.toLowerCase()) return [];
       if (filters.category && !creator.categories?.some(category => category.toLowerCase() === filters.category?.toLowerCase())) return [];
       const matchScore = query.trim() ? rankCreatorMatch(query, creator) : 0;
       if (matchScore === null) return [];
@@ -365,6 +393,9 @@ export const demoData = {
         displayName: creator.displayName,
         followerCount: creator.followerCount,
         location: creator.location,
+        country: creator.country,
+        city: creator.city,
+        postalCode: creator.postalCode,
         categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,

@@ -26,11 +26,24 @@ const platformValidator = v.union(
   v.literal("twitter"),
 );
 
-function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number }) {
+function creatorLocationParts(creator: Pick<Doc<"creators">, "location" | "country" | "city" | "postalCode">) {
+  const parts = creator.location?.split(",").map(part => part.trim()).filter(Boolean) ?? [];
+  return {
+    country: creator.country ?? (parts.length > 1 ? parts.at(-1) : parts[0]),
+    city: creator.city ?? (parts.length > 1 ? parts[0] : undefined),
+    postalCode: creator.postalCode,
+  };
+}
+
+function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number }) {
+  const locationParts = creatorLocationParts(creator);
   if (creator.isDemo) return false;
   if (creator.followerCount < MIN_REPOSITORY_FOLLOWERS) return false;
   if (args.verifiedOnly && !creator.isVerified) return false;
   if (args.location && !creator.location?.toLowerCase().includes(args.location.trim().toLowerCase())) return false;
+  if (args.country && locationParts.country?.toLowerCase() !== args.country.trim().toLowerCase()) return false;
+  if (args.city && locationParts.city?.toLowerCase() !== args.city.trim().toLowerCase()) return false;
+  if (args.postalCode && locationParts.postalCode?.toLowerCase() !== args.postalCode.trim().toLowerCase()) return false;
   if (args.category && !creator.categories?.some(category => category.toLowerCase() === args.category?.toLowerCase())) return false;
   if (args.minFollowers !== undefined && creator.followerCount < args.minFollowers) return false;
   if (args.maxFollowers !== undefined && creator.followerCount >= args.maxFollowers) return false;
@@ -40,12 +53,34 @@ function passesFilters(creator: Doc<"creators">, args: { category?: string; loca
 const sortFieldValidator = v.union(v.literal("name"), v.literal("audience"), v.literal("location"));
 const sortDirectionValidator = v.union(v.literal("asc"), v.literal("desc"));
 
+export const listLocationFacets = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return { countries: [], cities: [], postalCodes: [] };
+    const creators = await ctx.db
+      .query("creators")
+      .withIndex("by_followers", q => q.gte("followerCount", MIN_REPOSITORY_FOLLOWERS))
+      .filter(q => q.eq(q.field("isDemo"), false))
+      .collect();
+    const locations = creators.map(creatorLocationParts);
+    return {
+      countries: [...new Set(locations.map(item => item.country).filter((value): value is string => Boolean(value)))].sort(),
+      cities: [...new Map(locations.filter(item => item.city).map(item => [`${item.city}:${item.country ?? ""}`, { city: item.city!, country: item.country }])).values()].sort((a, b) => a.city.localeCompare(b.city)),
+      postalCodes: [...new Map(locations.filter(item => item.postalCode).map(item => [`${item.postalCode}:${item.city ?? ""}:${item.country ?? ""}`, { postalCode: item.postalCode!, city: item.city, country: item.country }])).values()].sort((a, b) => a.postalCode.localeCompare(b.postalCode)),
+    };
+  },
+});
+
 export const browsePage = query({
   args: {
     paginationOpts: paginationOptsValidator,
     platform: v.optional(platformValidator),
     category: v.optional(v.string()),
     location: v.optional(v.string()),
+    country: v.optional(v.string()),
+    city: v.optional(v.string()),
+    postalCode: v.optional(v.string()),
     verifiedOnly: v.optional(v.boolean()),
     minFollowers: v.optional(v.number()),
     maxFollowers: v.optional(v.number()),
@@ -59,6 +94,7 @@ export const browsePage = query({
         page: [],
         continueCursor: args.paginationOpts.cursor ?? "",
         isDone: true,
+        totalCount: 0,
       };
     }
 
@@ -72,6 +108,65 @@ export const browsePage = query({
       cursor: args.paginationOpts.cursor,
       numItems: Math.min(args.paginationOpts.numItems, 24),
     };
+    if (args.country?.trim() || args.city?.trim() || args.postalCode?.trim()) {
+      const candidates = await ctx.db
+        .query("creators")
+        .withIndex("by_followers", q => maxFollowers === undefined
+          ? q.gte("followerCount", minFollowers)
+          : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+        .filter(q => q.and(
+          q.eq(q.field("isDemo"), false),
+          ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+          ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+          ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+        ))
+        .collect();
+      const matching = candidates.filter(creator => passesFilters(creator, args)).sort((left, right) => {
+        const comparison = sortField === "name"
+          ? left.displayName.localeCompare(right.displayName)
+          : sortField === "location"
+            ? (left.location ?? "").localeCompare(right.location ?? "")
+            : left.followerCount - right.followerCount;
+        return comparison * (sortDirection === "asc" ? 1 : -1);
+      });
+      const start = Math.max(0, Number.parseInt(args.paginationOpts.cursor ?? "0", 10) || 0);
+      const creatorPage = matching.slice(start, start + paginationOpts.numItems);
+      const next = start + creatorPage.length;
+      const page = await Promise.all(creatorPage.map(async creator => {
+        const contacts = await ctx.db.query("contacts").withIndex("by_creator", q => q.eq("creatorId", creator._id)).take(20);
+        const locationParts = creatorLocationParts(creator);
+        return {
+          id: creator._id, platform: creator.platform, handle: creator.handle, displayName: creator.displayName,
+          followerCount: creator.followerCount, location: creator.location, ...locationParts, categories: creator.categories,
+          isVerified: creator.isVerified, isDemo: creator.isDemo, contentLanguages: creator.contentLanguages,
+          profileType: creator.profileType, contentQuality: creator.contentQuality, managementType: creator.managementType,
+          profileImageUrl: creator.profileImageUrl, biography: creator.biography, gender: creator.gender, age: creator.age,
+          instagramAccountId: creator.instagramAccountId, instagramMetrics: creator.instagramMetrics,
+          youtubeChannelId: creator.youtubeChannelId, youtubeMetrics: creator.youtubeMetrics,
+          facebookPageId: creator.facebookPageId, facebookMetrics: creator.facebookMetrics,
+          sourceLabel: "Creatorly database", lastUpdatedAt: creator.lastUpdatedAt, metricProvenance: "supplied" as const,
+          contactCount: contacts.filter(contact => contact.isActive && contact.verificationStatus === "verified").length,
+          matchScore: 0,
+        };
+      }));
+      return { page, continueCursor: String(next), isDone: next >= matching.length, totalCount: matching.length };
+    }
+    const totalCountPromise = args.paginationOpts.cursor === null
+      ? ctx.db
+          .query("creators")
+          .withIndex("by_followers", (q) => maxFollowers === undefined
+            ? q.gte("followerCount", minFollowers)
+            : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+          .filter((q) => q.and(
+            q.eq(q.field("isDemo"), false),
+            ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+            ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+            ...(location ? [q.eq(q.field("location"), location)] : []),
+            ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+          ))
+          .collect()
+          .then((creators) => creators.length)
+      : Promise.resolve(undefined);
     const result = location && category && args.platform
       ? await ctx.db
           .query("creators")
@@ -205,6 +300,7 @@ export const browsePage = query({
         displayName: creator.displayName,
         followerCount: creator.followerCount,
         location: creator.location,
+        ...creatorLocationParts(creator),
         categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,
@@ -230,7 +326,7 @@ export const browsePage = query({
       };
     }));
 
-    return { ...result, page };
+    return { ...result, page, totalCount: await totalCountPromise };
   },
 });
 
@@ -240,6 +336,9 @@ export const search = query({
     platform: v.optional(platformValidator),
     category: v.optional(v.string()),
     location: v.optional(v.string()),
+    country: v.optional(v.string()),
+    city: v.optional(v.string()),
+    postalCode: v.optional(v.string()),
     verifiedOnly: v.optional(v.boolean()),
     minFollowers: v.optional(v.number()),
     maxFollowers: v.optional(v.number()),
@@ -327,6 +426,7 @@ export const search = query({
           displayName: creator.displayName,
           followerCount: creator.followerCount,
           location: creator.location,
+          ...creatorLocationParts(creator),
           categories: creator.categories,
           isVerified: creator.isVerified,
           isDemo: creator.isDemo,
@@ -411,6 +511,7 @@ export const getById = query({
         displayName: creator.displayName,
         followerCount: creator.followerCount,
         location: creator.location,
+        ...creatorLocationParts(creator),
         categories: creator.categories,
         isVerified: creator.isVerified,
         isDemo: creator.isDemo,

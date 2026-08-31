@@ -21,6 +21,7 @@ import type {
   ContactRequestInput,
   ContactRequestResult,
   CreatorDetailData,
+  CreatorLocationFacets,
   CreatorSearchFilters,
   CreatorSearchPage,
   CreatorSearchResult,
@@ -46,7 +47,8 @@ type AppData = {
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
   search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
-  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" }): Promise<CreatorSearchPage>;
+  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" }): Promise<CreatorSearchPage>;
+  listCreatorLocations(): Promise<CreatorLocationFacets>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
   requestContact(input: ContactRequestInput): Promise<ContactRequestResult>;
@@ -102,8 +104,8 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     },
     getViewer: demoData.viewer,
     search: demoData.search,
-    browseCreators: async ({ cursor, numItems, platform, category, location, verifiedOnly, minFollowers = 0, maxFollowers, sortField = "audience", sortDirection = "desc" }) => {
-      const creators = (await demoData.search("", { platform, category, location, verifiedOnly }))
+    browseCreators: async ({ cursor, numItems, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers = 0, maxFollowers, sortField = "audience", sortDirection = "desc" }) => {
+      const creators = (await demoData.search("", { platform, category, location, country, city, postalCode, verifiedOnly }))
         .filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers))
         .sort((left, right) => {
           const comparison = sortField === "name" ? left.displayName.localeCompare(right.displayName) : sortField === "location" ? (left.location ?? "").localeCompare(right.location ?? "") : left.followerCount - right.followerCount;
@@ -112,7 +114,15 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
       const start = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
       const page = creators.slice(start, start + numItems);
       const next = start + page.length;
-      return { page, continueCursor: String(next), isDone: next >= creators.length };
+      return { page, continueCursor: String(next), isDone: next >= creators.length, totalCount: creators.length };
+    },
+    listCreatorLocations: async () => {
+      const creators = await demoData.search("");
+      return {
+        countries: [...new Set(creators.map(creator => creator.country).filter((value): value is string => Boolean(value)))].sort(),
+        cities: [...new Map(creators.filter(creator => creator.city).map(creator => [`${creator.city}:${creator.country ?? ""}`, { city: creator.city!, country: creator.country }])).values()].sort((a, b) => a.city.localeCompare(b.city)),
+        postalCodes: [...new Map(creators.filter(creator => creator.postalCode).map(creator => [`${creator.postalCode}:${creator.city ?? ""}:${creator.country ?? ""}`, { postalCode: creator.postalCode!, city: creator.city, country: creator.country }])).values()].sort((a, b) => a.postalCode.localeCompare(b.postalCode)),
+      };
     },
     getDetail: demoData.detail,
     getHistory: demoData.history,
@@ -139,8 +149,8 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
 }
 
 type EmptyArgs = Record<string, never>;
-type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
-type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
+type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
+type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
 type DetailArgs = { creatorId: string };
 
 const viewerRef = makeFunctionReference<"query">("users:viewer") as FunctionReference<
@@ -151,6 +161,9 @@ const searchRef = makeFunctionReference<"query">("creators:search") as FunctionR
 >;
 const browseRef = makeFunctionReference<"query">("creators:browsePage") as FunctionReference<
   "query", "public", BrowseArgs, CreatorSearchPage
+>;
+const locationFacetsRef = makeFunctionReference<"query">("creators:listLocationFacets") as FunctionReference<
+  "query", "public", EmptyArgs, CreatorLocationFacets
 >;
 const detailRef = makeFunctionReference<"query">("creators:getById") as FunctionReference<
   "query", "public", DetailArgs, CreatorDetailData | null
@@ -247,7 +260,8 @@ export function ConvexDataProvider({
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
-    browseCreators: ({ cursor, numItems, platform, category, location, verifiedOnly, minFollowers, maxFollowers, sortField, sortDirection }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform, category, location, verifiedOnly, minFollowers, maxFollowers, sortField, sortDirection }),
+    browseCreators: ({ cursor, numItems, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, sortField, sortDirection }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, sortField, sortDirection }),
+    listCreatorLocations: () => convex.query(locationFacetsRef, {}),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
     getHistory: () => convex.query(historyRef, {}),
     requestContact: (input) => convex.mutation(requestContactRef, input),
