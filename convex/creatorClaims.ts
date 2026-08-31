@@ -102,7 +102,8 @@ export const lookupInstagram = query({
       : await ctx.db.query("creators").withIndex("by_normalized_handle", q => q.eq("normalizedHandle", identity.normalizedHandle))
         .filter(q => q.eq(q.field("platform"), "instagram")).first();
     return {
-      ...identity,
+      normalizedHandle: identity.normalizedHandle,
+      instagramUrl: identity.url,
       match: creator ? {
         creatorId: creator._id,
         displayName: creator.displayName,
