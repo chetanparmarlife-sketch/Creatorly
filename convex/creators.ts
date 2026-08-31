@@ -62,7 +62,8 @@ export const listLocationFacets = query({
       .query("creators")
       .withIndex("by_followers", q => q.gte("followerCount", MIN_REPOSITORY_FOLLOWERS))
       .filter(q => q.eq(q.field("isDemo"), false))
-      .collect();
+      .order("desc")
+      .take(250);
     const locations = creators.map(creatorLocationParts);
     return {
       countries: [...new Set(locations.map(item => item.country).filter((value): value is string => Boolean(value)))].sort(),
@@ -109,19 +110,28 @@ export const browsePage = query({
       numItems: Math.min(args.paginationOpts.numItems, 24),
     };
     if (args.country?.trim() || args.city?.trim() || args.postalCode?.trim()) {
-      const candidates = await ctx.db
-        .query("creators")
-        .withIndex("by_followers", q => maxFollowers === undefined
-          ? q.gte("followerCount", minFollowers)
-          : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-        .filter(q => q.and(
-          q.eq(q.field("isDemo"), false),
-          ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
-          ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
-          ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
-        ))
-        .collect();
-      const matching = candidates.filter(creator => passesFilters(creator, args)).sort((left, right) => {
+      let scanCursor = args.paginationOpts.cursor;
+      let isDone = false;
+      const matching: Doc<"creators">[] = [];
+      for (let scan = 0; scan < 5 && matching.length < paginationOpts.numItems && !isDone; scan += 1) {
+        const candidates = await ctx.db
+          .query("creators")
+          .withIndex("by_followers", q => maxFollowers === undefined
+            ? q.gte("followerCount", minFollowers)
+            : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+          .filter(q => q.and(
+            q.eq(q.field("isDemo"), false),
+            ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+            ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+            ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+          ))
+          .order(sortField === "audience" ? sortDirection : "desc")
+          .paginate({ cursor: scanCursor, numItems: paginationOpts.numItems });
+        matching.push(...candidates.page.filter(creator => passesFilters(creator, args)));
+        scanCursor = candidates.continueCursor;
+        isDone = candidates.isDone;
+      }
+      matching.sort((left, right) => {
         const comparison = sortField === "name"
           ? left.displayName.localeCompare(right.displayName)
           : sortField === "location"
@@ -129,10 +139,7 @@ export const browsePage = query({
             : left.followerCount - right.followerCount;
         return comparison * (sortDirection === "asc" ? 1 : -1);
       });
-      const start = Math.max(0, Number.parseInt(args.paginationOpts.cursor ?? "0", 10) || 0);
-      const creatorPage = matching.slice(start, start + paginationOpts.numItems);
-      const next = start + creatorPage.length;
-      const page = await Promise.all(creatorPage.map(async creator => {
+      const page = await Promise.all(matching.map(async creator => {
         const contacts = await ctx.db.query("contacts").withIndex("by_creator", q => q.eq("creatorId", creator._id)).take(20);
         const locationParts = creatorLocationParts(creator);
         return {
@@ -149,24 +156,13 @@ export const browsePage = query({
           matchScore: 0,
         };
       }));
-      return { page, continueCursor: String(next), isDone: next >= matching.length, totalCount: matching.length };
+      return {
+        page,
+        continueCursor: scanCursor,
+        isDone,
+        totalCount: args.paginationOpts.cursor === null && isDone ? matching.length : undefined,
+      };
     }
-    const totalCountPromise = args.paginationOpts.cursor === null
-      ? ctx.db
-          .query("creators")
-          .withIndex("by_followers", (q) => maxFollowers === undefined
-            ? q.gte("followerCount", minFollowers)
-            : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-          .filter((q) => q.and(
-            q.eq(q.field("isDemo"), false),
-            ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
-            ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
-            ...(location ? [q.eq(q.field("location"), location)] : []),
-            ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
-          ))
-          .collect()
-          .then((creators) => creators.length)
-      : Promise.resolve(undefined);
     const result = location && category && args.platform
       ? await ctx.db
           .query("creators")
@@ -326,7 +322,11 @@ export const browsePage = query({
       };
     }));
 
-    return { ...result, page, totalCount: await totalCountPromise };
+    return {
+      ...result,
+      page,
+      totalCount: args.paginationOpts.cursor === null && result.isDone ? page.length : undefined,
+    };
   },
 });
 
