@@ -1,4 +1,4 @@
-import { ChevronDown, History, LogOut, Megaphone, Menu, Search, Settings, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { ChevronDown, History, Home, LogOut, Megaphone, Menu, Search, Settings, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Viewer } from "../types";
 import { Logo } from "./Logo";
@@ -16,7 +16,7 @@ export function AppShell({
   children,
 }: {
   viewer: Viewer | null;
-  activePage: "search" | "creators" | "campaigns" | "history" | "settings" | "admin";
+  activePage: "home" | "search" | "creators" | "campaigns" | "history" | "settings" | "admin";
   navigate(route: AppRoute): void;
   onSearch(): void;
   onHistory(): void;
@@ -31,11 +31,12 @@ export function AppShell({
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand-button" onClick={() => go({ name: "discover" })} aria-label="Go to creator discovery">
+        <button className="brand-button" onClick={() => go({ name: "home" })} aria-label="Go to workspace home">
           <Logo />
         </button>
         <div className={`sidebar-panel ${mobileOpen ? "is-open" : ""}`}>
           <nav aria-label="Primary navigation">
+            <button className={`nav-item ${activePage === "home" ? "is-active" : ""}`} onClick={() => go({ name: "home" })} aria-current={activePage === "home" ? "page" : undefined}><Home size={17}/> Home</button>
             <button className={`nav-item ${activePage === "search" ? "is-active" : ""}`} onClick={onSearch} aria-current={activePage === "search" ? "page" : undefined}>
               <Search size={17} aria-hidden="true" /> <span aria-hidden="true">Discover</span><span className="sr-only">Search</span>
             </button>

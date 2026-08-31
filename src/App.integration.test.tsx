@@ -98,7 +98,7 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("button", { name: /create free account/i }));
 
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/app");
+    expect(window.location.pathname).toBe("/app/discover");
     await user.type(screen.getByLabelText("Creator name or handle"), "maya.creates.official");
     const mayaResult = await screen.findByRole("button", { name: /Maya Kapoor/i });
     expect(mayaResult.closest("article")).toHaveTextContent("Lifestyle");
@@ -403,6 +403,7 @@ describe("Creatorly M1 user journey", () => {
     await user.click(await screen.findByRole("button", { name: choiceName }));
     await user.click(screen.getByRole("button", { name: /^continue/i }));
     await user.click(await screen.findByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /discover creators/i }));
     await user.click(await screen.findByRole("button", { name: /open workspace/i }));
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}").kind).toBe(kind);
@@ -435,6 +436,7 @@ describe("Creatorly M1 user journey", () => {
     await user.type(workspaceName, "Northstar Beauty");
     await user.click(screen.getByRole("button", { name: /^continue/i }));
     await user.click(await screen.findByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /discover creators/i }));
     await user.click(await screen.findByRole("button", { name: /open workspace/i }));
 
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
@@ -464,7 +466,8 @@ describe("Creatorly M1 user journey", () => {
     firstRender.unmount();
     window.history.replaceState({}, "", "/app/home");
     renderDemo();
-    expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Northstar Beauty" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /saved creators\s*0/i })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}").id).toBe(workspaceId);
   });
 
@@ -660,7 +663,7 @@ describe("Creatorly M1 user journey", () => {
     await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
     window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
     window.localStorage.setItem("creatorly.campaigns.v1.demo-workspace", JSON.stringify([{ id: "campaign-one", name: "Launch", goal: "Launch", platforms: ["instagram"], currency: "INR", status: "active", ownerName: "Me", creators: [], tasks: [], createdAt: Date.now(), updatedAt: Date.now() }]));
-    window.history.replaceState({}, "", "/app");
+    window.history.replaceState({}, "", "/app/discover");
     renderDemo();
 
     const checkboxes = await screen.findAllByRole("checkbox", { name: /^Select / });
@@ -680,5 +683,23 @@ describe("Creatorly M1 user journey", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 already there"));
     const campaigns = JSON.parse(window.localStorage.getItem("creatorly.campaigns.v1.demo-workspace") ?? "[]") as Array<{ creators: unknown[] }>;
     expect(campaigns[0].creators).toHaveLength(3);
+  });
+
+  it("shows real workspace activity and campaign counts on Home", async () => {
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.localStorage.setItem("creatorly.saved-creators.v1", JSON.stringify([{ id: "saved-1", creator: { id: "creator-1", displayName: "Creator One" }, source: "manual", relationshipStage: "discovered", ownerName: "Me", priority: "normal", tags: [], updatedAt: Date.now() }]));
+    window.localStorage.setItem("creatorly.campaigns.v1.demo-workspace", JSON.stringify([{ id: "campaign-1", name: "Launch", goal: "Launch the collection", platforms: ["instagram"], status: "active", ownerName: "Me", currency: "INR", creators: [{ id: "cc-1", savedCreatorId: "saved-1", stage: "in_review", ownerName: "Me", deliverables: [{ id: "deliverable-1", campaignCreatorId: "cc-1", title: "Launch reel", channel: "instagram", format: "reel", status: "in_review", approvals: [], createdAt: Date.now(), updatedAt: Date.now() }] }], tasks: [{ id: "task-1", title: "Confirm usage rights", status: "open", dueAt: Date.now() - 86_400_000, assigneeName: "Me", createdAt: Date.now(), updatedAt: Date.now() }], createdAt: Date.now(), updatedAt: Date.now() }]));
+    window.localStorage.setItem("creatorly.workspace-activity.v1", JSON.stringify([{ id: "activity-1", summary: "Added Creator One to Launch", entityType: "campaign_creator", createdAt: Date.now() }]));
+    window.history.replaceState({}, "", "/app");
+    renderDemo();
+
+    expect(await screen.findByRole("heading", { name: "Northstar Agency" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /saved creators\s*1/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /active campaigns\s*1/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pending reviews\s*1/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Launch" })).toBeInTheDocument();
+    expect(screen.getByText("Confirm usage rights")).toBeInTheDocument();
+    expect(screen.getByText("Added Creator One to Launch")).toBeInTheDocument();
   });
 });

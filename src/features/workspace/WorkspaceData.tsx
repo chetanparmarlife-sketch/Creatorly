@@ -3,7 +3,7 @@ import { useConvex } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id, TableNames } from "../../../convex/_generated/dataModel";
 import { demoData } from "../../lib/demoData";
-import type { ApprovalDecision, Campaign, CampaignDraft, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, GroupCollaborator, GroupCollaboratorRole, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceGroup, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
+import type { ApprovalDecision, Campaign, CampaignDraft, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, GroupCollaborator, GroupCollaboratorRole, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceGroup, WorkspaceHomeSummary, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
 import { creatorDuplicateKey } from "./creatorImport";
 
 type WorkspaceData = {
@@ -31,6 +31,7 @@ type WorkspaceData = {
   setCampaignTaskStatus(workspaceId: string, campaignId: string, taskId: string, status: CampaignTaskStatus): Promise<void>;
   setCampaignCreatorFee(workspaceId: string, campaignId: string, campaignCreatorId: string, agreedFee: number): Promise<void>;
   listActivity(workspaceId: string): Promise<WorkspaceActivity[]>;
+  getWorkspaceHome(workspaceId: string): Promise<WorkspaceHomeSummary>;
 };
 
 const WorkspaceDataContext = createContext<WorkspaceData | null>(null);
@@ -226,6 +227,13 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
       record("Updated creator agreed fee", "campaign_creator");
     },
     async listActivity() { return read<WorkspaceActivity[]>(ACTIVITY_KEY, []); },
+    async getWorkspaceHome(workspaceId) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const saved = read<SavedCreator[]>(savedKey(workspaceId), []); const now = Date.now();
+      const active = campaigns.filter(item => item.status === "active").sort((a, b) => b.updatedAt - a.updatedAt);
+      const pendingReviews = campaigns.flatMap(campaign => campaign.creators.flatMap(creator => creator.deliverables.filter(item => item.status === "in_review").map(item => ({ id: item.id, title: item.title, campaignId: campaign.id, campaignName: campaign.name }))));
+      const overdueTasks = campaigns.flatMap(campaign => campaign.tasks.filter(task => task.status === "open" && task.dueAt && task.dueAt < now).map(task => ({ id: task.id, title: task.title, dueAt: task.dueAt!, campaignId: campaign.id }))).sort((a, b) => a.dueAt - b.dueAt);
+      return { savedCreatorCount: saved.length, activeCampaignCount: active.length, pendingReviewCount: pendingReviews.length, overdueTasks: overdueTasks.slice(0, 6), pendingReviews: pendingReviews.slice(0, 6), activeCampaigns: active.slice(0, 4).map(campaign => ({ id: campaign.id, name: campaign.name, goal: campaign.goal, creatorCount: campaign.creators.length, pendingReviewCount: campaign.creators.flatMap(item => item.deliverables).filter(item => item.status === "in_review").length, updatedAt: campaign.updatedAt })), recentActivity: read<WorkspaceActivity[]>(ACTIVITY_KEY, []).slice(0, 8) };
+    },
   }), []);
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;
 }
@@ -327,6 +335,7 @@ export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode 
     setCampaignTaskStatus: async (workspaceId, _campaignId, taskId, status) => { await convex.mutation(setTaskRef, { workspaceId: toConvexId<"workspaces">(workspaceId), taskId: toConvexId<"tasks">(taskId), status }); },
     setCampaignCreatorFee: async (workspaceId, _campaignId, campaignCreatorId, agreedFee) => { await convex.mutation(setFeeRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignCreatorId: toConvexId<"campaignCreators">(campaignCreatorId), agreedFee }); },
     listActivity: async (workspaceId) => (await convex.query(homeRef, { workspaceId: toConvexId<"workspaces">(workspaceId) })).recentActivity.map(item => ({ id: String(item._id), summary: item.summary, entityType: item.entityType, createdAt: item.createdAt })),
+    getWorkspaceHome: async (workspaceId) => { const result = await convex.query(homeRef, { workspaceId: toConvexId<"workspaces">(workspaceId) }); return { ...result, overdueTasks: result.overdueTasks.map(item => ({ ...item, id: String(item.id), campaignId: item.campaignId ? String(item.campaignId) : undefined })), pendingReviews: result.pendingReviews.map(item => ({ ...item, id: String(item.id), campaignId: String(item.campaignId) })), activeCampaigns: result.activeCampaigns.map(item => ({ ...item, id: String(item.id) })), recentActivity: result.recentActivity.map(item => ({ id: String(item._id), summary: item.summary, entityType: item.entityType, createdAt: item.createdAt })) }; },
   }), [convex, ensureWorkspace]);
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;
 }

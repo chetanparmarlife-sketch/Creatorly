@@ -13,6 +13,7 @@ import { PricingView } from "./components/PricingView";
 import { SettingsView } from "./components/SettingsView";
 import { VerificationView } from "./components/VerificationView";
 import { CampaignDetailWorkspace, CampaignsWorkspace, CreatorsWorkspace, DiscoveryWorkspace } from "./features/workspace/WorkspaceViews";
+import { HomeWorkspace } from "./features/workspace/HomeWorkspace";
 import { useWorkspaceData } from "./features/workspace/WorkspaceData";
 import type { WorkspaceSummary } from "./types";
 
@@ -69,7 +70,7 @@ export function App() {
   return (
     <AppShell
       viewer={viewer}
-      activePage={route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" || route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
+      activePage={route.name === "home" ? "home" : route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" || route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
       navigate={navigate}
       onSearch={() => navigate({ name: "discover" })}
       onHistory={() => navigate({ name: "history" })}
@@ -82,7 +83,8 @@ export function App() {
       }}
     >
       {data.mode === "demo" ? <div className="workspace-mode">Local demo · connect Convex for shared data</div> : null}
-      {route.name === "discover" ? workspace ? <DiscoveryWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      {route.name === "home" ? workspace ? <HomeWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
+      : route.name === "discover" ? workspace ? <DiscoveryWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "creators" ? workspace ? <CreatorsWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "campaigns" ? workspace ? <CampaignsWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "campaign" ? workspace ? <CampaignDetailWorkspace workspace={workspace} campaignId={route.campaignId} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
@@ -96,7 +98,7 @@ export function App() {
         viewer === null ? <main className="workspace detail-skeleton"><span /><span /><span /></main>
           : viewer.role === "admin" ? <Suspense fallback={<main className="workspace detail-skeleton"><span /><span /><span /></main>}><AdminView /></Suspense>
             : <main className="workspace admin-denied"><p className="eyebrow">Restricted</p><h1>Admin access required</h1><p>This queue is only available to Creatorly administrators.</p></main>
-      ) : workspace ? <DiscoveryWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>}
+      ) : workspace ? <HomeWorkspace workspace={workspace} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>}
     </AppShell>
   );
 }

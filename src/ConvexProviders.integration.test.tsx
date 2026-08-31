@@ -87,6 +87,15 @@ function renderConnected(options: { onUnlock?: () => void; authenticated?: boole
     if (functionName === "creators:getById") return creatorDetail(unlocked, creditBalance);
     if (functionName === "creators:search") return [];
     if (functionName === "savedCreators:list") return [];
+    if (functionName === "home:getSummary") return {
+      savedCreatorCount: 0,
+      activeCampaignCount: 0,
+      pendingReviewCount: 0,
+      overdueTasks: [],
+      pendingReviews: [],
+      activeCampaigns: [],
+      recentActivity: [],
+    };
     if (functionName === "campaignExecution:getCampaign") {
       if (options.campaignLoad === "error") throw new Error("Connection interrupted.");
       if (options.campaignLoad === "missing") return null;
@@ -124,6 +133,16 @@ describe("Creatorly connected Convex provider journeys", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it("loads Home from the connected Convex provider", async () => {
+    window.history.replaceState({}, "", "/app");
+    const connected = renderConnected();
+
+    expect(await screen.findByRole("heading", { name: "Northstar Agency" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /saved creators\s*0/i })).toBeInTheDocument();
+    expect(connected.queryMock.mock.calls.some(([reference]) => getFunctionName(reference) === "home:getSummary")).toBe(true);
+    connected.close();
   });
 
   it("unlocks through the Convex provider, decrements the balance, and reveals contacts", async () => {

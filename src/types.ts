@@ -348,3 +348,12 @@ export type Campaign = {
 };
 export type CampaignDraft = Pick<Campaign, "name" | "goal" | "platforms" | "currency" | "budget" | "startsAt" | "endsAt" | "clientId" | "divisionId">;
 export type WorkspaceActivity = { id: string; summary: string; entityType: "workspace" | "saved_creator" | "campaign" | "campaign_creator" | "deliverable" | "approval" | "task"; createdAt: number };
+export type WorkspaceHomeSummary = {
+  savedCreatorCount: number;
+  activeCampaignCount: number;
+  pendingReviewCount: number;
+  overdueTasks: Array<{ id: string; title: string; dueAt: number; campaignId?: string }>;
+  pendingReviews: Array<{ id: string; title: string; campaignId: string; campaignName: string }>;
+  activeCampaigns: Array<{ id: string; name: string; goal: string; creatorCount: number; pendingReviewCount: number; updatedAt: number }>;
+  recentActivity: WorkspaceActivity[];
+};

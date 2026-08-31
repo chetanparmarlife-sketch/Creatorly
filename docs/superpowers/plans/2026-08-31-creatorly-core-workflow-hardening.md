@@ -183,11 +183,11 @@
 **Interfaces:**
 - Produces: `getWorkspaceHome(workspaceId)` returning saved-creator, active-campaign, overdue-task, pending-review, recent-activity, and next-action summaries.
 
-- [ ] Add server authorization and frontend tests for empty and active workspaces.
-- [ ] Build three compact metrics, one active-campaign focal panel, urgent next actions, and recent activity using existing Lumen tokens.
-- [ ] Add Home as the first navigation item and make `/app` resolve to Home while `/app/discover` stays Discovery.
-- [ ] Link every dashboard item to an existing actionable screen.
-- [ ] Verify desktop/mobile visuals, TypeScript, lint, Vitest, then commit item 9.
+- [x] Add server authorization and frontend tests for empty and active workspaces.
+- [x] Build three compact metrics, one active-campaign focal panel, urgent next actions, and recent activity using existing Lumen tokens.
+- [x] Add Home as the first navigation item and make `/app` resolve to Home while `/app/discover` stays Discovery.
+- [x] Link every dashboard item to an existing actionable screen.
+- [ ] Verify desktop/mobile visuals, TypeScript, lint, Vitest, then commit item 9. TypeScript, lint, and 33 focused tests pass; browser visual verification is blocked by the signed-out production-connected session.
 
 ### Later phase: Shared inbox and live reporting
 
