@@ -1,7 +1,7 @@
 # Creator-Owned Profile Images Spec
 
-Creatorly must stop depending on profile pictures served from the external
-`opportune-production.appspot.com` bucket. Copy every reachable external
+Creatorly must stop depending on profile pictures served from the private
+production source configured in Convex. Copy every reachable external
 profile picture into the production Convex deployment's file storage, retain
 the Convex storage ID on the creator record, and serve the Convex-owned URL
 through the existing `profileImageUrl` field.

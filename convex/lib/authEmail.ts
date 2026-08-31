@@ -3,10 +3,32 @@ import { Email } from "@convex-dev/auth/providers/Email";
 const VERIFICATION_CODE_MAX = 1_000_000;
 const VERIFICATION_CODE_TTL_SECONDS = 15 * 60;
 
+type AuthEmailEnvironment = {
+  RESEND_API_KEY?: string;
+  AUTH_EMAIL_FROM?: string;
+  CREATORLY_ENVIRONMENT?: string;
+  AUTH_EMAIL_ALLOW_UNCONFIGURED_DEVELOPMENT?: string;
+};
+
 export function isEmailVerificationConfigured(
-  environment: { RESEND_API_KEY?: string; AUTH_EMAIL_FROM?: string } = process.env,
+  environment: AuthEmailEnvironment = process.env,
 ) {
   return Boolean(environment.RESEND_API_KEY?.trim() && environment.AUTH_EMAIL_FROM?.trim());
+}
+
+export function resolveEmailVerificationMode(
+  environment: AuthEmailEnvironment = process.env,
+): "enabled" | "development_skipped" {
+  if (isEmailVerificationConfigured(environment)) return "enabled";
+  const developmentSkipAllowed = environment.CREATORLY_ENVIRONMENT?.trim().toLowerCase() === "development"
+    && environment.AUTH_EMAIL_ALLOW_UNCONFIGURED_DEVELOPMENT?.trim().toLowerCase() === "true";
+  if (developmentSkipAllowed) return "development_skipped";
+
+  const missing = [
+    !environment.RESEND_API_KEY?.trim() ? "RESEND_API_KEY" : null,
+    !environment.AUTH_EMAIL_FROM?.trim() ? "AUTH_EMAIL_FROM" : null,
+  ].filter((value): value is string => value !== null);
+  throw new Error(`Creatorly email verification is not configured. Add ${missing.join(" and ")} to Convex.`);
 }
 
 export function generateEmailVerificationCode() {
@@ -18,9 +40,7 @@ export function generateEmailVerificationCode() {
 function requireEmailConfiguration() {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.AUTH_EMAIL_FROM;
-  if (!isEmailVerificationConfigured()) {
-    throw new Error("Creatorly email verification is not configured.");
-  }
+  resolveEmailVerificationMode();
   return { apiKey: apiKey!, from: from! };
 }
 

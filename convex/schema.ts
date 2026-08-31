@@ -154,7 +154,9 @@ export default defineSchema({
     displayName: v.string(),
     followerCount: v.number(),
     engagementRatePercent: v.optional(v.number()),
+    engagementRateBasis: v.optional(v.union(v.literal("followers"), v.literal("views"))),
     engagementRateBackfilled: v.optional(v.boolean()),
+    engagementRateBasisBackfilled: v.optional(v.boolean()),
     location: v.optional(v.string()),
     country: v.optional(v.string()),
     city: v.optional(v.string()),
@@ -190,9 +192,10 @@ export default defineSchema({
     .index("by_repository_category_location_followers", ["isDemo", "primaryCategory", "location", "followerCount"])
     .index("by_repository_platform_category_location_followers", ["isDemo", "platform", "primaryCategory", "location", "followerCount"])
     .index("by_followers", ["followerCount"])
-    .index("by_engagement", ["engagementRatePercent"])
-    .index("by_platform_engagement", ["platform", "engagementRatePercent"])
+    .index("by_engagement", ["engagementRateBasis", "engagementRatePercent"])
+    .index("by_platform_engagement", ["platform", "engagementRateBasis", "engagementRatePercent"])
     .index("by_engagement_backfilled", ["engagementRateBackfilled"])
+    .index("by_engagement_basis_backfilled", ["engagementRateBasisBackfilled"])
     .index("by_platform_followers", ["platform", "followerCount"])
     .index("by_verified_followers", ["isVerified", "followerCount"])
     .index("by_platform_verified_followers", ["platform", "isVerified", "followerCount"])

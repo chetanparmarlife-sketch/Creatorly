@@ -1,6 +1,7 @@
 export type Platform = "instagram" | "facebook" | "tiktok" | "youtube" | "twitter";
 export type SocialPlatform = Platform | "linkedin" | "twitter";
 export type PlanTier = "free" | "basic" | "pro";
+export type EngagementRateBasis = "followers" | "views";
 
 export type SocialProfile = {
   platform: SocialPlatform;
@@ -137,6 +138,7 @@ export type CreatorSearchResult = {
   displayName: string;
   followerCount: number;
   engagementRatePercent?: number;
+  engagementRateBasis?: EngagementRateBasis;
   location?: string;
   country?: string;
   city?: string;
@@ -178,6 +180,7 @@ export type CreatorSearchFilters = {
   maxFollowers?: number;
   minEngagementRate?: number;
   maxEngagementRate?: number;
+  engagementRateBasis?: EngagementRateBasis;
   sortField?: "name" | "audience" | "location";
   sortDirection?: "asc" | "desc";
 };

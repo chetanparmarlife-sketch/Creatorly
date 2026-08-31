@@ -1,9 +1,9 @@
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { DataModel } from "./_generated/dataModel";
-import { creatorlyEmailVerification, isEmailVerificationConfigured } from "./lib/authEmail";
+import { creatorlyEmailVerification, resolveEmailVerificationMode } from "./lib/authEmail";
 
-const emailVerificationEnabled = isEmailVerificationConfigured();
+const emailVerificationMode = resolveEmailVerificationMode();
 
 function creatorlyProfile(params: Record<string, unknown>) {
   const email = String(params.email ?? "").trim().toLowerCase();
@@ -30,8 +30,8 @@ function creatorlyProfile(params: Record<string, unknown>) {
       expirationWarning: true,
       weeklySummary: false,
     },
-    isEmailVerified: !emailVerificationEnabled,
     onboardingCompleted: false,
+    isEmailVerified: false,
     onboardingStep: 1 as const,
     onboardingPlanTier: "free" as const,
     createdAt: Date.now(),
@@ -42,7 +42,7 @@ function creatorlyProfile(params: Record<string, unknown>) {
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password<DataModel>({
-      ...(emailVerificationEnabled ? { verify: creatorlyEmailVerification } : {}),
+      ...(emailVerificationMode === "enabled" ? { verify: creatorlyEmailVerification } : {}),
       profile: creatorlyProfile,
     }),
   ],

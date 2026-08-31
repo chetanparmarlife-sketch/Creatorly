@@ -23,6 +23,7 @@ import type {
   CreatorDetailData,
   CreatorLocationFacets,
   CreatorSearchFilters,
+  EngagementRateBasis,
   CreatorSearchPage,
   CreatorSearchResult,
   DataMode,
@@ -47,8 +48,8 @@ type AppData = {
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
   search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
-  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" }): Promise<CreatorSearchPage>;
-  countCreators(input: { platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number }): Promise<number>;
+  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; engagementRateBasis?: EngagementRateBasis; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" }): Promise<CreatorSearchPage>;
+  countCreators(input: { platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; engagementRateBasis?: EngagementRateBasis }): Promise<number>;
   listCreatorLocations(): Promise<CreatorLocationFacets>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
@@ -105,9 +106,9 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     },
     getViewer: demoData.viewer,
     search: demoData.search,
-    browseCreators: async ({ cursor, numItems, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers = 0, maxFollowers, minEngagementRate, maxEngagementRate, sortField = "audience", sortDirection = "desc" }) => {
-      const creators = (await demoData.search("", { platform, category, location, country, city, postalCode, verifiedOnly }))
-        .filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers) && (minEngagementRate === undefined || (creator.engagementRatePercent !== undefined && creator.engagementRatePercent >= minEngagementRate)) && (maxEngagementRate === undefined || (creator.engagementRatePercent !== undefined && creator.engagementRatePercent < maxEngagementRate)))
+    browseCreators: async ({ cursor, numItems, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers = 0, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis, sortField = "audience", sortDirection = "desc" }) => {
+      const creators = (await demoData.search("", { platform, category, location, country, city, postalCode, verifiedOnly, minEngagementRate, maxEngagementRate, engagementRateBasis }))
+        .filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers))
         .sort((left, right) => {
           const comparison = sortField === "name" ? left.displayName.localeCompare(right.displayName) : sortField === "location" ? (left.location ?? "").localeCompare(right.location ?? "") : left.followerCount - right.followerCount;
           return comparison * (sortDirection === "asc" ? 1 : -1);
@@ -117,8 +118,8 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
       const next = start + page.length;
       return { page, continueCursor: String(next), isDone: next >= creators.length, totalCount: creators.length };
     },
-    countCreators: async ({ platform, category, location, country, city, postalCode, verifiedOnly, minFollowers = 0, maxFollowers, minEngagementRate, maxEngagementRate }) => (await demoData.search("", { platform, category, location, country, city, postalCode, verifiedOnly }))
-      .filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers) && (minEngagementRate === undefined || (creator.engagementRatePercent !== undefined && creator.engagementRatePercent >= minEngagementRate)) && (maxEngagementRate === undefined || (creator.engagementRatePercent !== undefined && creator.engagementRatePercent < maxEngagementRate))).length,
+    countCreators: async ({ platform, category, location, country, city, postalCode, verifiedOnly, minFollowers = 0, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis }) => (await demoData.search("", { platform, category, location, country, city, postalCode, verifiedOnly, minEngagementRate, maxEngagementRate, engagementRateBasis }))
+      .filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers)).length,
     listCreatorLocations: async () => {
       const creators = await demoData.search("");
       return {
@@ -152,9 +153,9 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
 }
 
 type EmptyArgs = Record<string, never>;
-type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
-type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
-type CountArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number };
+type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; engagementRateBasis?: EngagementRateBasis; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
+type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; engagementRateBasis?: EngagementRateBasis; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
+type CountArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number; engagementRateBasis?: EngagementRateBasis };
 type CountPage = { count: number; continueCursor: string; isDone: boolean };
 type DetailArgs = { creatorId: string };
 
@@ -268,8 +269,8 @@ export function ConvexDataProvider({
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
-    browseCreators: async ({ cursor, numItems, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, sortField, sortDirection }) => {
-      const filters = { platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, sortField, sortDirection };
+    browseCreators: async ({ cursor, numItems, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis, sortField, sortDirection }) => {
+      const filters = { platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis, sortField, sortDirection };
       if (!country && !city && !postalCode && minEngagementRate === undefined && maxEngagementRate === undefined) return convex.query(browseRef, { paginationOpts: { cursor, numItems }, ...filters });
       let continueCursor = cursor;
       const page: CreatorSearchResult[] = [];
@@ -282,11 +283,11 @@ export function ConvexDataProvider({
       }
       throw new Error("Creator filtering exceeded the safe page limit.");
     },
-    countCreators: async ({ platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate }) => {
+    countCreators: async ({ platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis }) => {
       let cursor: string | null = null;
       let total = 0;
       for (let pageNumber = 0; pageNumber < 2_000; pageNumber += 1) {
-        const result: CountPage = await convex.query(countRef, { paginationOpts: { cursor, numItems: 100 }, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate });
+        const result: CountPage = await convex.query(countRef, { paginationOpts: { cursor, numItems: 100 }, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis });
         total += result.count;
         if (result.isDone) return total;
         if (!result.continueCursor || result.continueCursor === cursor) throw new Error("Creator counting stopped before completion.");

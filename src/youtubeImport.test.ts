@@ -15,18 +15,20 @@ describe("YouTube repository import mapping", () => {
       categories: ["Lifestyle"],
       isVerified: false,
       youtubeChannelId: "UC123",
-      youtubeMetrics: { videoCount: 81, comments: 440, averageViewPercentage: 62.5 },
+      youtubeMetrics: { videoCount: 81, views: 10_000, likes: 300, comments: 50, shares: 10, averageViewPercentage: 62.5 },
     }, 1_725_000_000_000);
 
     expect(fields).toMatchObject({
       displayName: "Maya Creates",
       followerCount: 12_500,
       youtubeChannelId: "UC123",
-      youtubeMetrics: { videoCount: 81, comments: 440, averageViewPercentage: 62.5 },
+      youtubeMetrics: { videoCount: 81, views: 10_000, likes: 300, comments: 50, shares: 10, averageViewPercentage: 62.5 },
+      engagementRateBasis: "views",
       isDemo: false,
       lastUpdatedAt: 1_725_000_000_000,
     });
     expect(fields).not.toHaveProperty("youtubeApiResponse");
+    expect(fields.engagementRatePercent).toBeCloseTo(3.6);
   });
 
   it("uses a stable channel-id URL", () => {

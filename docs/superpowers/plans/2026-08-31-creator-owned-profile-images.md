@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Accept downloads only from `https://storage.googleapis.com/opportune-production.appspot.com/`.
+- Accept downloads only from the HTTPS host and path configured through `PROFILE_IMAGE_SOURCE_HOST` and `PROFILE_IMAGE_SOURCE_PREFIX`.
 - Accept only `image/jpeg`, `image/png`, or `image/webp`, with a maximum size of 1 MiB.
 - Keep the old `profileImageUrl` unless the new Convex file and URL are both available.
 - Store `profileImageStorageId` so Creatorly can manage and delete its own files later.

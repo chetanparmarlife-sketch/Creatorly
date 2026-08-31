@@ -19,6 +19,8 @@ describe("Facebook creator import mapping", () => {
     expect(importedPlatform({ platform: "facebook" })).toBe("facebook");
     expect(fields.facebookPageId).toBe("123456");
     expect(fields.facebookMetrics).toMatchObject({ engagementRatePercent: 3.4, pageEngagedUsers: 6_400 });
+    expect(fields.engagementRatePercent).toBe(3.4);
+    expect(fields.engagementRateBasis).toBe("followers");
     expect(fields.primaryCategory).toBe("digital creator");
   });
 

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Activity, ArrowDown, ArrowUpDown, BadgeCheck, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, MapPin, MonitorSmartphone, Plus, RotateCcw, Search, SlidersHorizontal, Tags, UserPlus, Users, X } from "lucide-react";
 import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
-import { CAMPAIGN_STAGES, type BrandDivisionType, type Campaign, type CampaignStage, type CreatorLocationFacets, type CreatorSearchResult, type GroupCollaborator, type GroupCollaboratorRole, type Platform, type SavedCreator, type WorkspaceGroup, type WorkspaceSummary } from "../../types";
+import { CAMPAIGN_STAGES, type BrandDivisionType, type Campaign, type CampaignStage, type CreatorLocationFacets, type CreatorSearchResult, type EngagementRateBasis, type GroupCollaborator, type GroupCollaboratorRole, type Platform, type SavedCreator, type WorkspaceGroup, type WorkspaceSummary } from "../../types";
 import { useWorkspaceData } from "./WorkspaceData";
 import { CampaignExecution } from "./CampaignExecution";
 import { CreatorImportPanel } from "./CreatorImportPanel";
@@ -120,6 +120,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
   const [audienceMin, setAudienceMin] = useState(""); const [audienceMax, setAudienceMax] = useState("");
   const [engagementMin, setEngagementMin] = useState(""); const [engagementMax, setEngagementMax] = useState("");
+  const [engagementBasis, setEngagementBasis] = useState<EngagementRateBasis>("followers");
   const [countryInput, setCountryInput] = useState(""); const [country, setCountry] = useState(""); const [cityInput, setCityInput] = useState(""); const [city, setCity] = useState(""); const [postalCodeInput, setPostalCodeInput] = useState(""); const [postalCode, setPostalCode] = useState(""); const [locationFacets, setLocationFacets] = useState<CreatorLocationFacets>({ countries: [], cities: [], postalCodes: [] }); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
   const [openFilters, setOpenFilters] = useState<Set<DiscoveryFilterSection>>(() => new Set(["platform"]));
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -137,7 +138,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     : exactEngagementMin !== undefined && exactEngagementMax !== undefined && exactEngagementMax <= exactEngagementMin
       ? "Maximum engagement must be greater than minimum."
       : "";
-  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextCountry = country, nextCity = city, nextPostalCode = postalCode, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort, nextAudienceMin = audienceMin, nextAudienceMax = audienceMax, nextEngagementMin = engagementMin, nextEngagementMax = engagementMax) => {
+  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextCountry = country, nextCity = city, nextPostalCode = postalCode, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort, nextAudienceMin = audienceMin, nextAudienceMax = audienceMax, nextEngagementMin = engagementMin, nextEngagementMax = engagementMax, nextEngagementBasis = engagementBasis) => {
     const nextMin = followerBoundary(nextAudienceMin); const nextMax = followerBoundary(nextAudienceMax);
     const nextEngagementMinimum = engagementBoundary(nextEngagementMin); const nextEngagementMaximum = engagementBoundary(nextEngagementMax);
     if ((nextAudienceMin.trim() && nextMin === undefined) || (nextAudienceMax.trim() && nextMax === undefined) || (nextMin !== undefined && nextMax !== undefined && nextMax <= nextMin) || (nextEngagementMin.trim() && nextEngagementMinimum === undefined) || (nextEngagementMax.trim() && nextEngagementMaximum === undefined) || (nextEngagementMinimum !== undefined && nextEngagementMaximum !== undefined && nextEngagementMaximum <= nextEngagementMinimum)) return;
@@ -145,7 +146,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     setLoading(true); setTotalCount(null); setError("");
     try {
       const range = audienceRange(nextAudience, nextAudienceMin, nextAudienceMax);
-      const engagementRange = { ...(nextEngagementMinimum === undefined ? {} : { minEngagementRate: nextEngagementMinimum }), ...(nextEngagementMaximum === undefined ? {} : { maxEngagementRate: nextEngagementMaximum }) };
+      const engagementRange = { ...(nextEngagementMinimum === undefined ? {} : { minEngagementRate: nextEngagementMinimum }), ...(nextEngagementMaximum === undefined ? {} : { maxEngagementRate: nextEngagementMaximum }), ...((nextEngagementMinimum === undefined && nextEngagementMaximum === undefined) ? {} : { engagementRateBasis: nextEngagementBasis }) };
       const sorting = { sortField: nextSort.field, sortDirection: nextSort.direction };
       if (nextQuery.trim()) {
         const nextResults = await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, country: nextCountry || undefined, city: nextCity || undefined, postalCode: nextPostalCode || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...engagementRange, ...sorting });
@@ -160,12 +161,12 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     } catch {
       setResults([]); setTotalCount(0); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
     } finally { setLoading(false); }
-  }, [audience, audienceMax, audienceMin, category, city, country, data, engagementMax, engagementMin, platform, postalCode, query, sort, verifiedOnly]);
+  }, [audience, audienceMax, audienceMin, category, city, country, data, engagementBasis, engagementMax, engagementMin, platform, postalCode, query, sort, verifiedOnly]);
   async function loadMore() {
     if (audienceError || engagementError || loadingMore || isDone || query.trim()) return;
     setLoadingMore(true); setError("");
     try {
-      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, country: country || undefined, city: city || undefined, postalCode: postalCode || undefined, verifiedOnly: verifiedOnly || undefined, ...audienceRange(audience, audienceMin, audienceMax), ...(exactEngagementMin === undefined ? {} : { minEngagementRate: exactEngagementMin }), ...(exactEngagementMax === undefined ? {} : { maxEngagementRate: exactEngagementMax }), sortField: sort.field, sortDirection: sort.direction });
+      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, country: country || undefined, city: city || undefined, postalCode: postalCode || undefined, verifiedOnly: verifiedOnly || undefined, ...audienceRange(audience, audienceMin, audienceMax), ...(exactEngagementMin === undefined ? {} : { minEngagementRate: exactEngagementMin }), ...(exactEngagementMax === undefined ? {} : { maxEngagementRate: exactEngagementMax }), ...((exactEngagementMin === undefined && exactEngagementMax === undefined) ? {} : { engagementRateBasis: engagementBasis }), sortField: sort.field, sortDirection: sort.direction });
       setResults(current => [...new Map([...current, ...result.page].map(creator => [creator.id, creator])).values()]);
       if (result.totalCount !== undefined) setTotalCount(result.totalCount);
       setCursor(result.continueCursor); setIsDone(result.isDone);
@@ -174,7 +175,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   }
   useEffect(() => { let active = true; void Promise.all([store.listSavedCreators(workspace.id), store.listCampaigns(workspace.id)]).then(([saved, nextCampaigns]) => { if (active) { setSavedIds(new Map(saved.map(item => [item.creator.id, item.id]))); setCampaigns(nextCampaigns); setCampaignTarget(current => current || nextCampaigns[0]?.id || ""); } }); return () => { active = false; }; }, [store, workspace.id]);
   useEffect(() => { let active = true; void data.listCreatorLocations().then(nextLocationFacets => { if (active) setLocationFacets(nextLocationFacets); }).catch(() => undefined); return () => { active = false; }; }, [data]);
-  useEffect(() => { if (audienceError || engagementError) return; const timer = window.setTimeout(() => { void run(query, platform, category, country, city, postalCode, audience, verifiedOnly, sort, audienceMin, audienceMax, engagementMin, engagementMax); }, 180); return () => window.clearTimeout(timer); }, [audience, audienceError, audienceMax, audienceMin, category, city, country, engagementError, engagementMax, engagementMin, platform, postalCode, query, run, sort, verifiedOnly]);
+  useEffect(() => { if (audienceError || engagementError) return; const timer = window.setTimeout(() => { void run(query, platform, category, country, city, postalCode, audience, verifiedOnly, sort, audienceMin, audienceMax, engagementMin, engagementMax, engagementBasis); }, 180); return () => window.clearTimeout(timer); }, [audience, audienceError, audienceMax, audienceMin, category, city, country, engagementBasis, engagementError, engagementMax, engagementMin, platform, postalCode, query, run, sort, verifiedOnly]);
   const visibleResults = results;
   const categoryOptions = useMemo(() => [...new Set([...CREATOR_CATEGORIES, ...results.flatMap(creator => creator.categories ?? [])])].sort(), [results]);
   const cityOptions = useMemo(() => locationFacets.cities.filter(item => !country || item.country?.toLowerCase() === country.toLowerCase()), [country, locationFacets.cities]);
@@ -235,7 +236,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
           {platform !== "all" ? <button type="button" onClick={() => choosePlatform("all")} aria-label={`Remove ${platformLabel(platform)} platform filter`}>{platformLabel(platform)}<X size={11}/></button> : null}
           {category ? <button type="button" onClick={() => setCategory("")} aria-label={`Remove ${category} category filter`}>{category}<X size={11}/></button> : null}
           {audienceActive ? <button type="button" onClick={() => chooseAudience("all")} aria-label="Remove audience filter">{audienceValueLabel(audience, audienceMin, audienceMax)}<X size={11}/></button> : null}
-          {engagementActive ? <button type="button" onClick={() => { setEngagementMin(""); setEngagementMax(""); }} aria-label="Remove engagement filter">{engagementValueLabel(engagementMin, engagementMax)}<X size={11}/></button> : null}
+          {engagementActive ? <button type="button" onClick={() => { setEngagementMin(""); setEngagementMax(""); }} aria-label="Remove engagement filter">{engagementValueLabel(engagementMin, engagementMax)} of {engagementBasis}<X size={11}/></button> : null}
           {country ? <button type="button" onClick={() => { setCountryInput(""); setCountry(""); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${country} country filter`}>{country}<X size={11}/></button> : null}
           {city ? <button type="button" onClick={() => { setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${city} city filter`}>{city}<X size={11}/></button> : null}
           {postalCode ? <button type="button" onClick={() => { setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${postalCode} postal code filter`}>{postalCode}<X size={11}/></button> : null}
@@ -255,8 +256,9 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
               {audienceError ? <p className="discovery-filter-error" role="alert">{audienceError}</p> : null}
             </div>
           </DiscoveryFilterDisclosure>
-          <DiscoveryFilterDisclosure id="engagement" label="Engagement rate" value={engagementValueLabel(engagementMin, engagementMax)} icon={<Activity size={17}/>} open={openFilters.has("engagement")} onToggle={() => toggleFilter("engagement")}>
+          <DiscoveryFilterDisclosure id="engagement" label="Engagement rate" value={`${engagementValueLabel(engagementMin, engagementMax)}${engagementActive ? ` of ${engagementBasis}` : ""}`} icon={<Activity size={17}/>} open={openFilters.has("engagement")} onToggle={() => toggleFilter("engagement")}>
             <div className="discovery-engagement-controls">
+              <div className="platform-filter" aria-label="Engagement rate basis"><button type="button" className={engagementBasis === "followers" ? "is-active" : ""} aria-pressed={engagementBasis === "followers"} onClick={() => setEngagementBasis("followers")}>Per followers</button><button type="button" className={engagementBasis === "views" ? "is-active" : ""} aria-pressed={engagementBasis === "views"} onClick={() => setEngagementBasis("views")}>Per views</button></div>
               <div className="discovery-engagement-presets" aria-label="Engagement rate ranges">
                 <button type="button" className={engagementMin === "" && engagementMax === "1" ? "is-active" : ""} aria-pressed={engagementMin === "" && engagementMax === "1"} onClick={() => applyEngagementRange("", "1")}>Under 1%</button>
                 <button type="button" className={engagementMin === "1" && engagementMax === "3" ? "is-active" : ""} aria-pressed={engagementMin === "1" && engagementMax === "3"} onClick={() => applyEngagementRange("1", "3")}>1%–3%</button>
@@ -268,7 +270,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
                 <span aria-hidden="true">to</span>
                 <label><span>Maximum %</span><input type="number" min="0" max="100" step="0.1" inputMode="decimal" aria-label="Maximum engagement rate" aria-invalid={Boolean(engagementError)} value={engagementMax} onChange={event => setEngagementMax(event.target.value)} placeholder="Any"/></label>
               </div>
-              <p className="discovery-filter-note">Profiles without engagement data are excluded when this filter is active.</p>
+              <p className="discovery-filter-note">Only profiles measured against {engagementBasis} are included when this filter is active.</p>
               {engagementError ? <p className="discovery-filter-error" role="alert">{engagementError}</p> : null}
             </div>
           </DiscoveryFilterDisclosure>
@@ -294,8 +296,8 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
           <th>Contact</th><th>Actions</th>
         </tr></thead><tbody>
       {error && !results.length ? <tr><td colSpan={8}><div className="ops-loading state-error" role="alert">{error}</div></td></tr> : loading ? <tr><td colSpan={8}><div className="ops-loading" role="status">Loading creators…</div></td></tr> : visibleResults.length ? visibleResults.map(creator => <tr className="discovery-row" key={creator.id}>
-        <td><div className="discovery-creator-select"><input type="checkbox" aria-label={`Select ${creator.displayName}`} checked={selectedIds.has(creator.id)} onChange={() => toggleSelected(creator.id)}/><button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><CreatorPortrait name={creator.displayName} platform={creator.platform} imageUrl={creator.profileImageUrl} size="small"/><span><strong>{creator.displayName}</strong><small>{creator.handle}</small></span></button><span className="discovery-mobile-meta">{platformLabel(creator.platform)} · {formatFollowers(creator.followerCount)}{creator.engagementRatePercent === undefined ? "" : ` · ${creator.engagementRatePercent.toLocaleString(undefined, { maximumFractionDigits: 2 })}% engagement`}<small>{creator.location ?? "Location unavailable"}</small></span></div></td>
-        <td>{creator.categories?.[0] ?? "—"}</td><td><span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span></td><td><b className="numeric">{formatFollowers(creator.followerCount)}</b></td><td><b className="numeric">{creator.engagementRatePercent === undefined ? "—" : `${creator.engagementRatePercent.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`}</b></td><td>{creator.location ?? "—"}</td><td><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span></td>
+        <td><div className="discovery-creator-select"><input type="checkbox" aria-label={`Select ${creator.displayName}`} checked={selectedIds.has(creator.id)} onChange={() => toggleSelected(creator.id)}/><button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><CreatorPortrait name={creator.displayName} platform={creator.platform} imageUrl={creator.profileImageUrl} size="small"/><span><strong>{creator.displayName}</strong><small>{creator.handle}</small></span></button><span className="discovery-mobile-meta">{platformLabel(creator.platform)} · {formatFollowers(creator.followerCount)}{creator.engagementRatePercent === undefined ? "" : ` · ${creator.engagementRatePercent.toLocaleString(undefined, { maximumFractionDigits: 2 })}% ${creator.engagementRateBasis ? `of ${creator.engagementRateBasis}` : "basis unavailable"}`}<small>{creator.location ?? "Location unavailable"}</small></span></div></td>
+        <td>{creator.categories?.[0] ?? "—"}</td><td><span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span></td><td><b className="numeric">{formatFollowers(creator.followerCount)}</b></td><td><b className="numeric">{creator.engagementRatePercent === undefined ? "—" : <>{creator.engagementRatePercent.toLocaleString(undefined, { maximumFractionDigits: 2 })}%<small>{creator.engagementRateBasis ? ` of ${creator.engagementRateBasis}` : " · basis unavailable"}</small></>}</b></td><td>{creator.location ?? "—"}</td><td><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span></td>
         <td><div className="discovery-row-actions"><button className={savedIds.has(creator.id) ? "button button-saved" : "button button-secondary"} disabled={savedIds.has(creator.id)} onClick={() => void save(creator)}>{savedIds.has(creator.id) ? <><Check size={15}/> Saved</> : <><Plus size={15}/> Save</>}</button><button className="text-button" disabled={bulkWorking} onClick={() => void addToCampaign([creator.id])}>Add to campaign</button></div></td>
       </tr>) : <tr><td colSpan={8}>{query.trim().length >= 2 ? <Empty icon={<Search/>} title="No creator found" copy={repositoryScope} action="Request contact" onAction={() => setRequestOpen(true)}/> : <Empty icon={<Search/>} title="No creators match these filters" copy="Broaden one of the filters or reset the search to see the full result set." action="Reset filters" onAction={clearTableFilters}/>}</td></tr>}
         </tbody></table></div>

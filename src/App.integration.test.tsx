@@ -758,6 +758,10 @@ describe("Creatorly M1 user journey", () => {
     renderDemo();
     const user = userEvent.setup();
     await screen.findByRole("button", { name: /view Maya Kapoor profile/i });
+    const initialTable = screen.getByRole("table", { name: /creator discovery results/i });
+    expect(within(screen.getByRole("button", { name: /view Maya Kapoor profile/i }).closest("tr")!).getByText(/4.8% of followers/i)).toBeInTheDocument();
+    expect(within(screen.getByRole("button", { name: /view Rishi Verma profile/i }).closest("tr")!).getByText(/3.6% of views/i)).toBeInTheDocument();
+    expect(initialTable).toBeInTheDocument();
     const filters = screen.getByRole("complementary", { name: /creator filters/i });
 
     await user.click(within(filters).getByRole("button", { name: "Instagram" }));
@@ -772,6 +776,10 @@ describe("Creatorly M1 user journey", () => {
     expect(within(table).getByRole("columnheader", { name: "Audience" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Engagement" })).toBeInTheDocument();
     expect(within(table).getByText("4.8%")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Per views" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /view Maya Kapoor profile/i })).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /view Noor Khan profile/i })).not.toBeInTheDocument();
   });
 
   it("turns a campaign brief into precise, removable Discovery filters", async () => {
