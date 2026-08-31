@@ -42,6 +42,21 @@ export function resolveEmailVerificationMode(
   throw new Error(`Creatorly email verification is not configured. Add ${missing.join(" and ")} to Convex.`);
 }
 
+export function resolveEmailVerificationProviderMode(
+  environment: AuthEmailEnvironment = process.env,
+): "enabled" | "development_skipped" | "temporary_bypass" {
+  if (isEmailVerificationConfigured(environment)) return "enabled";
+  const temporaryBypassUntil = Date.parse(environment.AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL?.trim() ?? "");
+  if (environment.CREATORLY_ENVIRONMENT?.trim().toLowerCase() === "production" && Number.isFinite(temporaryBypassUntil)) {
+    return "temporary_bypass";
+  }
+  if (environment.CREATORLY_ENVIRONMENT?.trim().toLowerCase() === "development"
+    && environment.AUTH_EMAIL_ALLOW_UNCONFIGURED_DEVELOPMENT?.trim().toLowerCase() === "true") {
+    return "development_skipped";
+  }
+  return resolveEmailVerificationMode(environment);
+}
+
 export function warnTemporaryBypassSignup(
   environment: AuthEmailEnvironment = process.env,
   warn: (message: string) => void = console.warn,

@@ -1,9 +1,9 @@
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { DataModel } from "./_generated/dataModel";
-import { creatorlyEmailVerification, resolveEmailVerificationMode, warnTemporaryBypassSignup } from "./lib/authEmail";
+import { creatorlyEmailVerification, resolveEmailVerificationMode, resolveEmailVerificationProviderMode, warnTemporaryBypassSignup } from "./lib/authEmail";
 
-const emailVerificationMode = resolveEmailVerificationMode();
+const emailVerificationMode = resolveEmailVerificationProviderMode();
 
 function creatorlyProfile(params: Record<string, unknown>) {
   const email = String(params.email ?? "").trim().toLowerCase();
@@ -11,7 +11,10 @@ function creatorlyProfile(params: Record<string, unknown>) {
   const companyName = String(params.companyName ?? "").trim();
   const persona = params.persona === "creator" ? "creator" as const : "buyer" as const;
 
-  if (params.flow === "signUp" && emailVerificationMode === "temporary_bypass") warnTemporaryBypassSignup();
+  if (params.flow === "signUp" && emailVerificationMode === "temporary_bypass") {
+    resolveEmailVerificationMode();
+    warnTemporaryBypassSignup();
+  }
 
   if (!email) throw new Error("Enter a work email address.");
   if (params.flow === "signUp" && (!name || (persona === "buyer" && !companyName))) {
