@@ -41,6 +41,32 @@ const instagramMetrics = v.object({
   isBusinessAccount: v.optional(v.boolean()),
   businessCategoryName: v.optional(v.string()),
 });
+const youtubeMetrics = v.object({
+  videoCount: v.optional(v.number()),
+  totalVideoViews: v.optional(v.number()),
+  likes: v.optional(v.number()),
+  dislikes: v.optional(v.number()),
+  comments: v.optional(v.number()),
+  shares: v.optional(v.number()),
+  views: v.optional(v.number()),
+  averageViewDuration: v.optional(v.number()),
+  averageViewPercentage: v.optional(v.number()),
+  estimatedMinutesWatched: v.optional(v.number()),
+  integratedVideoRateMin: v.optional(v.number()),
+  integratedVideoRateMax: v.optional(v.number()),
+  sponsoredVideoRateMin: v.optional(v.number()),
+  sponsoredVideoRateMax: v.optional(v.number()),
+  averageRate: v.optional(v.number()),
+  subscriberRange: v.optional(v.string()),
+  priceRange: v.optional(v.string()),
+  uploadsPlaylistId: v.optional(v.string()),
+  bannerImageUrl: v.optional(v.string()),
+  audience: v.optional(v.array(v.object({
+    ageGroup: v.string(),
+    gender: v.string(),
+    percentage: v.number(),
+  }))),
+});
 
 export default defineSchema({
   ...authTables,
@@ -104,6 +130,8 @@ export default defineSchema({
     age: v.optional(v.number()),
     instagramAccountId: v.optional(v.string()),
     instagramMetrics: v.optional(instagramMetrics),
+    youtubeChannelId: v.optional(v.string()),
+    youtubeMetrics: v.optional(youtubeMetrics),
     contentLanguages: v.optional(v.array(v.string())),
     profileType: v.optional(v.string()),
     contentQuality: v.optional(v.string()),
@@ -130,6 +158,7 @@ export default defineSchema({
     .index("by_category_verified_followers", ["primaryCategory", "isVerified", "followerCount"])
     .index("by_platform_category_verified_followers", ["platform", "primaryCategory", "isVerified", "followerCount"])
     .index("by_normalized_handle", ["normalizedHandle"])
+    .index("by_youtube_channel_id", ["youtubeChannelId"])
     .searchIndex("search_normalized_handle", { searchField: "normalizedHandle", filterFields: ["platform"] })
     .searchIndex("search_display_name", { searchField: "displayName", filterFields: ["platform"] })
     .searchIndex("search_location", { searchField: "location", filterFields: ["platform", "isVerified"] })
@@ -329,6 +358,7 @@ export default defineSchema({
     .index("by_token", ["token"]),
   creatorImportStaging: defineTable({
     sourceKey: v.string(),
+    platform: v.optional(v.union(v.literal("instagram"), v.literal("youtube"))),
     handle: v.string(),
     normalizedHandle: v.string(),
     displayName: v.string(),
@@ -345,6 +375,8 @@ export default defineSchema({
     contentLanguages: v.optional(v.array(v.string())),
     profileType: v.optional(v.string()),
     instagramMetrics: v.optional(instagramMetrics),
+    youtubeChannelId: v.optional(v.string()),
+    youtubeMetrics: v.optional(youtubeMetrics),
     contactVerificationStatus: v.optional(v.union(v.literal("verified"), v.literal("pending_verification"))),
     contacts: v.array(v.object({
       email: v.optional(v.string()),

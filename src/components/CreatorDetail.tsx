@@ -105,7 +105,8 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
   const creator = detail.creator;
   const freshnessLabel = creator.lastUpdatedAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(creator.lastUpdatedAt) : "Update date unavailable";
   const instagramMetrics = creator.instagramMetrics;
-  const performanceMetrics = instagramMetrics ? [
+  const youtubeMetrics = creator.youtubeMetrics;
+  const instagramPerformanceMetrics = instagramMetrics ? [
     { label: "Following", value: instagramMetrics.followingCount, suffix: "", context: "accounts followed" },
     { label: "Posts", value: instagramMetrics.postCount, suffix: "", context: "published posts" },
     { label: "Average likes", value: instagramMetrics.averageLikes, suffix: "", context: instagramMetrics.minLikes !== undefined && instagramMetrics.maxLikes !== undefined ? `${formatPerformanceMetric(instagramMetrics.minLikes)}–${formatPerformanceMetric(instagramMetrics.maxLikes)} observed range` : "per post" },
@@ -116,6 +117,21 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
     { label: "Highlights", value: instagramMetrics.highlightReelCount, suffix: "", context: "highlight reels" },
     { label: "IGTV videos", value: instagramMetrics.igtvVideoCount, suffix: "", context: "published videos" },
   ].filter((metric) => metric.value !== undefined) : [];
+  const youtubePerformanceMetrics = youtubeMetrics ? [
+    { label: "Videos", value: youtubeMetrics.videoCount, suffix: "", context: "published videos" },
+    { label: "Lifetime views", value: youtubeMetrics.totalVideoViews, suffix: "", context: "channel total" },
+    { label: "Measured views", value: youtubeMetrics.views, suffix: "", context: "supplied analytics window" },
+    { label: "Likes", value: youtubeMetrics.likes, suffix: "", context: "supplied analytics window" },
+    { label: "Comments", value: youtubeMetrics.comments, suffix: "", context: "supplied analytics window" },
+    { label: "Shares", value: youtubeMetrics.shares, suffix: "", context: "supplied analytics window" },
+    { label: "Average viewed", value: youtubeMetrics.averageViewPercentage, suffix: "%", context: "average view percentage" },
+    { label: "Average duration", value: youtubeMetrics.averageViewDuration, suffix: " sec", context: "average view duration" },
+    { label: "Minutes watched", value: youtubeMetrics.estimatedMinutesWatched, suffix: "", context: "estimated total" },
+    { label: "Integrated rate", value: youtubeMetrics.integratedVideoRateMin, suffix: "", context: youtubeMetrics.integratedVideoRateMax !== undefined ? `up to ${formatPerformanceMetric(youtubeMetrics.integratedVideoRateMax)}` : "supplied minimum" },
+    { label: "Sponsored rate", value: youtubeMetrics.sponsoredVideoRateMin, suffix: "", context: youtubeMetrics.sponsoredVideoRateMax !== undefined ? `up to ${formatPerformanceMetric(youtubeMetrics.sponsoredVideoRateMax)}` : "supplied minimum" },
+    { label: "Average rate", value: youtubeMetrics.averageRate, suffix: "", context: youtubeMetrics.priceRange ?? "supplied rate" },
+  ].filter((metric) => metric.value !== undefined) : [];
+  const performanceMetrics = creator.platform === "youtube" ? youtubePerformanceMetrics : instagramPerformanceMetrics;
   const upgradeRequired = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount > 0;
   const verificationPending = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount === 0 && detail.pendingContactCount > 0;
   const insufficientCredits = detail.creditBalance < CONTACT_UNLOCK_COST;
@@ -125,7 +141,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
     platform: creator.platform,
     handle: creator.handle,
     url: creator.platform === "youtube"
-      ? `https://www.youtube.com/@${encodeURIComponent(creator.handle.replace(/^@/, ""))}`
+      ? creator.youtubeChannelId ? `https://www.youtube.com/channel/${encodeURIComponent(creator.youtubeChannelId)}` : `https://www.youtube.com/@${encodeURIComponent(creator.handle.replace(/^@/, ""))}`
       : `https://www.instagram.com/${encodeURIComponent(creator.handle.replace(/^@/, ""))}/`,
     followerCount: creator.followerCount,
     isVerified: creator.isVerified,
@@ -182,9 +198,10 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
             </div>
           </section>
 
-          {performanceMetrics.length ? <section className="profile-section instagram-performance" aria-labelledby="performance-title">
-            <div className="profile-section-heading"><div><p className="eyebrow">Instagram performance · Supplied metrics</p><h2 id="performance-title">Audience and engagement</h2></div></div>
+          {performanceMetrics.length ? <section className="profile-section creator-performance" aria-labelledby="performance-title">
+            <div className="profile-section-heading"><div><p className="eyebrow">{creator.platform === "youtube" ? "YouTube performance" : "Instagram performance"} · Supplied metrics</p><h2 id="performance-title">Audience and engagement</h2></div></div>
             <div className="performance-metrics">{performanceMetrics.map(metric => <article key={metric.label}><small>{metric.label}</small><strong>{formatPerformanceMetric(metric.value!)}{metric.suffix}</strong><span>{metric.context}</span></article>)}</div>
+            {youtubeMetrics?.audience?.length ? <div className="youtube-audience"><h3>Audience age and gender</h3><div>{youtubeMetrics.audience.map(item => <span key={`${item.ageGroup}-${item.gender}`}><strong>{item.percentage.toLocaleString("en-IN", { maximumFractionDigits: 1 })}%</strong><small>{item.ageGroup} · {item.gender}</small></span>)}</div></div> : null}
           </section> : null}
 
           <section className="profile-section profile-facts" aria-labelledby="profile-facts-title">

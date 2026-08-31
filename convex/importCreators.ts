@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import { buildImportedCreatorFields, importedPlatform, youtubeChannelUrl } from "./lib/creatorImportMapping";
 import { isRepositoryEligible } from "./lib/repositoryPolicy";
 
 function sameContact(existing: { email?: string; phone?: string; whatsapp?: string }, incoming: { email?: string; phone?: string; whatsapp?: string }) {
@@ -27,34 +29,36 @@ export const ingestBatch = internalMutation({
         skippedBelowMinimum += 1;
         continue;
       }
-      const candidates = await ctx.db.query("creators").withIndex("by_normalized_handle", q => q.eq("normalizedHandle", row.normalizedHandle)).collect();
-      const existing = candidates.find(creator => creator.platform === "instagram" && creator.handle.toLowerCase() === row.handle.toLowerCase());
-      const profileFields = {
-        displayName: row.displayName,
-        followerCount: row.followerCount,
-        location: row.location,
-        categories: row.categories,
-        primaryCategory: row.categories[0]?.toLowerCase() ?? "",
-        categorySearch: row.categories.join(" ").toLowerCase(),
-        profileImageUrl: row.profileImageUrl,
-        biography: row.biography,
-        gender: row.gender,
-        age: row.age,
-        instagramAccountId: row.instagramAccountId,
-        contentLanguages: row.contentLanguages,
-        profileType: row.profileType,
-        instagramMetrics: row.instagramMetrics,
-        isVerified: row.isVerified,
-        isDemo: false,
-        lastUpdatedAt: now,
-      };
+      const creatorPlatform = importedPlatform(row);
+      let existing: Doc<"creators"> | null | undefined;
+      if (creatorPlatform === "youtube" && row.youtubeChannelId) {
+        existing = await ctx.db.query("creators").withIndex("by_youtube_channel_id", q => q.eq("youtubeChannelId", row.youtubeChannelId)).first();
+      }
+      if (!existing) {
+        const candidates = await ctx.db.query("creators").withIndex("by_normalized_handle", q => q.eq("normalizedHandle", row.normalizedHandle)).collect();
+        existing = candidates.find(creator => creator.platform === creatorPlatform && creator.handle.toLowerCase() === row.handle.toLowerCase());
+      }
+      const profileFields = buildImportedCreatorFields(row, now);
       let creatorId = existing?._id;
       if (existing) {
         await ctx.db.patch(existing._id, profileFields);
         creatorsUpdated += 1;
       } else {
-        creatorId = await ctx.db.insert("creators", { platform: "instagram", handle: row.handle, normalizedHandle: row.normalizedHandle, ...profileFields, addedToRepositoryAt: now });
+        creatorId = await ctx.db.insert("creators", { platform: creatorPlatform, handle: row.handle, normalizedHandle: row.normalizedHandle, ...profileFields, addedToRepositoryAt: now });
         creatorsInserted += 1;
+      }
+      if (creatorPlatform === "youtube" && row.youtubeChannelId) {
+        const socialProfiles = await ctx.db.query("creatorSocialProfiles").withIndex("by_creator", q => q.eq("creatorId", creatorId!)).collect();
+        const existingYouTube = socialProfiles.find(profile => profile.platform === "youtube");
+        const socialFields = {
+          handle: row.handle,
+          normalizedHandle: row.normalizedHandle,
+          url: row.youtubeUrl ?? youtubeChannelUrl(row.youtubeChannelId),
+          followerCount: row.followerCount,
+          isVerified: row.isVerified,
+        };
+        if (existingYouTube) await ctx.db.patch(existingYouTube._id, socialFields);
+        else await ctx.db.insert("creatorSocialProfiles", { creatorId: creatorId!, platform: "youtube", ...socialFields });
       }
       const existingContacts = row.contacts.length
         ? await ctx.db.query("contacts").withIndex("by_creator", q => q.eq("creatorId", creatorId!)).collect()
@@ -122,6 +126,49 @@ export const auditSample = internalQuery({
         includesContactValues: false,
       };
     }));
+  },
+});
+
+export const auditYouTubeSample = internalQuery({
+  args: { channelIds: v.array(v.string()) },
+  handler: async (ctx, args) => Promise.all(args.channelIds.slice(0, 10).map(async channelId => {
+    const creator = await ctx.db.query("creators").withIndex("by_youtube_channel_id", q => q.eq("youtubeChannelId", channelId)).first();
+    if (!creator || creator.platform !== "youtube") return { channelId, found: false as const };
+    const socialProfiles = await ctx.db.query("creatorSocialProfiles").withIndex("by_creator", q => q.eq("creatorId", creator._id)).collect();
+    return {
+      channelId,
+      found: true as const,
+      creatorId: creator._id,
+      handle: creator.handle,
+      displayName: creator.displayName,
+      subscriberCount: creator.followerCount,
+      profileImageUrl: creator.profileImageUrl,
+      hasYouTubeMetrics: Boolean(creator.youtubeMetrics),
+      audienceRows: creator.youtubeMetrics?.audience?.length ?? 0,
+      profileUrl: socialProfiles.find(profile => profile.platform === "youtube")?.url,
+      isDemo: creator.isDemo,
+    };
+  })),
+});
+
+export const auditYouTubeDiscovery = internalQuery({
+  args: { minSubscribers: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const minSubscribers = Math.max(1_000, args.minSubscribers ?? 1_000);
+    const creators = await ctx.db
+      .query("creators")
+      .withIndex("by_platform_followers", q => q.eq("platform", "youtube").gte("followerCount", minSubscribers))
+      .take(20);
+    return creators
+      .filter(creator => !creator.isDemo)
+      .map(creator => ({
+        channelId: creator.youtubeChannelId,
+        handle: creator.handle,
+        subscriberCount: creator.followerCount,
+        hasProfileImage: Boolean(creator.profileImageUrl),
+        hasYouTubeMetrics: Boolean(creator.youtubeMetrics),
+        isDemo: creator.isDemo,
+      }));
   },
 });
 

@@ -10,7 +10,7 @@ import json
 import re
 from collections import defaultdict
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 HANDLE_IN_URL = re.compile(
@@ -19,6 +19,7 @@ HANDLE_IN_URL = re.compile(
 HANDLE_IN_TEXT = re.compile(r"@([A-Za-z0-9._]{2,30})")
 RESERVED = {"accounts", "about", "direct", "explore", "https", "invites", "p", "reel", "reels", "stories", "web"}
 INSTAGRAM_PROFILE_COLUMNS = {"Username", "Followers", "Following", "Average Comments"}
+YOUTUBE_PROFILE_COLUMNS = {"Influencer Id", "channel_id", "Subscribers", "YouTube API Response"}
 
 
 def extract_instagram_handle(value: str) -> str:
@@ -382,11 +383,235 @@ def prepare_instagram_profile_rows(source: Path, contacts_verified: bool = False
     return output, report
 
 
+YOUTUBE_METRIC_COLUMNS = {
+    "Number of Videos": "videoCount",
+    "Total Video Views": "totalVideoViews",
+    "Likes": "likes",
+    "Dislikes": "dislikes",
+    "Comments": "comments",
+    "Shares": "shares",
+    "Views": "views",
+    "Average View Duration": "averageViewDuration",
+    "Average View Percentage": "averageViewPercentage",
+    "Estimated Minutes Watched": "estimatedMinutesWatched",
+    "Integrated Video Rate - Min": "integratedVideoRateMin",
+    "Integrated Video Rate - Max": "integratedVideoRateMax",
+    "Sponsored Video Rate - Min": "sponsoredVideoRateMin",
+    "Sponsored Video Rate - Max": "sponsoredVideoRateMax",
+    "Average Rate": "averageRate",
+}
+
+
+def youtube_api_channel(api_response: dict) -> dict:
+    for key in ("channel_stats", "channelDetails"):
+        value = api_response.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def youtube_topic_name(value: str) -> str:
+    raw = unquote((value or "").rstrip("/").rsplit("/", 1)[-1]).replace("_", " ")
+    return re.sub(r"\s*\([^)]*\)\s*$", "", raw).strip()
+
+
+def youtube_country_name(value: str) -> str:
+    code = (value or "").strip().upper()
+    return {"IN": "India"}.get(code, code)
+
+
+def youtube_audience_entry(row: dict[str, str]) -> dict | None:
+    age_group = clean_text(row.get("Age Group (Audience Gender and Age Breakup)") or "")
+    gender = clean_text(row.get("Gender (Audience Gender and Age Breakup)") or "")
+    percentage = parse_optional_number(row.get("Value (Audience Gender and Age Breakup)") or "")
+    if not age_group or not gender or percentage is None:
+        return None
+    return {"ageGroup": age_group, "gender": gender, "percentage": percentage}
+
+
+def prepare_youtube_profile_row(row: dict[str, str], audience_rows: list[dict[str, str]]) -> dict | None:
+    channel_id = clean_text(row.get("channel_id") or "")
+    display_name = clean_text(row.get("Channel Name") or "")
+    subscriber_count = parse_number(row.get("Subscribers") or "")
+    if not channel_id or not display_name or subscriber_count < 1000:
+        return None
+
+    api_response = {}
+    raw_api_response = clean_text(row.get("YouTube API Response") or "")
+    if raw_api_response:
+        try:
+            parsed = json.loads(raw_api_response)
+            api_response = parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            api_response = {}
+    channel = youtube_api_channel(api_response)
+    snippet = channel.get("snippet") if isinstance(channel.get("snippet"), dict) else {}
+    branding = channel.get("brandingSettings") if isinstance(channel.get("brandingSettings"), dict) else {}
+    branding_channel = branding.get("channel") if isinstance(branding.get("channel"), dict) else {}
+    topic_details = channel.get("topicDetails") if isinstance(channel.get("topicDetails"), dict) else {}
+
+    custom_handle = clean_handle(str(snippet.get("customUrl") or ""))
+    handle = f"@{custom_handle}" if custom_handle else channel_id
+    topic_values = topic_details.get("topicCategories") if isinstance(topic_details.get("topicCategories"), list) else []
+    categories = []
+    for value in topic_values:
+        category = youtube_topic_name(str(value))
+        if category and category.casefold() not in {item.casefold() for item in categories}:
+            categories.append(category)
+
+    metrics = {
+        target: value
+        for source, target in YOUTUBE_METRIC_COLUMNS.items()
+        if (value := parse_optional_number(row.get(source) or "")) is not None
+    }
+    string_metrics = {
+        "subscriberRange": clean_text(row.get("Subscriber Range") or ""),
+        "priceRange": clean_text(row.get("Price Range") or ""),
+        "uploadsPlaylistId": clean_text(row.get("Uploads Playlist ID") or ""),
+        "bannerImageUrl": clean_text(row.get("Banner External URL") or ""),
+    }
+    metrics.update({key: value for key, value in string_metrics.items() if value})
+    audience_by_key = {}
+    for audience_row in audience_rows:
+        entry = youtube_audience_entry(audience_row)
+        if entry:
+            audience_by_key[(entry["ageGroup"].casefold(), entry["gender"].casefold())] = entry
+    if audience_by_key:
+        metrics["audience"] = list(audience_by_key.values())
+
+    profile = {
+        "sourceKey": hashlib.sha256(channel_id.casefold().encode()).hexdigest()[:24],
+        "platform": "youtube",
+        "handle": handle,
+        "normalizedHandle": normalize_handle(custom_handle or channel_id),
+        "displayName": display_name,
+        "followerCount": subscriber_count,
+        "isVerified": False,
+        "categories": categories,
+        "contacts": [],
+        "contactVerificationStatus": "pending_verification",
+        "youtubeChannelId": channel_id,
+        "youtubeUrl": f"https://www.youtube.com/channel/{channel_id}",
+        "youtubeMetrics": metrics,
+    }
+    biography = clean_text(row.get("Channel Description") or snippet.get("description") or branding_channel.get("description") or "")
+    profile_image_url = clean_text(row.get("Image") or "")
+    if not profile_image_url:
+        thumbnails = snippet.get("thumbnails") if isinstance(snippet.get("thumbnails"), dict) else {}
+        high = thumbnails.get("high") if isinstance(thumbnails.get("high"), dict) else {}
+        profile_image_url = clean_text(str(high.get("url") or ""))
+    country = youtube_country_name(str(snippet.get("country") or branding_channel.get("country") or ""))
+    language = clean_text(str(snippet.get("defaultLanguage") or branding_channel.get("defaultLanguage") or ""))
+    if biography:
+        profile["biography"] = biography
+    if profile_image_url:
+        profile["profileImageUrl"] = profile_image_url
+    if country:
+        profile["location"] = country
+    if language:
+        profile["contentLanguages"] = [language]
+    return profile
+
+
+def merge_youtube_profiles(existing: dict, incoming: dict) -> dict:
+    merged = dict(existing)
+    for key, value in incoming.items():
+        if key not in merged or merged[key] in (None, "", [], {}):
+            merged[key] = value
+    merged["followerCount"] = max(existing["followerCount"], incoming["followerCount"])
+    merged["categories"] = list(dict.fromkeys(existing["categories"] + incoming["categories"]))
+    merged["contentLanguages"] = list(dict.fromkeys(existing.get("contentLanguages", []) + incoming.get("contentLanguages", [])))
+    metrics = dict(existing.get("youtubeMetrics", {}))
+    incoming_metrics = incoming.get("youtubeMetrics", {})
+    existing_audience = metrics.pop("audience", [])
+    incoming_audience = incoming_metrics.get("audience", [])
+    metrics.update({key: value for key, value in incoming_metrics.items() if key != "audience"})
+    audience = {}
+    for entry in existing_audience + incoming_audience:
+        audience[(entry["ageGroup"].casefold(), entry["gender"].casefold())] = entry
+    if audience:
+        metrics["audience"] = list(audience.values())
+    merged["youtubeMetrics"] = metrics
+    return merged
+
+
+def prepare_youtube_profile_rows(source: Path, contacts_verified: bool = False) -> tuple[list[dict], dict]:
+    del contacts_verified
+    profiles: dict[str, dict] = {}
+    rejected = defaultdict(int)
+    source_rows = 0
+    source_profiles = 0
+    eligible_profiles = 0
+    current_row: dict[str, str] | None = None
+    current_audience: list[dict[str, str]] = []
+
+    def finish_current() -> None:
+        nonlocal eligible_profiles
+        if current_row is None:
+            return
+        channel_id = clean_text(current_row.get("channel_id") or "")
+        display_name = clean_text(current_row.get("Channel Name") or "")
+        subscriber_count = parse_number(current_row.get("Subscribers") or "")
+        if not channel_id:
+            rejected["invalid_youtube_channel_id"] += 1
+            return
+        if not display_name:
+            rejected["missing_channel_name"] += 1
+            return
+        if subscriber_count < 1000:
+            rejected["below_1000_subscribers"] += 1
+            return
+        prepared = prepare_youtube_profile_row(current_row, current_audience)
+        if not prepared:
+            rejected["invalid_profile"] += 1
+            return
+        eligible_profiles += 1
+        key = channel_id.casefold()
+        profiles[key] = merge_youtube_profiles(profiles[key], prepared) if key in profiles else prepared
+
+    with source.open(newline="", encoding="utf-8-sig") as handle:
+        for row in csv.DictReader(handle):
+            source_rows += 1
+            is_profile_row = bool(clean_text(row.get("Influencer Id") or "") or clean_text(row.get("channel_id") or ""))
+            if is_profile_row:
+                finish_current()
+                source_profiles += 1
+                current_row = row
+                current_audience = [row]
+            elif current_row is not None:
+                current_audience.append(row)
+            elif youtube_audience_entry(row):
+                rejected["orphan_audience_row"] += 1
+        finish_current()
+
+    output = [profiles[key] for key in sorted(profiles)]
+    report = {
+        "sourceFile": source.name,
+        "sourceFormat": "youtube_profiles_with_audience_continuations",
+        "sourceRows": source_rows,
+        "sourceProfiles": source_profiles,
+        "eligibleSourceProfiles": eligible_profiles,
+        "creatorProfiles": len(output),
+        "exactDuplicateChannelsMerged": eligible_profiles - len(output),
+        "rejectedProfiles": sum(rejected.values()),
+        "rejectedByReason": dict(sorted(rejected.items())),
+        "minimumSubscriberCount": 1000,
+        "profilesWithImage": sum(bool(profile.get("profileImageUrl")) for profile in output),
+        "profilesWithBiography": sum(bool(profile.get("biography")) for profile in output),
+        "profilesWithAudienceData": sum(bool(profile["youtubeMetrics"].get("audience")) for profile in output),
+        "profilesWithPricingData": sum(any(key in profile["youtubeMetrics"] for key in ("integratedVideoRateMin", "integratedVideoRateMax", "sponsoredVideoRateMin", "sponsoredVideoRateMax")) for profile in output),
+        "excludedColumns": ["YouTube API Response", "Created On", "Updated On"],
+    }
+    return output, report
+
+
 def prepare_rows(source: Path, contacts_verified: bool = False) -> tuple[list[dict], dict]:
     with source.open(newline="", encoding="utf-8-sig") as handle:
         fieldnames = set(csv.DictReader(handle).fieldnames or [])
     if INSTAGRAM_PROFILE_COLUMNS.issubset(fieldnames):
         return prepare_instagram_profile_rows(source, contacts_verified)
+    if YOUTUBE_PROFILE_COLUMNS.issubset(fieldnames):
+        return prepare_youtube_profile_rows(source, contacts_verified)
     return prepare_legacy_rows(source, contacts_verified)
 
 

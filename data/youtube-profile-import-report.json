@@ -1,0 +1,23 @@
+{
+  "sourceFile": "YouTube Profile.csv",
+  "sourceFormat": "youtube_profiles_with_audience_continuations",
+  "sourceRows": 14409,
+  "sourceProfiles": 1409,
+  "eligibleSourceProfiles": 641,
+  "creatorProfiles": 633,
+  "exactDuplicateChannelsMerged": 8,
+  "rejectedProfiles": 768,
+  "rejectedByReason": {
+    "below_1000_subscribers": 768
+  },
+  "minimumSubscriberCount": 1000,
+  "profilesWithImage": 633,
+  "profilesWithBiography": 592,
+  "profilesWithAudienceData": 605,
+  "profilesWithPricingData": 633,
+  "excludedColumns": [
+    "YouTube API Response",
+    "Created On",
+    "Updated On"
+  ]
+}

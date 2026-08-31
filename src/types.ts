@@ -32,6 +32,29 @@ export type InstagramMetrics = {
   businessCategoryName?: string;
 };
 
+export type YouTubeMetrics = {
+  videoCount?: number;
+  totalVideoViews?: number;
+  likes?: number;
+  dislikes?: number;
+  comments?: number;
+  shares?: number;
+  views?: number;
+  averageViewDuration?: number;
+  averageViewPercentage?: number;
+  estimatedMinutesWatched?: number;
+  integratedVideoRateMin?: number;
+  integratedVideoRateMax?: number;
+  sponsoredVideoRateMin?: number;
+  sponsoredVideoRateMax?: number;
+  averageRate?: number;
+  subscriberRange?: string;
+  priceRange?: string;
+  uploadsPlaylistId?: string;
+  bannerImageUrl?: string;
+  audience?: Array<{ ageGroup: string; gender: string; percentage: number }>;
+};
+
 export type Viewer = {
   id: string;
   name: string;
@@ -101,6 +124,8 @@ export type CreatorSearchResult = {
   age?: number;
   instagramAccountId?: string;
   instagramMetrics?: InstagramMetrics;
+  youtubeChannelId?: string;
+  youtubeMetrics?: YouTubeMetrics;
   sourceLabel?: string;
   lastUpdatedAt?: number;
   metricProvenance?: "supplied" | "live";

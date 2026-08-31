@@ -250,8 +250,8 @@ describe("Creatorly M1 user journey", () => {
     await user.type(await screen.findByLabelText("Creator name or handle"), "MrBeast");
 
     expect(await screen.findByRole("heading", { name: /no creator found/i })).toBeInTheDocument();
-    expect(screen.getByText(/India-focused Instagram creators/i)).toBeInTheDocument();
-    expect(screen.queryByText(/YouTube creator data/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/India-focused Instagram and YouTube creators/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "YouTube" })).toBeInTheDocument();
   });
 
   it("lets a demo admin fulfill a pending request", async () => {
@@ -442,7 +442,7 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter creator column")).not.toBeInTheDocument();
     expect(screen.getByText("Use search above")).toBeInTheDocument();
-    expect(screen.getByText("Instagram only")).toBeInTheDocument();
+    expect(screen.getByText("Instagram", { selector: ".filter-static-note" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter platform column")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter category column")).toBeInTheDocument();
@@ -701,5 +701,20 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.getByRole("heading", { name: "Launch" })).toBeInTheDocument();
     expect(screen.getByText("Confirm usage rights")).toBeInTheDocument();
     expect(screen.getByText("Added Creator One to Launch")).toBeInTheDocument();
+  });
+
+  it("switches Discovery from Instagram to YouTube creators", async () => {
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.history.replaceState({}, "", "/app/discover");
+    renderDemo();
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole("button", { name: /Maya Kapoor/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "YouTube" }));
+
+    expect(await screen.findByRole("button", { name: /Rishi Verma/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Maya Kapoor/i })).not.toBeInTheDocument();
+    expect(screen.getByText("YouTube", { selector: ".filter-static-note" })).toBeInTheDocument();
   });
 });

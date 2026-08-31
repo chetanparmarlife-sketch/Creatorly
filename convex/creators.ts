@@ -7,8 +7,9 @@ import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 import { normalize, score } from "./lib/matching";
 import { MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
 
-function canonicalProfileUrl(platform: string, handle: string) {
+function canonicalProfileUrl(platform: string, handle: string, youtubeChannelId?: string) {
   const clean = handle.replace(/^@/, "");
+  if (platform === "youtube" && youtubeChannelId) return `https://www.youtube.com/channel/${encodeURIComponent(youtubeChannelId)}`;
   if (platform === "youtube") return `https://www.youtube.com/@${encodeURIComponent(clean)}`;
   if (platform === "tiktok") return `https://www.tiktok.com/@${encodeURIComponent(clean)}`;
   if (platform === "twitter") return `https://x.com/${encodeURIComponent(clean)}`;
@@ -186,6 +187,8 @@ export const browsePage = query({
         age: creator.age,
         instagramAccountId: creator.instagramAccountId,
         instagramMetrics: creator.instagramMetrics,
+        youtubeChannelId: creator.youtubeChannelId,
+        youtubeMetrics: creator.youtubeMetrics,
         sourceLabel: "Creatorly database",
         lastUpdatedAt: creator.lastUpdatedAt,
         metricProvenance: "supplied" as const,
@@ -302,6 +305,8 @@ export const search = query({
           age: creator.age,
           instagramAccountId: creator.instagramAccountId,
           instagramMetrics: creator.instagramMetrics,
+          youtubeChannelId: creator.youtubeChannelId,
+          youtubeMetrics: creator.youtubeMetrics,
           sourceLabel: "Creatorly database",
           lastUpdatedAt: creator.lastUpdatedAt,
           metricProvenance: "supplied" as const,
@@ -381,7 +386,7 @@ export const getById = query({
         })) : [{
           platform: creator.platform,
           handle: creator.handle,
-          url: canonicalProfileUrl(creator.platform, creator.handle),
+          url: canonicalProfileUrl(creator.platform, creator.handle, creator.youtubeChannelId),
           followerCount: creator.followerCount,
           isVerified: creator.isVerified,
         }],
@@ -395,6 +400,8 @@ export const getById = query({
         age: creator.age,
         instagramAccountId: creator.instagramAccountId,
         instagramMetrics: creator.instagramMetrics,
+        youtubeChannelId: creator.youtubeChannelId,
+        youtubeMetrics: creator.youtubeMetrics,
         sourceLabel: "Creatorly database",
         lastUpdatedAt: creator.lastUpdatedAt,
         metricProvenance: "supplied" as const,
