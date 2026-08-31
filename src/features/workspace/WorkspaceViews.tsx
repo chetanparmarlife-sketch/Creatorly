@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUpDown, BadgeCheck, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, MapPin, MonitorSmartphone, Plus, RotateCcw, Search, SlidersHorizontal, Sparkles, Tags, UserPlus, Users, X } from "lucide-react";
 import { useAppData } from "../../data/AppData";
@@ -107,6 +107,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const [audienceMin, setAudienceMin] = useState(""); const [audienceMax, setAudienceMax] = useState("");
   const [countryInput, setCountryInput] = useState(""); const [country, setCountry] = useState(""); const [cityInput, setCityInput] = useState(""); const [city, setCity] = useState(""); const [postalCodeInput, setPostalCodeInput] = useState(""); const [postalCode, setPostalCode] = useState(""); const [locationFacets, setLocationFacets] = useState<CreatorLocationFacets>({ countries: [], cities: [], postalCodes: [] }); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
   const [openFilters, setOpenFilters] = useState<Set<DiscoveryFilterSection>>(() => new Set(["platform"]));
+  const countRequestRef = useRef(0);
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [totalCount, setTotalCount] = useState<number | null>(null); const [savedIds, setSavedIds] = useState<Map<string, string>>(new Map()); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [campaignTarget, setCampaignTarget] = useState(""); const [bulkMessage, setBulkMessage] = useState(""); const [bulkWorking, setBulkWorking] = useState(false); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
   const exactAudienceMin = followerBoundary(audienceMin); const exactAudienceMax = followerBoundary(audienceMax);
   const audienceError = (audienceMin.trim() && exactAudienceMin === undefined) || (audienceMax.trim() && exactAudienceMax === undefined)
@@ -117,6 +118,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextCountry = country, nextCity = city, nextPostalCode = postalCode, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort, nextAudienceMin = audienceMin, nextAudienceMax = audienceMax) => {
     const nextMin = followerBoundary(nextAudienceMin); const nextMax = followerBoundary(nextAudienceMax);
     if ((nextAudienceMin.trim() && nextMin === undefined) || (nextAudienceMax.trim() && nextMax === undefined) || (nextMin !== undefined && nextMax !== undefined && nextMax <= nextMin)) return;
+    const countRequest = ++countRequestRef.current;
     setLoading(true); setTotalCount(null); setError("");
     try {
       const range = audienceRange(nextAudience, nextAudienceMin, nextAudienceMax);
@@ -126,8 +128,10 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
         setResults(nextResults); setTotalCount(nextResults.length);
         setCursor(null); setIsDone(true);
       } else {
-        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, country: nextCountry || undefined, city: nextCity || undefined, postalCode: nextPostalCode || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting });
+        const countFilters = { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, country: nextCountry || undefined, city: nextCity || undefined, postalCode: nextPostalCode || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range };
+        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, ...countFilters, ...sorting });
         setResults(result.page); setTotalCount(result.totalCount ?? null); setCursor(result.continueCursor); setIsDone(result.isDone);
+        if (result.totalCount === undefined) void data.countCreators(countFilters).then(count => { if (countRequestRef.current === countRequest) setTotalCount(count); }).catch(() => undefined);
       }
     } catch {
       setResults([]); setTotalCount(0); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");

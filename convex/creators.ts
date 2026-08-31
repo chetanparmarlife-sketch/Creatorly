@@ -73,6 +73,75 @@ export const listLocationFacets = query({
   },
 });
 
+export const countPage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    platform: v.optional(platformValidator),
+    category: v.optional(v.string()),
+    location: v.optional(v.string()),
+    country: v.optional(v.string()),
+    city: v.optional(v.string()),
+    postalCode: v.optional(v.string()),
+    verifiedOnly: v.optional(v.boolean()),
+    minFollowers: v.optional(v.number()),
+    maxFollowers: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return { count: 0, continueCursor: args.paginationOpts.cursor ?? "", isDone: true };
+
+    const category = args.category?.trim().toLowerCase();
+    const minFollowers = Math.max(MIN_REPOSITORY_FOLLOWERS, args.minFollowers ?? MIN_REPOSITORY_FOLLOWERS);
+    const maxFollowers = args.maxFollowers;
+    const paginationOpts = { cursor: args.paginationOpts.cursor, numItems: Math.min(args.paginationOpts.numItems, 100) };
+    const result = category && args.platform && args.verifiedOnly
+      ? await ctx.db.query("creators").withIndex("by_platform_category_verified_followers", q => maxFollowers === undefined
+          ? q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
+          : q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+        .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
+      : category && args.platform
+        ? await ctx.db.query("creators").withIndex("by_platform_category_followers", q => maxFollowers === undefined
+            ? q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers)
+            : q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+          .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts)
+        : category && args.verifiedOnly
+          ? await ctx.db.query("creators").withIndex("by_category_verified_followers", q => maxFollowers === undefined
+              ? q.eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
+              : q.eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+            .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
+          : category
+            ? await ctx.db.query("creators").withIndex("by_category_followers", q => maxFollowers === undefined
+                ? q.eq("primaryCategory", category).gte("followerCount", minFollowers)
+                : q.eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+              .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts)
+            : args.platform && args.verifiedOnly
+              ? await ctx.db.query("creators").withIndex("by_platform_verified_followers", q => maxFollowers === undefined
+                  ? q.eq("platform", args.platform!).eq("isVerified", true).gte("followerCount", minFollowers)
+                  : q.eq("platform", args.platform!).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+                .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
+              : args.platform
+                ? await ctx.db.query("creators").withIndex("by_platform_followers", q => maxFollowers === undefined
+                    ? q.eq("platform", args.platform!).gte("followerCount", minFollowers)
+                    : q.eq("platform", args.platform!).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+                  .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts)
+                : args.verifiedOnly
+                  ? await ctx.db.query("creators").withIndex("by_verified_followers", q => maxFollowers === undefined
+                      ? q.eq("isVerified", true).gte("followerCount", minFollowers)
+                      : q.eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+                    .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
+                  : await ctx.db.query("creators").withIndex("by_followers", q => maxFollowers === undefined
+                      ? q.gte("followerCount", minFollowers)
+                      : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+                    .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts);
+
+    return {
+      count: result.page.filter(creator => passesFilters(creator, args)).length,
+      continueCursor: result.continueCursor,
+      isDone: result.isDone,
+    };
+  },
+});
+
 export const browsePage = query({
   args: {
     paginationOpts: paginationOptsValidator,

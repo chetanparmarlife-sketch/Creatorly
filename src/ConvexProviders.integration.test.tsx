@@ -92,6 +92,7 @@ function renderConnected(options: { onUnlock?: () => void; authenticated?: boole
     if (functionName === "creators:getById") return creatorDetail(unlocked, creditBalance);
     if (functionName === "creators:search") return [];
     if (functionName === "creators:browsePage") return { page: [], continueCursor: "", isDone: true, totalCount: 0 };
+    if (functionName === "creators:countPage") return { count: 0, continueCursor: "", isDone: true };
     if (functionName === "creators:listLocationFacets") return { countries: [], cities: [], postalCodes: [] };
     if (functionName === "savedCreators:list") return [];
     if (functionName === "campaigns:list") return [];
