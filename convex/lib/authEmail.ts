@@ -3,6 +3,12 @@ import { Email } from "@convex-dev/auth/providers/Email";
 const VERIFICATION_CODE_MAX = 1_000_000;
 const VERIFICATION_CODE_TTL_SECONDS = 15 * 60;
 
+export function isEmailVerificationConfigured(
+  environment: { RESEND_API_KEY?: string; AUTH_EMAIL_FROM?: string } = process.env,
+) {
+  return Boolean(environment.RESEND_API_KEY?.trim() && environment.AUTH_EMAIL_FROM?.trim());
+}
+
 export function generateEmailVerificationCode() {
   const randomValue = new Uint32Array(1);
   crypto.getRandomValues(randomValue);
@@ -12,10 +18,10 @@ export function generateEmailVerificationCode() {
 function requireEmailConfiguration() {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.AUTH_EMAIL_FROM;
-  if (!apiKey || !from) {
+  if (!isEmailVerificationConfigured()) {
     throw new Error("Creatorly email verification is not configured.");
   }
-  return { apiKey, from };
+  return { apiKey: apiKey!, from: from! };
 }
 
 export const creatorlyEmailVerification = Email({
