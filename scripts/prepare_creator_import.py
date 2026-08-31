@@ -291,7 +291,11 @@ def prepare_instagram_profile_row(row: dict[str, str], contacts_verified: bool =
 
     optional_text = {
         "biography": clean_text(row.get("Biography") or ""),
-        "profileImageUrl": clean_text(row.get("Profile Pic URL") or ""),
+        "profileImageUrl": clean_text(
+            row.get("Profile Picture Stored in Firebase")
+            or row.get("Profile Pic URL")
+            or ""
+        ),
         "gender": clean_text(row.get("Gender") or ""),
         "instagramAccountId": clean_text(row.get("Instagram ID") or ""),
         "profileType": business_category,
@@ -366,7 +370,11 @@ def prepare_instagram_profile_rows(source: Path, contacts_verified: bool = False
         "rejectedByReason": dict(sorted(rejected.items())),
         "minimumFollowerCount": 1000,
         "contactVerificationStatus": "verified" if contacts_verified else "pending_verification",
-        "excludedOperationalColumns": ["Scraping Status", "Scraping In Progress", "Profile Picture Stored in Firebase"],
+        "excludedOperationalColumns": ["Scraping Status", "Scraping In Progress"],
+        "profilesWithPermanentImage": sum(
+            profile.get("profileImageUrl", "").startswith("https://storage.googleapis.com/")
+            for profile in output
+        ),
         "profilesWithBiography": sum(bool(profile.get("biography")) for profile in output),
         "profilesWithAverageComments": sum("averageComments" in profile["instagramMetrics"] for profile in output),
         "profilesWithEngagementRate": sum("engagementRatePercent" in profile["instagramMetrics"] for profile in output),

@@ -148,7 +148,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
       <section className="profile-hero" aria-labelledby="creator-name">
         <div className="profile-cover" aria-hidden="true"><span /><span /><span /></div>
         <div className="profile-identity">
-          <CreatorPortrait name={creator.displayName} platform={creator.platform} size="large" />
+          <CreatorPortrait name={creator.displayName} platform={creator.platform} imageUrl={creator.profileImageUrl} size="large" />
           <div>
             <div className="detail-labels"><span>{creator.platform}</span>{creator.isDemo ? <span className="demo-chip">Demo data</span> : null}</div>
             <h1 id="creator-name">{creator.displayName} {creator.isVerified ? <BadgeCheck size={22} aria-label="Platform verified" /> : null}</h1>
@@ -230,7 +230,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
 
         <aside className="profile-section similar-section" aria-labelledby="similar-title">
           <div className="profile-section-heading"><div><p className="eyebrow">Keep exploring</p><h2 id="similar-title">Similar creators</h2></div></div>
-          <div className="similar-list">{similarCreators.map(similar => <button key={similar.id} onClick={() => navigate({ name: "creator", creatorId: similar.id })}><CreatorPortrait name={similar.displayName} platform={similar.platform} size="small" /><span><strong>{similar.displayName}</strong><small>{similar.categories?.[0] ?? "Creator"}</small><em>{formatFollowers(similar.followerCount)} · {similar.platform}</em></span><ArrowUpRight size={17} aria-hidden="true" /></button>)}</div>
+          <div className="similar-list">{similarCreators.map(similar => <button key={similar.id} onClick={() => navigate({ name: "creator", creatorId: similar.id })}><CreatorPortrait name={similar.displayName} platform={similar.platform} imageUrl={similar.profileImageUrl} size="small" /><span><strong>{similar.displayName}</strong><small>{similar.categories?.[0] ?? "Creator"}</small><em>{formatFollowers(similar.followerCount)} · {similar.platform}</em></span><ArrowUpRight size={17} aria-hidden="true" /></button>)}</div>
         </aside>
       </div>
 

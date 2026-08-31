@@ -7,6 +7,7 @@ import { useWorkspaceData } from "./WorkspaceData";
 import { CampaignExecution } from "./CampaignExecution";
 import { CreatorImportPanel } from "./CreatorImportPanel";
 import { RequestContactModal } from "../../components/RequestContactModal";
+import { CreatorPortrait } from "../../components/CreatorPortrait";
 import { exportCreatorsCsv } from "./creatorImport";
 import { formatFollowers } from "../../lib/format";
 import "./workspace.css";
@@ -99,7 +100,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
       <span className="table-filter-actions"><b>Reset</b><button type="button" className="filter-reset-icon" onClick={clearTableFilters} disabled={!filtersActive} aria-label="Reset table filters"><RotateCcw size={15}/></button></span>
     </div>
       {error && !results.length ? <div className="ops-loading state-error" role="alert">{error}</div> : loading ? <div className="ops-loading" role="status">Loading creators…</div> : visibleResults.length ? visibleResults.map(creator => <article className="ops-table-row discovery-row" key={creator.id}>
-        <button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><span className="creator-monogram">{creator.displayName[0]}</span><span><strong>{creator.displayName}</strong><small>{creator.handle}</small></span></button>
+        <button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><CreatorPortrait name={creator.displayName} platform={creator.platform} imageUrl={creator.profileImageUrl} size="small"/><span><strong>{creator.displayName}</strong><small>{creator.handle}</small></span></button>
         <span>{creator.categories?.[0] ?? "—"}</span><span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span><b className="numeric">{formatFollowers(creator.followerCount)}</b><span>{creator.location ?? "—"}</span><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span>
         <button className={savedIds.has(creator.id) ? "button button-saved" : "button button-secondary"} disabled={savedIds.has(creator.id)} onClick={() => save(creator)}>{savedIds.has(creator.id) ? <><Check size={15}/> Saved</> : <><Plus size={15}/> Save</>}</button>
       </article>) : query.trim().length >= 2 ? <Empty icon={<Search/>} title="No creator found" copy={repositoryScope} action="Request contact" onAction={() => setRequestOpen(true)}/> : <Empty icon={<Search/>} title="No creators match these filters" copy="Broaden one of the column filters or reset the table to see the full result set." action="Reset filters" onAction={clearTableFilters}/>}

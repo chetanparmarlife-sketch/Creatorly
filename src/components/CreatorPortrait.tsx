@@ -8,10 +8,12 @@ function portraitTone(name: string) {
 export function CreatorPortrait({
   name,
   platform,
+  imageUrl,
   size = "medium",
 }: {
   name: string;
   platform: Platform;
+  imageUrl?: string;
   size?: "small" | "medium" | "large";
 }) {
   return (
@@ -20,6 +22,17 @@ export function CreatorPortrait({
       aria-hidden="true"
     >
       {initials(name)}
+      {imageUrl ? (
+        <img
+          key={imageUrl}
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={(event) => { event.currentTarget.hidden = true; }}
+        />
+      ) : null}
     </span>
   );
 }

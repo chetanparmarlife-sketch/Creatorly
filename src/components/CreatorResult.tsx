@@ -19,7 +19,7 @@ export function CreatorResult({
 
   return (
     <button className="creator-row" onClick={onOpen}>
-      <CreatorPortrait name={creator.displayName} platform={creator.platform} />
+      <CreatorPortrait name={creator.displayName} platform={creator.platform} imageUrl={creator.profileImageUrl} />
       <span className="creator-identity">
         <span className="creator-name">
           {creator.displayName}

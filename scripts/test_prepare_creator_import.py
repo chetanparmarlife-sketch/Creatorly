@@ -43,6 +43,7 @@ class CreatorImportCleanupTests(unittest.TestCase):
             "Min Likes", "Min Comments", "Min Reel Views", "Max Likes", "Max Comments", "Max Reel Views",
             "Primary Content Niche", "Secondary Content Niche", "Language", "Gender", "Age", "City", "State",
             "Email", "Contact Number", "Scraping Status", "Scraping In Progress",
+            "Profile Picture Stored in Firebase",
         ]
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "profiles.csv"
@@ -54,6 +55,7 @@ class CreatorImportCleanupTests(unittest.TestCase):
                     "ID": "valid", "Username": "maya.creates", "Full Name": "Maya Kapoor",
                     "Biography": "Wellness and travel", "Verified": "1", "Is Business Account": "1",
                     "Business Category Name": "Digital creator", "Profile Pic URL": "https://images.example/maya.jpg",
+                    "Profile Picture Stored in Firebase": "https://storage.googleapis.com/example/maya.jpg",
                     "Followers": "1,250", "Following": "230", "Number of Posts": "91",
                     "Average Likes": "410.4", "Average Comments": "18.2", "Average Reel Views": "4,800",
                     "Engagement Rate (%)": "3.4", "Min Likes": "120", "Min Comments": "4", "Min Reel Views": "900",
@@ -77,9 +79,11 @@ class CreatorImportCleanupTests(unittest.TestCase):
         self.assertEqual(profile["instagramMetrics"]["averageComments"], 18.2)
         self.assertEqual(profile["instagramMetrics"]["engagementRatePercent"], 3.4)
         self.assertEqual(profile["contacts"], [{"email": "maya@example.com", "phone": "+919876543210"}])
+        self.assertEqual(profile["profileImageUrl"], "https://storage.googleapis.com/example/maya.jpg")
         self.assertEqual(profile["contactVerificationStatus"], "verified")
         self.assertFalse(any("scrap" in key.casefold() for key in profile))
         self.assertEqual(report["rejectedByReason"], {"below_1000_followers": 1})
+        self.assertEqual(report["profilesWithPermanentImage"], 1)
 
 
 if __name__ == "__main__":

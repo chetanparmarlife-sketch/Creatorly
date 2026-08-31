@@ -23,4 +23,28 @@ describe("CreatorResult Instagram metrics", () => {
 
     expect(screen.getByText("18 avg comments · 3.4% engagement")).toBeInTheDocument();
   });
+
+  it("renders the imported profile picture in discovery", () => {
+    const { container } = render(<CreatorResult
+      creator={{
+        id: "creator-photo",
+        platform: "instagram",
+        handle: "@photo.creator",
+        displayName: "Photo Creator",
+        followerCount: 2500,
+        isVerified: false,
+        isDemo: false,
+        contactCount: 0,
+        matchScore: 0,
+        profileImageUrl: "https://cdn.example.com/profile.jpg",
+      }}
+      bestMatch={false}
+      onOpen={vi.fn()}
+    />);
+
+    expect(container.querySelector(".creator-portrait img")).toHaveAttribute(
+      "src",
+      "https://cdn.example.com/profile.jpg",
+    );
+  });
 });

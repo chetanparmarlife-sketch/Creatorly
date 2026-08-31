@@ -15,9 +15,9 @@
   "contactVerificationStatus": "verified",
   "excludedOperationalColumns": [
     "Scraping Status",
-    "Scraping In Progress",
-    "Profile Picture Stored in Firebase"
+    "Scraping In Progress"
   ],
+  "profilesWithPermanentImage": 151924,
   "profilesWithBiography": 146116,
   "profilesWithAverageComments": 155090,
   "profilesWithEngagementRate": 155085
