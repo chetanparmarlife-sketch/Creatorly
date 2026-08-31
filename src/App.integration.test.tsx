@@ -746,4 +746,34 @@ describe("Creatorly M1 user journey", () => {
 
     expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("button", { name: "Facebook" })).toHaveAttribute("aria-pressed", "true");
   });
+
+  it("turns a campaign brief into precise, removable Discovery filters", async () => {
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.history.replaceState({}, "", "/app/discover");
+    renderDemo();
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole("button", { name: /view Maya Kapoor profile/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Growth/i }));
+    expect(screen.getByLabelText("Minimum audience size")).toHaveValue(100000);
+    expect(screen.getByLabelText("Maximum audience size")).toHaveValue(500000);
+    await waitFor(() => expect(screen.queryByRole("button", { name: /view Maya Kapoor profile/i })).not.toBeInTheDocument());
+    expect(await screen.findByRole("button", { name: /view Arjun Builds profile/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /remove audience filter/i }));
+    expect(await screen.findByRole("button", { name: /view Maya Kapoor profile/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /verified profiles only/i }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /view Pending Import profile/i })).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /^Result priority/i }));
+    await user.selectOptions(screen.getByLabelText("Prioritize discovery results"), "name:asc");
+    await waitFor(() => expect(document.querySelector(".discovery-row")).toHaveTextContent("Arjun Builds"));
+
+    await user.clear(screen.getByLabelText("Minimum audience size"));
+    await user.type(screen.getByLabelText("Minimum audience size"), "500000");
+    await user.clear(screen.getByLabelText("Maximum audience size"));
+    await user.type(screen.getByLabelText("Maximum audience size"), "100000");
+    expect(screen.getByRole("alert")).toHaveTextContent("Maximum audience must be greater than minimum");
+  });
 });

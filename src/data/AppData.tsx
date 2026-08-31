@@ -140,7 +140,7 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
 
 type EmptyArgs = Record<string, never>;
 type SearchArgs = { query: string; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
-type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
+type BrowseArgs = { paginationOpts: { cursor: string | null; numItems: number }; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" };
 type DetailArgs = { creatorId: string };
 
 const viewerRef = makeFunctionReference<"query">("users:viewer") as FunctionReference<
@@ -247,7 +247,7 @@ export function ConvexDataProvider({
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
-    browseCreators: ({ cursor, numItems, platform, category, location, minFollowers, maxFollowers, sortField, sortDirection }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform, category, location, minFollowers, maxFollowers, sortField, sortDirection }),
+    browseCreators: ({ cursor, numItems, platform, category, location, verifiedOnly, minFollowers, maxFollowers, sortField, sortDirection }) => convex.query(browseRef, { paginationOpts: { cursor, numItems }, platform, category, location, verifiedOnly, minFollowers, maxFollowers, sortField, sortDirection }),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
     getHistory: () => convex.query(historyRef, {}),
     requestContact: (input) => convex.mutation(requestContactRef, input),

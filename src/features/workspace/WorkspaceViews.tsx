@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUpDown, BadgeCheck, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, MapPin, MonitorSmartphone, Plus, RotateCcw, Search, Sparkles, Tags, UserPlus, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUpDown, BadgeCheck, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, MapPin, MonitorSmartphone, Plus, RotateCcw, Search, SlidersHorizontal, Sparkles, Tags, UserPlus, Users, X } from "lucide-react";
 import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
 import { CAMPAIGN_STAGES, type BrandDivisionType, type Campaign, type CampaignStage, type CreatorSearchResult, type GroupCollaborator, type GroupCollaboratorRole, type Platform, type SavedCreator, type WorkspaceGroup, type WorkspaceSummary } from "../../types";
@@ -22,7 +22,7 @@ const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainmen
 type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" };
 type AudienceBand = "all" | "nano" | "micro" | "mid" | "macro" | "mega";
 type PlatformFilter = "all" | Extract<Platform, "instagram" | "youtube" | "facebook">;
-type DiscoveryFilterSection = "platform" | "category" | "audience" | "location";
+type DiscoveryFilterSection = "platform" | "category" | "audience" | "location" | "priority";
 
 const AUDIENCE_LABELS: Record<AudienceBand, string> = {
   all: "Any audience",
@@ -33,13 +33,49 @@ const AUDIENCE_LABELS: Record<AudienceBand, string> = {
   mega: "1M+",
 };
 
-function audienceRange(band: AudienceBand) {
-  if (band === "nano") return { maxFollowers: 10_000 };
-  if (band === "micro") return { minFollowers: 10_000, maxFollowers: 100_000 };
-  if (band === "mid") return { minFollowers: 100_000, maxFollowers: 500_000 };
-  if (band === "macro") return { minFollowers: 500_000, maxFollowers: 1_000_000 };
-  if (band === "mega") return { minFollowers: 1_000_000 };
-  return {};
+function followerBoundary(value: string) {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+function audienceRange(band: AudienceBand, exactMin = "", exactMax = "") {
+  const preset = band === "nano" ? { maxFollowers: 10_000 }
+    : band === "micro" ? { minFollowers: 10_000, maxFollowers: 100_000 }
+      : band === "mid" ? { minFollowers: 100_000, maxFollowers: 500_000 }
+        : band === "macro" ? { minFollowers: 500_000, maxFollowers: 1_000_000 }
+          : band === "mega" ? { minFollowers: 1_000_000 }
+            : {};
+  const minFollowers = followerBoundary(exactMin);
+  const maxFollowers = followerBoundary(exactMax);
+  return {
+    ...preset,
+    ...(minFollowers === undefined ? {} : { minFollowers }),
+    ...(maxFollowers === undefined ? {} : { maxFollowers }),
+  };
+}
+
+function audienceValueLabel(band: AudienceBand, exactMin: string, exactMax: string) {
+  const min = followerBoundary(exactMin); const max = followerBoundary(exactMax);
+  if (min !== undefined || max !== undefined) {
+    if (min !== undefined && max !== undefined) return `${formatFollowers(min)}–${formatFollowers(max)}`;
+    if (min !== undefined) return `${formatFollowers(min)}+`;
+    return `Under ${formatFollowers(max ?? 0)}`;
+  }
+  return AUDIENCE_LABELS[band];
+}
+
+const PRIORITY_OPTIONS: Array<{ label: string; sort: CreatorSort }> = [
+  { label: "Largest audience", sort: { field: "audience", direction: "desc" } },
+  { label: "Emerging first", sort: { field: "audience", direction: "asc" } },
+  { label: "Creator A–Z", sort: { field: "name", direction: "asc" } },
+  { label: "Creator Z–A", sort: { field: "name", direction: "desc" } },
+  { label: "Market A–Z", sort: { field: "location", direction: "asc" } },
+  { label: "Market Z–A", sort: { field: "location", direction: "desc" } },
+];
+
+function priorityLabel(sort: CreatorSort) {
+  return PRIORITY_OPTIONS.find(option => option.sort.field === sort.field && option.sort.direction === sort.direction)?.label ?? "Custom order";
 }
 
 function PageHeader({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy: string; action?: React.ReactNode }) {
@@ -68,13 +104,22 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const data = useAppData(); const store = useWorkspaceData();
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
+  const [audienceMin, setAudienceMin] = useState(""); const [audienceMax, setAudienceMax] = useState("");
   const [location, setLocation] = useState(""); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
   const [openFilters, setOpenFilters] = useState<Set<DiscoveryFilterSection>>(() => new Set(["platform"]));
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Map<string, string>>(new Map()); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [campaignTarget, setCampaignTarget] = useState(""); const [bulkMessage, setBulkMessage] = useState(""); const [bulkWorking, setBulkWorking] = useState(false); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
-  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort) => {
+  const exactAudienceMin = followerBoundary(audienceMin); const exactAudienceMax = followerBoundary(audienceMax);
+  const audienceError = (audienceMin.trim() && exactAudienceMin === undefined) || (audienceMax.trim() && exactAudienceMax === undefined)
+    ? "Use positive numbers for the audience range."
+    : exactAudienceMin !== undefined && exactAudienceMax !== undefined && exactAudienceMax <= exactAudienceMin
+      ? "Maximum audience must be greater than minimum."
+      : "";
+  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort, nextAudienceMin = audienceMin, nextAudienceMax = audienceMax) => {
+    const nextMin = followerBoundary(nextAudienceMin); const nextMax = followerBoundary(nextAudienceMax);
+    if ((nextAudienceMin.trim() && nextMin === undefined) || (nextAudienceMax.trim() && nextMax === undefined) || (nextMin !== undefined && nextMax !== undefined && nextMax <= nextMin)) return;
     setLoading(true); setError("");
     try {
-      const range = audienceRange(nextAudience);
+      const range = audienceRange(nextAudience, nextAudienceMin, nextAudienceMax);
       const sorting = { sortField: nextSort.field, sortDirection: nextSort.direction };
       if (nextQuery.trim()) {
         setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting }));
@@ -86,27 +131,30 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     } catch {
       setResults([]); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
     } finally { setLoading(false); }
-  }, [audience, category, data, location, platform, query, sort, verifiedOnly]);
+  }, [audience, audienceMax, audienceMin, category, data, location, platform, query, sort, verifiedOnly]);
   async function loadMore() {
-    if (loadingMore || isDone || query.trim()) return;
+    if (audienceError || loadingMore || isDone || query.trim()) return;
     setLoadingMore(true); setError("");
     try {
-      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined, verifiedOnly: verifiedOnly || undefined, ...audienceRange(audience), sortField: sort.field, sortDirection: sort.direction });
+      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined, verifiedOnly: verifiedOnly || undefined, ...audienceRange(audience, audienceMin, audienceMax), sortField: sort.field, sortDirection: sort.direction });
       setResults(current => [...new Map([...current, ...result.page].map(creator => [creator.id, creator])).values()]);
       setCursor(result.continueCursor); setIsDone(result.isDone);
     } catch { setError("More creators could not be loaded. Try again."); }
     finally { setLoadingMore(false); }
   }
   useEffect(() => { let active = true; void Promise.all([store.listSavedCreators(workspace.id), store.listCampaigns(workspace.id)]).then(([saved, nextCampaigns]) => { if (active) { setSavedIds(new Map(saved.map(item => [item.creator.id, item.id]))); setCampaigns(nextCampaigns); setCampaignTarget(current => current || nextCampaigns[0]?.id || ""); } }); return () => { active = false; }; }, [store, workspace.id]);
-  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location, audience, verifiedOnly, sort); }, 180); return () => window.clearTimeout(timer); }, [audience, category, location, platform, query, run, sort, verifiedOnly]);
+  useEffect(() => { if (audienceError) return; const timer = window.setTimeout(() => { void run(query, platform, category, location, audience, verifiedOnly, sort, audienceMin, audienceMax); }, 180); return () => window.clearTimeout(timer); }, [audience, audienceError, audienceMax, audienceMin, category, location, platform, query, run, sort, verifiedOnly]);
   const visibleResults = results;
   const categoryOptions = useMemo(() => [...new Set([...CREATOR_CATEGORIES, ...results.flatMap(creator => creator.categories ?? [])])].sort(), [results]);
   const locationOptions = useMemo(() => [...new Set(results.map(creator => creator.location).filter((item): item is string => Boolean(item)))].sort(), [results]);
-  const activeFilterCount = Number(platform !== "all") + Number(Boolean(category)) + Number(audience !== "all") + Number(Boolean(location)) + Number(verifiedOnly);
+  const audienceActive = audience !== "all" || Boolean(audienceMin || audienceMax);
+  const activeFilterCount = Number(platform !== "all") + Number(Boolean(category)) + Number(audienceActive) + Number(Boolean(location)) + Number(verifiedOnly);
   const filtersActive = activeFilterCount > 0;
-  function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setLocation(""); setVerifiedOnly(false); }
+  function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setAudienceMin(""); setAudienceMax(""); setLocation(""); setVerifiedOnly(false); }
   function toggleFilter(section: DiscoveryFilterSection) { setOpenFilters(current => { const next = new Set(current); if (next.has(section)) next.delete(section); else next.add(section); return next; }); }
   function choosePlatform(nextPlatform: PlatformFilter) { setPlatform(nextPlatform); setSelectedIds(new Set()); setBulkMessage(""); }
+  function chooseAudience(nextAudience: AudienceBand) { setAudience(nextAudience); setAudienceMin(""); setAudienceMax(""); }
+  function applyAudienceBrief(min: string, max: string) { setAudience("all"); setAudienceMin(min); setAudienceMax(max); setOpenFilters(current => new Set(current).add("audience")); }
   function cycleSort(field: CreatorSort["field"]) {
     setSort(current => {
       const firstDirection = field === "audience" ? "desc" : "asc";
@@ -134,17 +182,43 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     <div className="discovery-layout">
       <WorkspaceSidebarPortal><div className="discovery-filter-panel">
         <header><div><p>Discovery</p><h2>Filters</h2></div><div><span>{activeFilterCount} active</span><button type="button" onClick={clearTableFilters} disabled={!filtersActive}>Clear</button></div></header>
+        <section className="discovery-brief-presets" aria-label="Audience brief shortcuts">
+          <div><strong>Quick briefs</strong><small>Layer onto platform, niche, and market</small></div>
+          <div>
+            <button type="button" className={audience === "all" && audienceMin === "" && audienceMax === "100000" ? "is-active" : ""} onClick={() => applyAudienceBrief("", "100000")}>Emerging <small>&lt;100K</small></button>
+            <button type="button" className={audience === "all" && audienceMin === "100000" && audienceMax === "500000" ? "is-active" : ""} onClick={() => applyAudienceBrief("100000", "500000")}>Growth <small>100K–500K</small></button>
+            <button type="button" className={audience === "all" && audienceMin === "1000000" && audienceMax === "" ? "is-active" : ""} onClick={() => applyAudienceBrief("1000000", "")}>Major reach <small>1M+</small></button>
+          </div>
+        </section>
+        {filtersActive ? <div className="discovery-active-filters" aria-label="Applied discovery filters">
+          {platform !== "all" ? <button type="button" onClick={() => choosePlatform("all")} aria-label={`Remove ${platformLabel(platform)} platform filter`}>{platformLabel(platform)}<X size={11}/></button> : null}
+          {category ? <button type="button" onClick={() => setCategory("")} aria-label={`Remove ${category} category filter`}>{category}<X size={11}/></button> : null}
+          {audienceActive ? <button type="button" onClick={() => chooseAudience("all")} aria-label="Remove audience filter">{audienceValueLabel(audience, audienceMin, audienceMax)}<X size={11}/></button> : null}
+          {location ? <button type="button" onClick={() => setLocation("")} aria-label={`Remove ${location} location filter`}>{location}<X size={11}/></button> : null}
+          {verifiedOnly ? <button type="button" onClick={() => setVerifiedOnly(false)} aria-label="Remove verified profiles filter">Verified<X size={11}/></button> : null}
+        </div> : null}
         <div className="discovery-filter-stack">
           <DiscoveryFilterDisclosure id="platform" label="Platform" value={platform === "all" ? "All platforms" : platformLabel(platform)} icon={<MonitorSmartphone size={17}/>} open={openFilters.has("platform")} onToggle={() => toggleFilter("platform")}><div className="platform-filter" aria-label="Discovery platform"><button type="button" className={platform === "all" ? "is-active" : ""} aria-pressed={platform === "all"} onClick={() => choosePlatform("all")}>All</button><button type="button" className={platform === "instagram" ? "is-active" : ""} aria-pressed={platform === "instagram"} onClick={() => choosePlatform("instagram")}>Instagram</button><button type="button" className={platform === "youtube" ? "is-active" : ""} aria-pressed={platform === "youtube"} onClick={() => choosePlatform("youtube")}>YouTube</button><button type="button" className={platform === "facebook" ? "is-active" : ""} aria-pressed={platform === "facebook"} onClick={() => choosePlatform("facebook")}>Facebook</button></div></DiscoveryFilterDisclosure>
           <DiscoveryFilterDisclosure id="category" label="Category" value={category || "All categories"} icon={<Tags size={17}/>} open={openFilters.has("category")} onToggle={() => toggleFilter("category")}><label className="discovery-filter-field"><span className="sr-only">Category</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="Search categories"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label></DiscoveryFilterDisclosure>
-          <DiscoveryFilterDisclosure id="audience" label="Audience size" value={AUDIENCE_LABELS[audience]} icon={<Users size={17}/>} open={openFilters.has("audience")} onToggle={() => toggleFilter("audience")}><label className="discovery-filter-field"><span className="sr-only">Audience size</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as AudienceBand)}>{Object.entries(AUDIENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="audience" label="Audience size" value={audienceValueLabel(audience, audienceMin, audienceMax)} icon={<Users size={17}/>} open={openFilters.has("audience")} onToggle={() => toggleFilter("audience")}>
+            <div className="discovery-audience-controls">
+              <label className="discovery-filter-field"><span className="sr-only">Audience size</span><select aria-label="Filter audience column" value={audience} onChange={event => chooseAudience(event.target.value as AudienceBand)}>{Object.entries(AUDIENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <div className="discovery-range-fields">
+                <label><span>Minimum</span><input type="number" min="0" inputMode="numeric" aria-label="Minimum audience size" aria-invalid={Boolean(audienceError)} value={audienceMin} onChange={event => { setAudience("all"); setAudienceMin(event.target.value); }} placeholder="Any"/></label>
+                <span aria-hidden="true">to</span>
+                <label><span>Maximum</span><input type="number" min="0" inputMode="numeric" aria-label="Maximum audience size" aria-invalid={Boolean(audienceError)} value={audienceMax} onChange={event => { setAudience("all"); setAudienceMax(event.target.value); }} placeholder="Any"/></label>
+              </div>
+              {audienceError ? <p className="discovery-filter-error" role="alert">{audienceError}</p> : null}
+            </div>
+          </DiscoveryFilterDisclosure>
           <DiscoveryFilterDisclosure id="location" label="City or country" value={location || "All locations"} icon={<MapPin size={17}/>} open={openFilters.has("location")} onToggle={() => toggleFilter("location")}><label className="discovery-filter-field"><span className="sr-only">City or country</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search locations"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></DiscoveryFilterDisclosure>
           <button type="button" className={`discovery-filter-toggle ${verifiedOnly ? "is-active" : ""}`} aria-pressed={verifiedOnly} onClick={() => setVerifiedOnly(value => !value)}><span className="discovery-filter-section-icon"><BadgeCheck size={17}/></span><span><strong>Verified profiles only</strong><small>{verifiedOnly ? "Enabled" : "Exclude unverified imports"}</small></span><span className="discovery-filter-check" aria-hidden="true">{verifiedOnly ? <Check size={13}/> : null}</span></button>
+          <DiscoveryFilterDisclosure id="priority" label="Result priority" value={priorityLabel(sort)} icon={<SlidersHorizontal size={17}/>} open={openFilters.has("priority")} onToggle={() => toggleFilter("priority")}><label className="discovery-filter-field"><span className="sr-only">Result priority</span><select aria-label="Prioritize discovery results" value={`${sort.field}:${sort.direction}`} onChange={event => { const option = PRIORITY_OPTIONS.find(item => `${item.sort.field}:${item.sort.direction}` === event.target.value); if (option) setSort(option.sort); }}>{PRIORITY_OPTIONS.map(option => <option key={option.label} value={`${option.sort.field}:${option.sort.direction}`}>{option.label}</option>)}</select></label></DiscoveryFilterDisclosure>
         </div>
       </div></WorkspaceSidebarPortal>
 
       <div className="discovery-results">
-        <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void run(); }} placeholder="Search creator name or handle"/><button className="button button-primary" onClick={() => run()}><Sparkles size={15}/> Search</button></section>
+        <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !audienceError) void run(); }} placeholder="Search creator name or handle"/><button className="button button-primary" disabled={Boolean(audienceError)} onClick={() => run()}><Sparkles size={15}/> Search</button></section>
         <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> creators shown · {activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied` : "All profiles"}</span><span>{query.trim() ? "Search results" : isDone ? "Full repository loaded" : "More creators available"}</span></div>
         {visibleResults.length ? <section className="discovery-selection" aria-label="Creator selection actions"><button type="button" className="button button-secondary" onClick={() => setSelectedIds(selectedIds.size === visibleResults.length ? new Set() : new Set(visibleResults.map(item => item.id)))}>{selectedIds.size === visibleResults.length ? "Clear page" : "Select page"}</button><span>{selectedIds.size} selected</span><select aria-label="Campaign for selected creators" value={campaignTarget} onChange={event => setCampaignTarget(event.target.value)}><option value="">{campaigns.length ? "Choose campaign" : "No campaigns yet"}</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select><button type="button" className="button button-secondary" disabled={!selectedIds.size || bulkWorking} onClick={() => void saveSelected()}>Save to CRM</button><button type="button" className="button button-primary" disabled={!selectedIds.size || bulkWorking} onClick={() => void addToCampaign([...selectedIds])}>Add to campaign</button>{!campaigns.length ? <button type="button" className="text-button" onClick={() => navigate({ name: "campaigns" })}>Create campaign</button> : null}{bulkMessage ? <p role="status">{bulkMessage}</p> : null}</section> : null}
         <section className="ops-table-card discovery-table-card"><div className="discovery-table-scroll"><table className="discovery-data-table" aria-label="Creator discovery results"><colgroup><col className="creator-column"/><col className="category-column"/><col className="platform-column"/><col className="audience-column"/><col className="location-column"/><col className="contact-column"/><col className="actions-column"/></colgroup><thead><tr>
