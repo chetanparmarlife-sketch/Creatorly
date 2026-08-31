@@ -14,6 +14,7 @@ import { SettingsView } from "./components/SettingsView";
 import { VerificationView } from "./components/VerificationView";
 import { CampaignDetailWorkspace, CampaignsWorkspace, CreatorsWorkspace, DiscoveryWorkspace } from "./features/workspace/WorkspaceViews";
 import { useWorkspaceData } from "./features/workspace/WorkspaceData";
+import { ClaimProfileView } from "./features/claim/ClaimProfileView";
 import type { WorkspaceSummary } from "./types";
 
 const AdminView = lazy(() => import("./components/AdminView").then((module) => ({ default: module.AdminView })));
@@ -50,8 +51,10 @@ export function App() {
   }
 
   if (route.name === "landing") return <LandingPage navigate={navigate}/>;
+  if (route.name === "claim") return <ClaimProfileView authenticated={data.authenticated} navigate={navigate}/>;
 
   if (!data.authenticated) {
+    if (route.name === "claimProfile") return <AuthScreen initialMode="signup" navigate={navigate} signupReason="creator-claim"/>;
     if (route.name === "login") return <AuthScreen initialMode="signin" navigate={navigate}/>;
     if (route.name === "signup") return <AuthScreen initialMode="signup" navigate={navigate} purchase={route.plan && route.cycle ? { tier: route.plan, billingCycle: route.cycle } : undefined} signupReason={route.reason}/>;
     if (route.name === "verification") return <VerificationView navigate={navigate} purchase={route.plan && route.cycle ? { tier: route.plan, billingCycle: route.cycle } : undefined}/>;
@@ -60,8 +63,9 @@ export function App() {
   }
 
   if (viewer === null) return <main className="workspace detail-skeleton"><span/><span/><span/></main>;
+  if (route.name === "claimProfile") return <ClaimProfileView authenticated navigate={navigate}/>;
   if (route.name === "payment") return <PaymentResultView status={route.status} onboardingCompleted={viewer.onboardingCompleted} navigate={navigate}/>;
-  if (!viewer.onboardingCompleted && route.name !== "verification" && route.name !== "onboarding") {
+  if (!viewer.onboardingCompleted && viewer.persona !== "creator" && route.name !== "verification" && route.name !== "onboarding") {
     return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
   }
   if (route.name === "verification") return <VerificationView navigate={navigate} purchase={route.plan && route.cycle ? { tier: route.plan, billingCycle: route.cycle } : undefined}/>;

@@ -28,6 +28,7 @@ export const viewer = query({
       name: user.name ?? "Creatorly user",
       email: user.email ?? "",
       companyName: user.companyName ?? "Agency",
+      persona: user.persona ?? "buyer",
       phone: user.phone,
       role: user.role ?? "user",
       currentPlanTier: user.currentPlanTier ?? "free",

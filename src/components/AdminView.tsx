@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AtSign, BadgeCheck, Camera, CheckCircle2, Inbox, PlaySquare, ShieldCheck } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import { formatDate } from "../lib/format";
-import type { AdminContactRequest, AdminUser, FulfillRequestInput } from "../types";
+import type { AdminContactRequest, AdminCreatorClaim, AdminUser, FulfillRequestInput } from "../types";
 
 export function AdminView() {
   const data = useAppData();
@@ -13,6 +13,8 @@ export function AdminView() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [claims, setClaims] = useState<AdminCreatorClaim[]>([]);
+  const [claimNote, setClaimNote] = useState("");
 
   const selected = useMemo(
     () => requests.find((request) => request.id === selectedId) ?? requests[0] ?? null,
@@ -27,12 +29,13 @@ export function AdminView() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([data.listAdminRequests(), data.listAdminUsers()])
-      .then(([nextRequests, nextUsers]) => {
+    Promise.all([data.listAdminRequests(), data.listAdminUsers(), data.listCreatorClaimsForAdmin()])
+      .then(([nextRequests, nextUsers, nextClaims]) => {
         if (!active) return;
         setRequests(nextRequests);
         setSelectedId(nextRequests[0]?.id ?? null);
         setUsers(nextUsers);
+        setClaims(nextClaims);
       })
       .catch((nextError) => {
         if (active) setError(nextError instanceof Error ? nextError.message : "Could not load requests.");
@@ -77,6 +80,17 @@ export function AdminView() {
     }
   }
 
+  async function reviewClaim(claimId: string, decision: "approve" | "reject" | "request_changes") {
+    setBusy(true); setError(""); setSuccess("");
+    try {
+      await data.reviewCreatorClaim(claimId, decision, claimNote);
+      setClaims(await data.listCreatorClaimsForAdmin());
+      setClaimNote("");
+      setSuccess(decision === "approve" ? "Creator profile verified and published." : decision === "reject" ? "Ownership claim rejected." : "Claim returned to the creator with requested changes.");
+    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "Could not review this claim."); }
+    finally { setBusy(false); }
+  }
+
   return (
     <main className="workspace admin-workspace">
       <section className="admin-intro">
@@ -106,6 +120,15 @@ export function AdminView() {
           </section>
         </div>
       ) : null}
+      <section className="admin-users admin-claims">
+        <div><p className="eyebrow">Creator ownership</p><h2>Profile claim reviews</h2><p>{claims.length} awaiting ownership review</p></div>
+        {claims.length === 0 ? <p className="admin-claim-empty">No creator claims are awaiting review.</p> : <div className="admin-claim-list">{claims.map(claim => <article key={claim._id}>
+          <header><span><strong>{claim.displayName || claim.instagramHandle}</strong><small>{claim.instagramHandle} · {claim.claimant.name} · {claim.claimant.email}</small></span><b>{claim.verificationMethod?.replaceAll("_", " ") ?? "No method"}</b></header>
+          <dl><div><dt>Categories</dt><dd>{claim.categories.join(", ")}</dd></div><div><dt>Location</dt><dd>{[claim.city, claim.country].filter(Boolean).join(", ")}</dd></div><div><dt>Contact</dt><dd>{claim.contactPreference.replaceAll("_", " ")}</dd></div><div><dt>Proof code</dt><dd>{claim.verificationCode ?? "—"}</dd></div></dl>
+          <textarea aria-label={`Review note for ${claim.instagramHandle}`} rows={2} placeholder="Reviewer note or requested change" value={claimNote} onChange={event => setClaimNote(event.target.value)}/>
+          <footer><button className="button button-secondary" disabled={busy} onClick={() => void reviewClaim(claim._id, "reject")}>Reject</button><button className="button button-secondary" disabled={busy} onClick={() => void reviewClaim(claim._id, "request_changes")}>Request changes</button><button className="button button-primary" disabled={busy} onClick={() => void reviewClaim(claim._id, "approve")}><ShieldCheck size={16}/>Approve & publish</button></footer>
+        </article>)}</div>}
+      </section>
       <section className="admin-users"><div><p className="eyebrow">User management</p><h2>Workspace accounts</h2></div><div className="admin-user-list">{users.map(user => <article key={user.id}><span><strong>{user.name}</strong><small>{user.email} · {user.companyName}</small></span><b>{user.currentPlanTier}</b><em>{user.creditBalance} credits</em><i>{user.subscriptionStatus}</i></article>)}</div></section>
     </main>
   );

@@ -9,16 +9,18 @@ function creatorlyProfile(params: Record<string, unknown>) {
   const email = String(params.email ?? "").trim().toLowerCase();
   const name = String(params.name ?? "").trim();
   const companyName = String(params.companyName ?? "").trim();
+  const persona = params.persona === "creator" ? "creator" as const : "buyer" as const;
 
   if (!email) throw new Error("Enter a work email address.");
-  if (params.flow === "signUp" && (!name || !companyName)) {
-    throw new Error("Enter your name and agency name.");
+  if (params.flow === "signUp" && (!name || (persona === "buyer" && !companyName))) {
+    throw new Error(persona === "creator" ? "Enter your name." : "Enter your name and agency name.");
   }
 
   return {
     email,
     name: name || undefined,
     companyName: companyName || undefined,
+    persona,
     role: "user" as const,
     currentPlanTier: "free" as const,
     subscriptionStatus: "active" as const,
@@ -30,8 +32,8 @@ function creatorlyProfile(params: Record<string, unknown>) {
       expirationWarning: true,
       weeklySummary: false,
     },
-    onboardingCompleted: false,
     isEmailVerified: false,
+    onboardingCompleted: persona === "creator",
     onboardingStep: 1 as const,
     onboardingPlanTier: "free" as const,
     createdAt: Date.now(),

@@ -88,6 +88,7 @@ export type Viewer = {
   name: string;
   email: string;
   companyName: string;
+  persona?: "buyer" | "creator" | "both";
   phone?: string;
   role: "user" | "admin";
   currentPlanTier: PlanTier;
@@ -234,9 +235,113 @@ export type UnlockHistoryItem = {
 
 export type SignUpInput = {
   name: string;
-  companyName: string;
+  companyName?: string;
+  persona?: "buyer" | "creator";
   email: string;
   password: string;
+};
+
+export type CreatorClaimStatus = "draft" | "enrichment_pending" | "ready_for_verification" | "verification_pending" | "verified" | "review_required" | "published" | "rejected" | "suspended";
+export type CreatorContactPreference = "direct" | "manager_only" | "not_contactable";
+export type CreatorVerificationMethod = "instagram_bio" | "business_email" | "website_backlink";
+
+export type CreatorClaimRate = {
+  deliverableType: string;
+  currency: string;
+  minimum?: number;
+  maximum?: number;
+  negotiable: boolean;
+};
+
+export type CreatorClaimAsset = {
+  _id: string;
+  kind: "media_kit" | "audience_screenshot";
+  fileName: string;
+  contentType: string;
+  byteSize: number;
+  label?: string;
+  url: string | null;
+  createdAt: number;
+};
+
+export type CreatorClaim = {
+  _id: string;
+  creatorId?: string;
+  instagramHandle: string;
+  instagramUrl: string;
+  displayName: string;
+  biography?: string;
+  categories: string[];
+  languages: string[];
+  country?: string;
+  city?: string;
+  postalCode?: string;
+  websiteUrl?: string;
+  businessEmail?: string;
+  whatsapp?: string;
+  managementType?: "self_managed" | "talent_managed";
+  managerName?: string;
+  managerEmail?: string;
+  managerWhatsapp?: string;
+  contactPreference: CreatorContactPreference;
+  rates: CreatorClaimRate[];
+  status: CreatorClaimStatus;
+  enrichmentStatus?: "queued" | "running" | "complete" | "failed";
+  enrichmentProvider?: "apify";
+  enrichmentActorId?: string;
+  enrichmentRunAt?: number;
+  enrichedFollowerCount?: number;
+  enrichedFollowingCount?: number;
+  enrichedPostCount?: number;
+  enrichedEngagementRatePercent?: number;
+  enrichedProfileImageUrl?: string;
+  enrichedIsVerified?: boolean;
+  enrichedIsPrivate?: boolean;
+  enrichedIsBusinessAccount?: boolean;
+  verificationMethod?: CreatorVerificationMethod;
+  verificationCode?: string;
+  verificationExpiresAt?: number;
+  reviewNote?: string;
+  termsAcceptedAt?: number;
+  updatedAt: number;
+  assets: CreatorClaimAsset[];
+};
+
+export type CreatorClaimLookup = {
+  normalizedHandle: string;
+  instagramUrl: string;
+  match: null | {
+    creatorId: string;
+    displayName: string;
+    profileImageUrl?: string;
+    followerCount: number;
+    isVerified: boolean;
+    location?: string;
+  };
+};
+
+export type AdminCreatorClaim = Omit<CreatorClaim, "assets"> & {
+  claimant: { name: string; email: string };
+};
+
+export type CreatorClaimProfileInput = {
+  claimId: string;
+  displayName: string;
+  biography?: string;
+  categories: string[];
+  languages: string[];
+  country?: string;
+  city?: string;
+  postalCode?: string;
+  websiteUrl?: string;
+  businessEmail?: string;
+  whatsapp?: string;
+  managementType?: "self_managed" | "talent_managed";
+  managerName?: string;
+  managerEmail?: string;
+  managerWhatsapp?: string;
+  contactPreference: CreatorContactPreference;
+  rates: CreatorClaimRate[];
 };
 
 export type ContactRequestInput = {

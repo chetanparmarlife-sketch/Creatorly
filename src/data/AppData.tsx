@@ -13,8 +13,10 @@ import {
   type FunctionReference,
 } from "convex/server";
 import { demoData } from "../lib/demoData";
+import { demoClaimData } from "../features/claim/demoClaimData";
 import type {
   AdminContactRequest,
+  AdminCreatorClaim,
   AdminUser,
   AppNotification,
   CreditTransaction,
@@ -22,6 +24,10 @@ import type {
   ContactRequestResult,
   CreatorDetailData,
   CreatorLocationFacets,
+  CreatorClaim,
+  CreatorClaimLookup,
+  CreatorClaimProfileInput,
+  CreatorVerificationMethod,
   CreatorSearchFilters,
   EngagementRateBasis,
   CreatorSearchPage,
@@ -70,6 +76,17 @@ type AppData = {
   markNotificationRead(id: string): Promise<void>;
   listAdminUsers(): Promise<AdminUser[]>;
   createExtensionToken(): Promise<{ token: string }>;
+  lookupInstagram(input: string): Promise<CreatorClaimLookup>;
+  getMyCreatorClaim(): Promise<CreatorClaim | null>;
+  startCreatorClaim(input: string): Promise<{ claimId: string }>;
+  saveCreatorClaim(input: CreatorClaimProfileInput): Promise<void>;
+  uploadCreatorClaimAsset(claimId: string, kind: "media_kit" | "audience_screenshot", file: File, label?: string): Promise<void>;
+  removeCreatorClaimAsset(assetId: string): Promise<void>;
+  issueCreatorVerification(claimId: string, method: CreatorVerificationMethod): Promise<{ code: string; expiresAt: number }>;
+  submitCreatorVerification(claimId: string): Promise<void>;
+  submitCreatorClaim(claimId: string, acceptTerms: boolean): Promise<void>;
+  listCreatorClaimsForAdmin(): Promise<AdminCreatorClaim[]>;
+  reviewCreatorClaim(claimId: string, decision: "approve" | "reject" | "request_changes", note?: string): Promise<void>;
 };
 
 type AuthStartResult = { email: string; verificationRequired: boolean };
@@ -147,6 +164,17 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     markNotificationRead: demoData.markNotificationRead,
     listAdminUsers: demoData.listAdminUsers,
     createExtensionToken: async () => ({ token: `crx_demo_${Date.now()}` }),
+    lookupInstagram: demoClaimData.lookupInstagram.bind(demoClaimData),
+    getMyCreatorClaim: demoClaimData.getMine,
+    startCreatorClaim: demoClaimData.start.bind(demoClaimData),
+    saveCreatorClaim: demoClaimData.saveProfile,
+    uploadCreatorClaimAsset: demoClaimData.uploadAsset,
+    removeCreatorClaimAsset: demoClaimData.removeAsset,
+    issueCreatorVerification: demoClaimData.issueVerification,
+    submitCreatorVerification: demoClaimData.submitVerification,
+    submitCreatorClaim: demoClaimData.submitForReview,
+    listCreatorClaimsForAdmin: async () => [],
+    reviewCreatorClaim: async () => undefined,
   }), [authenticated, authLoading]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
@@ -207,6 +235,18 @@ const notificationsRef = makeFunctionReference<"query">("notifications:listMine"
 const markReadRef = makeFunctionReference<"mutation">("notifications:markRead") as FunctionReference<"mutation", "public", { notificationId: string }, unknown>;
 const adminUsersRef = makeFunctionReference<"query">("admin:listUsers") as FunctionReference<"query", "public", EmptyArgs, AdminUser[]>;
 const extensionTokenRef = makeFunctionReference<"mutation">("users:createExtensionToken") as FunctionReference<"mutation", "public", EmptyArgs, { token: string }>;
+const claimLookupRef = makeFunctionReference<"query">("creatorClaims:lookupInstagram") as FunctionReference<"query", "public", { input: string }, CreatorClaimLookup>;
+const myClaimRef = makeFunctionReference<"query">("creatorClaims:getMine") as FunctionReference<"query", "public", EmptyArgs, CreatorClaim | null>;
+const startClaimRef = makeFunctionReference<"mutation">("creatorClaims:start") as FunctionReference<"mutation", "public", { input: string }, { claimId: string }>;
+const saveClaimRef = makeFunctionReference<"mutation">("creatorClaims:saveProfile") as FunctionReference<"mutation", "public", CreatorClaimProfileInput, unknown>;
+const claimUploadUrlRef = makeFunctionReference<"mutation">("creatorClaims:generateUploadUrl") as FunctionReference<"mutation", "public", { claimId: string }, string>;
+const saveClaimAssetRef = makeFunctionReference<"mutation">("creatorClaims:saveAsset") as FunctionReference<"mutation", "public", { claimId: string; storageId: string; kind: "media_kit" | "audience_screenshot"; fileName: string; contentType: string; byteSize: number; label?: string }, unknown>;
+const removeClaimAssetRef = makeFunctionReference<"mutation">("creatorClaims:removeAsset") as FunctionReference<"mutation", "public", { assetId: string }, unknown>;
+const issueClaimVerificationRef = makeFunctionReference<"mutation">("creatorClaims:issueVerification") as FunctionReference<"mutation", "public", { claimId: string; method: CreatorVerificationMethod }, { code: string; expiresAt: number }>;
+const submitClaimVerificationRef = makeFunctionReference<"mutation">("creatorClaims:submitVerification") as FunctionReference<"mutation", "public", { claimId: string }, unknown>;
+const submitClaimRef = makeFunctionReference<"mutation">("creatorClaims:submitForReview") as FunctionReference<"mutation", "public", { claimId: string; acceptTerms: boolean }, unknown>;
+const adminClaimsRef = makeFunctionReference<"query">("creatorClaims:listForAdmin") as FunctionReference<"query", "public", EmptyArgs, AdminCreatorClaim[]>;
+const reviewClaimRef = makeFunctionReference<"mutation">("creatorClaims:review") as FunctionReference<"mutation", "public", { claimId: string; decision: "approve" | "reject" | "request_changes"; note?: string }, unknown>;
 
 export function ConvexDataProvider({
   authenticated,
@@ -225,7 +265,8 @@ export function ConvexDataProvider({
     const form = new FormData();
     form.set("flow", "signUp");
     form.set("name", input.name);
-    form.set("companyName", input.companyName);
+    form.set("companyName", input.companyName ?? "");
+    form.set("persona", input.persona ?? "buyer");
     form.set("email", email);
     form.set("password", input.password);
     const result = await authSignIn("password", form);
@@ -317,6 +358,23 @@ export function ConvexDataProvider({
     markNotificationRead: async (notificationId) => { await convex.mutation(markReadRef, { notificationId }); },
     listAdminUsers: () => convex.query(adminUsersRef, {}),
     createExtensionToken: () => convex.mutation(extensionTokenRef, {}),
+    lookupInstagram: (input) => convex.query(claimLookupRef, { input }),
+    getMyCreatorClaim: () => convex.query(myClaimRef, {}),
+    startCreatorClaim: (input) => convex.mutation(startClaimRef, { input }),
+    saveCreatorClaim: async (input) => { await convex.mutation(saveClaimRef, input); },
+    uploadCreatorClaimAsset: async (claimId, kind, file, label) => {
+      const uploadUrl = await convex.mutation(claimUploadUrlRef, { claimId });
+      const upload = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file });
+      if (!upload.ok) throw new Error("The file could not be uploaded. Try again.");
+      const { storageId } = await upload.json() as { storageId: string };
+      await convex.mutation(saveClaimAssetRef, { claimId, storageId, kind, fileName: file.name, contentType: file.type, byteSize: file.size, label });
+    },
+    removeCreatorClaimAsset: async (assetId) => { await convex.mutation(removeClaimAssetRef, { assetId }); },
+    issueCreatorVerification: (claimId, method) => convex.mutation(issueClaimVerificationRef, { claimId, method }),
+    submitCreatorVerification: async (claimId) => { await convex.mutation(submitClaimVerificationRef, { claimId }); },
+    submitCreatorClaim: async (claimId, acceptTerms) => { await convex.mutation(submitClaimRef, { claimId, acceptTerms }); },
+    listCreatorClaimsForAdmin: () => convex.query(adminClaimsRef, {}),
+    reviewCreatorClaim: async (claimId, decision, note) => { await convex.mutation(reviewClaimRef, { claimId, decision, note }); },
   }), [authenticated, authLoading, authSignOut, convex, resendEmailVerification, signIn, signUp, verifyEmail]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

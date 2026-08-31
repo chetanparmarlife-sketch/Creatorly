@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import type { BillingCycle, PaidPlanTier } from "../lib/billingCatalog";
 
 type PurchaseRouteContext = { plan?: PaidPlanTier; cycle?: BillingCycle };
-type SignupRouteContext = PurchaseRouteContext & { reason?: "workspace" };
+type SignupRouteContext = PurchaseRouteContext & { reason?: "workspace" | "creator-claim" };
 
 export type AppRoute =
   | { name: "landing" }
+  | { name: "claim" }
+  | { name: "claimProfile" }
   | { name: "login" }
   | ({ name: "signup" } & SignupRouteContext)
   | { name: "onboarding" }
@@ -45,8 +47,13 @@ function readRoute(): AppRoute {
   const path = window.location.pathname;
   const searchParams = new URLSearchParams(window.location.search);
   if (path === "/") return { name: "landing" };
+  if (path === "/claim") return { name: "claim" };
+  if (path === "/claim/profile") return { name: "claimProfile" };
   if (path === "/login") return { name: "login" };
-  if (path === "/signup") return { name: "signup", ...purchaseContext(searchParams), reason: searchParams.get("reason") === "workspace" ? "workspace" : undefined };
+  if (path === "/signup") {
+    const reason = searchParams.get("reason");
+    return { name: "signup", ...purchaseContext(searchParams), reason: reason === "workspace" || reason === "creator-claim" ? reason : undefined };
+  }
   if (path === "/onboarding") return { name: "onboarding" };
   if (path === "/verify") return { name: "verification", ...purchaseContext(searchParams) };
   if (path === "/pricing") return { name: "pricing" };
@@ -86,6 +93,8 @@ export function useRoute() {
       : next.name === "discover" ? "/app/discover"
       : next.name === "creators" ? "/app/creators"
       : next.name === "campaigns" ? "/app/campaigns"
+      : next.name === "claim" ? "/claim"
+      : next.name === "claimProfile" ? "/claim/profile"
       : next.name === "history"
         ? "/history"
         : next.name === "admin"

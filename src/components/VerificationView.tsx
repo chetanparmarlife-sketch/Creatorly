@@ -40,7 +40,11 @@ export function VerificationView({ navigate, purchase }: { navigate(route: AppRo
       window.sessionStorage.removeItem("creatorly.pendingVerificationEmail");
       setVerified(true);
       if (purchase) await openSelectedCheckout();
-      else navigate({ name: "onboarding" });
+      else {
+        const returnTo = window.sessionStorage.getItem("creatorly.authReturnTo");
+        window.sessionStorage.removeItem("creatorly.authReturnTo");
+        navigate(returnTo === "/claim/profile" ? { name: "claimProfile" } : { name: "onboarding" });
+      }
     } catch (verificationError) {
       setError(verificationError instanceof Error ? verificationError.message : "The code is invalid or expired.");
       setBusy(false);

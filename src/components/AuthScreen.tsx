@@ -5,7 +5,7 @@ import { Logo } from "./Logo";
 import type { AppRoute } from "../hooks/useRoute";
 import type { BillingCycle, PaidPlanTier } from "../lib/billingCatalog";
 
-export function AuthScreen({ initialMode = "signup", navigate, purchase, signupReason }: { initialMode?: "signup" | "signin"; navigate?(route: AppRoute): void; purchase?: { tier: PaidPlanTier; billingCycle: BillingCycle }; signupReason?: "workspace" }) {
+export function AuthScreen({ initialMode = "signup", navigate, purchase, signupReason }: { initialMode?: "signup" | "signin"; navigate?(route: AppRoute): void; purchase?: { tier: PaidPlanTier; billingCycle: BillingCycle }; signupReason?: "workspace" | "creator-claim" }) {
   const data = useAppData();
   const [mode, setMode] = useState<"signup" | "signin">(initialMode);
   const [error, setError] = useState("");
@@ -21,12 +21,16 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
         const result = await data.signUp({
           name: String(form.get("name") ?? ""),
           companyName: String(form.get("companyName") ?? ""),
+          persona: signupReason === "creator-claim" ? "creator" : "buyer",
           email: String(form.get("email") ?? ""),
           password: String(form.get("password") ?? ""),
         });
         if (result.verificationRequired) {
           window.sessionStorage.setItem("creatorly.pendingVerificationEmail", result.email);
+          if (signupReason === "creator-claim") window.sessionStorage.setItem("creatorly.authReturnTo", "/claim/profile");
           navigate?.({ name: "verification", plan: purchase?.tier, cycle: purchase?.billingCycle });
+        } else if (signupReason === "creator-claim") {
+          navigate?.({ name: "claimProfile" });
         }
       } else {
         const result = await data.signIn(
@@ -50,10 +54,12 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
       <section className="auth-story" aria-labelledby="auth-title">
         <button className="brand-button" onClick={() => navigate?.({ name: "landing" })}><Logo /></button>
         <div className="auth-story-copy">
-          <p className="eyebrow">India-first creator workspace</p>
-          <h1 id="auth-title">{mode === "signin" ? <><span>Your creator work</span> is ready.</> : <><span>Build your creator team’s</span> new home.</>}</h1>
+          <p className="eyebrow">{signupReason === "creator-claim" ? "Creator profile ownership" : "India-first creator workspace"}</p>
+          <h1 id="auth-title">{signupReason === "creator-claim" ? <><span>Own the profile</span> brands see.</> : mode === "signin" ? <><span>Your creator work</span> is ready.</> : <><span>Build your creator team’s</span> new home.</>}</h1>
           <p>
-            {mode === "signin"
+            {signupReason === "creator-claim"
+              ? "Add your business details, prove profile ownership, and control how brands contact you."
+              : mode === "signin"
               ? "Return to your creators, contacts, and campaigns in one private workspace."
               : "Find creators across India and worldwide, then manage every relationship and campaign."}
           </p>
@@ -77,14 +83,17 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
         <div className="auth-form-wrap">
           <button className="brand-button auth-mobile-brand" onClick={() => navigate?.({ name: "landing" })}><Logo /></button>
           <p className="eyebrow">{mode === "signup" ? "Start free" : "Sign in to your workspace"}</p>
-          <h2>{mode === "signup" ? "Create your workspace" : "Welcome back"}</h2>
+          <h2>{mode === "signup" ? signupReason === "creator-claim" ? "Create your creator account" : "Create your workspace" : "Welcome back"}</h2>
           <p className="supporting-copy">
-            {mode === "signup"
+            {mode === "signup" && signupReason === "creator-claim"
+              ? "Your Instagram account stays disconnected. We only use the public URL you submit."
+              : mode === "signup"
               ? "Get 25 credits and find your first contact."
               : "Your creator work is waiting for you."}
           </p>
           {mode === "signup" && purchase ? <div className="auth-context-note"><strong>Your plan</strong><span>You’re signing up for {purchase.tier === "pro" ? "Pro" : "Basic"}, billed {purchase.billingCycle === "annual" ? "annually" : "monthly"}.</span></div> : null}
           {mode === "signup" && signupReason === "workspace" ? <div className="auth-context-note" role="status"><strong>Create a workspace to continue</strong><span>Your account keeps creator and campaign work private to your team.</span></div> : null}
+          {mode === "signup" && signupReason === "creator-claim" ? <div className="auth-context-note" role="status"><strong>Continue your profile claim</strong><span>No Instagram password, account connection, or Meta sign-in is required.</span></div> : null}
 
           <form className="auth-form" onSubmit={handleSubmit}>
             {mode === "signup" ? (
@@ -93,10 +102,10 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
                   <span>Full name</span>
                   <input name="name" autoComplete="name" required placeholder="Aisha Shah" />
                 </label>
-                <label>
+                {signupReason !== "creator-claim" ? <label>
                   <span>Agency name</span>
                   <input name="companyName" autoComplete="organization" required placeholder="Northstar Agency" />
-                </label>
+                </label> : null}
               </div>
             ) : null}
             <label>
@@ -109,7 +118,7 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
             </label>
             {error ? <p className="form-error" role="alert">{error}</p> : null}
             <button className="button button-primary button-wide" disabled={busy}>
-              {busy ? "Working…" : mode === "signup" ? "Create free account" : "Sign in"}
+              {busy ? "Working…" : mode === "signup" ? signupReason === "creator-claim" ? "Continue profile claim" : "Create free account" : "Sign in"}
               {busy ? null : <ArrowRight size={18} aria-hidden="true" />}
             </button>
           </form>
