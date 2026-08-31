@@ -44,6 +44,9 @@ describe("profile image migration policy", () => {
     expect(isAllowedProfileImageSource("https://example.fbcdn.net/v/t39.30808-1/profile.jpg", configuredSource)).toBe(false);
     expect(isAllowedProfileImageSource("https://scontent-bom1-1.xx.fbcdn.net.evil.example/profile.jpg", configuredSource)).toBe(false);
     expect(isAllowedProfileImageSource("http://scontent-bom1-1.xx.fbcdn.net/profile.jpg", configuredSource)).toBe(false);
+    expect(isAllowedProfileImageSource("https://scontent-bom2-2.cdninstagram.com/v/t51.2885-19/profile.jpg?x=1", configuredSource)).toBe(true);
+    expect(isAllowedProfileImageSource("https://scontent-bom2-2.cdninstagram.com.evil.example/profile.jpg", configuredSource)).toBe(false);
+    expect(isAllowedProfileImageSource("http://scontent-bom2-2.cdninstagram.com/profile.jpg", configuredSource)).toBe(false);
     expect(isAllowedProfileImageSource("not a url", configuredSource)).toBe(false);
   });
 

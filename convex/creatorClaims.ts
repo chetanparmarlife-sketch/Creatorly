@@ -12,6 +12,7 @@ const markEnrichmentRunningRef = makeFunctionReference<"mutation">("creatorClaim
 const applyEnrichmentRef = makeFunctionReference<"mutation">("creatorClaims:applyEnrichment") as unknown as FunctionReference<"mutation", "internal", { claimId: Id<"creatorClaims">; actorId: string; result?: ClaimEnrichmentResult; error?: string }, void>;
 const getVerificationClaimRef = makeFunctionReference<"query">("creatorClaims:getVerificationClaim") as unknown as FunctionReference<"query", "internal", { claimId: Id<"creatorClaims">; userId: Id<"users"> }, Doc<"creatorClaims">>;
 const recordOwnershipAssertionRef = makeFunctionReference<"mutation">("creatorClaims:recordOwnershipAssertion") as unknown as FunctionReference<"mutation", "internal", { claimId: Id<"creatorClaims">; userId: Id<"users">; verificationMethod: "instagram_bio" | "business_email" | "website_backlink"; verificationCode: string; instagramBioVerified: boolean }, { status: "ownership_claimed_by_user" }>;
+const copyCreatorImageRef = makeFunctionReference<"action">("profileImageMigration:copyCreatorImage") as unknown as FunctionReference<"action", "internal", { creatorId: Id<"creators"> }, { stored: boolean }>;
 
 const activeStatuses = new Set<Doc<"creatorClaims">["status"]>([
   "draft", "enrichment_pending", "ready_for_verification", "ownership_claimed_by_user", "verified", "review_required", "published",
@@ -547,7 +548,7 @@ export const review = mutation({
       followerCount: claim.enrichedFollowerCount ?? creator?.followerCount ?? 0,
       engagementRatePercent: claim.enrichedEngagementRatePercent ?? creator?.engagementRatePercent,
       engagementRateBasis: claim.enrichedEngagementRatePercent === undefined ? creator?.engagementRateBasis : "followers" as const,
-      profileImageUrl: claim.enrichedProfileImageUrl ?? creator?.profileImageUrl,
+      profileImageUrl: creator?.profileImageStorageId ? creator.profileImageUrl : claim.enrichedProfileImageUrl ?? creator?.profileImageUrl,
       isVerified: platformVerified,
       instagramMetrics: {
         ...creator?.instagramMetrics,
@@ -592,6 +593,7 @@ export const review = mutation({
     if (claim.contactPreference === "manager_only") await addContact("manager", claim.managerName ?? "Manager", claim.managerEmail, claim.managerWhatsapp);
     await ctx.db.patch(claim._id, { creatorId, status: "published", verifiedAt: now, publishedAt: now, reviewNote: clean(args.note), updatedAt: now });
     await ctx.db.insert("creatorClaimAuditEvents", { claimId: claim._id, actorUserId: userId, eventType: "claim_published", detail: clean(args.note), createdAt: now });
+    await ctx.scheduler.runAfter(0, copyCreatorImageRef, { creatorId });
     return { status: "published" as const, creatorId };
   },
 });
@@ -613,7 +615,7 @@ export const republishFromEnrichment = internalMutation({
       followerCount: claim.enrichedFollowerCount ?? creator.followerCount,
       engagementRatePercent: claim.enrichedEngagementRatePercent ?? creator.engagementRatePercent,
       engagementRateBasis: claim.enrichedEngagementRatePercent === undefined ? creator.engagementRateBasis : "followers",
-      profileImageUrl: claim.enrichedProfileImageUrl ?? creator.profileImageUrl,
+      profileImageUrl: creator.profileImageStorageId ? creator.profileImageUrl : claim.enrichedProfileImageUrl ?? creator.profileImageUrl,
       isVerified: claim.enrichedIsVerified ?? false,
       metricProvenance: "apify",
       instagramMetrics: {
@@ -646,6 +648,7 @@ export const republishFromEnrichment = internalMutation({
       detail: args.verifyContacts ? "active contacts verified" : undefined,
       createdAt: now,
     });
+    await ctx.scheduler.runAfter(0, copyCreatorImageRef, { creatorId: creator._id });
     return { creatorId: creator._id, contactsVerified: args.verifyContacts };
   },
 });

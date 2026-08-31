@@ -29,6 +29,7 @@ describe("creator claim write boundaries", () => {
     expect(review).toContain("businessCategoryName: claim.enrichedBusinessCategoryName");
     expect(review).toContain("!args.contactVerified");
     expect(review).toContain('verificationStatus: "verified"');
+    expect(review).toContain("copyCreatorImageRef");
     expect(creatorClaimsSource.match(/db\.insert\("creators"/g)).toHaveLength(1);
     expect(creatorClaimsSource.match(/db\.patch\(creator\._id, canonical\)/g)).toHaveLength(1);
     expect(seedSource).toContain("export const run = internalMutation");

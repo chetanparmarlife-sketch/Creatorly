@@ -36,6 +36,7 @@ describe("creator profile claim", () => {
     await user.click(await screen.findByRole("button", { name: /start claim/i }));
     expect(await screen.findByRole("heading", { name: /shape your public profile/i })).toBeInTheDocument();
     expect(screen.getByDisplayValue("maya.creator")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/Apify|Meta sign-in|API/i);
     expect(JSON.parse(window.localStorage.getItem("creatorly.demoCreatorClaim") ?? "null")).toEqual(expect.objectContaining({ instagramHandle: "@maya.creator", contactPreference: "direct" }));
   });
 });

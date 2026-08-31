@@ -35,6 +35,33 @@ type CopySuccess = {
   profileImageUrl: string;
 };
 
+export const loadCreatorImage = internalQuery({
+  args: { creatorId: v.id("creators") },
+  handler: async (ctx, args) => {
+    const creator = await ctx.db.get(args.creatorId);
+    if (!creator || creator.profileImageStorageId || !creator.profileImageUrl || !isAllowedProfileImageSource(creator.profileImageUrl)) return null;
+    return { creatorId: creator._id, sourceUrl: creator.profileImageUrl };
+  },
+});
+
+export const commitCreatorImage = internalMutation({
+  args: {
+    creatorId: v.id("creators"),
+    sourceUrl: v.string(),
+    storageId: v.id("_storage"),
+    profileImageUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const creator = await ctx.db.get(args.creatorId);
+    if (!creator || creator.profileImageStorageId || creator.profileImageUrl !== args.sourceUrl || !isAllowedProfileImageSource(args.sourceUrl)) {
+      await ctx.storage.delete(args.storageId);
+      return { stored: false };
+    }
+    await ctx.db.patch(creator._id, { profileImageStorageId: args.storageId, profileImageUrl: args.profileImageUrl });
+    return { stored: true };
+  },
+});
+
 type YouTubeMigrationPage = {
   creators: MigrationCreator[];
   scanned: number;
@@ -167,6 +194,21 @@ async function copyImage(ctx: ActionCtx, creator: MigrationCreator): Promise<Cop
   }
   return { creatorId: creator.creatorId, storageId, profileImageUrl };
 }
+
+export const copyCreatorImage = internalAction({
+  args: { creatorId: v.id("creators") },
+  handler: async (ctx, args): Promise<{ stored: boolean }> => {
+    const creator: MigrationCreator | null = await ctx.runQuery(internal.profileImageMigration.loadCreatorImage, { creatorId: args.creatorId });
+    if (!creator) return { stored: false };
+    const copied = await copyImage(ctx, creator);
+    return ctx.runMutation(internal.profileImageMigration.commitCreatorImage, {
+      creatorId: creator.creatorId,
+      sourceUrl: creator.sourceUrl,
+      storageId: copied.storageId,
+      profileImageUrl: copied.profileImageUrl,
+    });
+  },
+});
 
 async function copyFacebookImage(ctx: ActionCtx, creator: MigrationCreator): Promise<CopySuccess> {
   const response = await fetch(creator.sourceUrl, { redirect: "follow" });

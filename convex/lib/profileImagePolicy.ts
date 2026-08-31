@@ -1,5 +1,6 @@
 const YOUTUBE_IMAGE_SOURCE_HOST = "yt3.ggpht.com";
 const FACEBOOK_IMAGE_SOURCE_SUFFIX = ".fbcdn.net";
+const INSTAGRAM_IMAGE_SOURCE_SUFFIX = ".cdninstagram.com";
 const PROFILE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 type ProfileImageSourceEnvironment = {
@@ -26,6 +27,9 @@ export function isAllowedProfileImageSource(
         && url.pathname.length > 1)
       || ((url.hostname.startsWith("scontent-") || url.hostname.startsWith("scontent."))
         && url.hostname.endsWith(FACEBOOK_IMAGE_SOURCE_SUFFIX)
+        && url.pathname.length > 1)
+      || ((url.hostname.startsWith("scontent-") || url.hostname.startsWith("scontent."))
+        && url.hostname.endsWith(INSTAGRAM_IMAGE_SOURCE_SUFFIX)
         && url.pathname.length > 1);
   } catch {
     return false;

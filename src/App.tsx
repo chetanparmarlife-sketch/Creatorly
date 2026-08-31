@@ -32,7 +32,9 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    if (viewer?.onboardingCompleted) workspaceData.ensureWorkspace(viewer).then(item => { if (active) setWorkspace(item); });
+    if (viewer?.onboardingCompleted && (viewer.persona !== "creator" || viewer.role === "admin")) {
+      workspaceData.ensureWorkspace(viewer).then(item => { if (active) setWorkspace(item); });
+    }
     return () => { active = false; };
   }, [viewer, workspaceData]);
 
@@ -69,6 +71,7 @@ export function App() {
     return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
   }
   if (route.name === "verification") return <VerificationView navigate={navigate} purchase={route.plan && route.cycle ? { tier: route.plan, billingCycle: route.cycle } : undefined}/>;
+  if (viewer.persona === "creator" && viewer.role !== "admin") return <ClaimProfileView authenticated navigate={navigate}/>;
   if (route.name === "onboarding") return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
 
   return (

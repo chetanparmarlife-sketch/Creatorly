@@ -58,7 +58,7 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
           <h1 id="auth-title">{signupReason === "creator-claim" ? <><span>Own the profile</span> brands see.</> : mode === "signin" ? <><span>Your creator work</span> is ready.</> : <><span>Build your creator team’s</span> new home.</>}</h1>
           <p>
             {signupReason === "creator-claim"
-              ? "Add your business details, prove profile ownership, and control how brands contact you."
+              ? "Show brands what you create, share your starting rates, and choose how they contact you."
               : mode === "signin"
               ? "Return to your creators, contacts, and campaigns in one private workspace."
               : "Find creators across India and worldwide, then manage every relationship and campaign."}
@@ -86,14 +86,14 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
           <h2>{mode === "signup" ? signupReason === "creator-claim" ? "Create your creator account" : "Create your workspace" : "Welcome back"}</h2>
           <p className="supporting-copy">
             {mode === "signup" && signupReason === "creator-claim"
-              ? "Your Instagram account stays disconnected. We only use the public URL you submit."
+              ? "Create your account to save your profile and return to it whenever you need."
               : mode === "signup"
               ? "Get 25 credits and find your first contact."
               : "Your creator work is waiting for you."}
           </p>
           {mode === "signup" && purchase ? <div className="auth-context-note"><strong>Your plan</strong><span>You’re signing up for {purchase.tier === "pro" ? "Pro" : "Basic"}, billed {purchase.billingCycle === "annual" ? "annually" : "monthly"}.</span></div> : null}
           {mode === "signup" && signupReason === "workspace" ? <div className="auth-context-note" role="status"><strong>Create a workspace to continue</strong><span>Your account keeps creator and campaign work private to your team.</span></div> : null}
-          {mode === "signup" && signupReason === "creator-claim" ? <div className="auth-context-note" role="status"><strong>Continue your profile claim</strong><span>No Instagram password, account connection, or Meta sign-in is required.</span></div> : null}
+          {mode === "signup" && signupReason === "creator-claim" ? <div className="auth-context-note" role="status"><strong>Continue your profile claim</strong><span>Add your public details, rates, and preferred contact.</span></div> : null}
 
           <form className="auth-form" onSubmit={handleSubmit}>
             {mode === "signup" ? (

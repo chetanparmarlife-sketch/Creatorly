@@ -62,6 +62,21 @@ describe("Creatorly M1 user journey", () => {
     expect(window.location.pathname).toBe("/pricing");
   });
 
+  it("keeps creator-only accounts out of the brand workspace", async () => {
+    await demoData.signUp({
+      name: "Maya Kapoor",
+      email: "maya@creator.test",
+      password: "creatorly123",
+      persona: "creator",
+    });
+    window.history.replaceState({}, "", "/app/discover");
+    renderDemo();
+
+    expect(await screen.findByRole("heading", { name: /own the profile brands see/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^creators$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^campaigns$/i })).not.toBeInTheDocument();
+  });
+
   it("positions live products before clearly labelled planned features", () => {
     window.history.replaceState({}, "", "/");
     renderDemo();
@@ -72,6 +87,17 @@ describe("Creatorly M1 user journey", () => {
     expect(pageText.indexOf("Your creator list")).toBeLessThan(pageText.indexOf("Browser extension"));
     expect(pageText.indexOf("Browser extension")).toBeLessThan(pageText.indexOf("Campaign manager"));
     expect(screen.getAllByText("Coming later")).toHaveLength(4);
+  });
+
+  it("gives creators a clear homepage path to claim their profile", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/");
+    renderDemo();
+
+    expect(screen.getByRole("heading", { name: /make your creatorly profile work for you/i })).toBeInTheDocument();
+    expect(screen.getByText(/choose who receives brand enquiries/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /find and claim my profile/i }));
+    expect(window.location.pathname).toBe("/claim");
   });
 
   it("sends every homepage preview action to workspace signup", async () => {
