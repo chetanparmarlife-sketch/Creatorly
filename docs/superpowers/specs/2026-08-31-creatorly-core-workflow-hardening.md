@@ -5,13 +5,14 @@ into one honest production workflow. The work proceeds in order: connect the
 extension to production, require real email verification, remove invented
 campaign values, preserve payment outcomes, add direct and bulk campaign
 actions, show data source and freshness, hide unavailable products, shorten
-onboarding, and add an operational home.
+onboarding, with Discovery as the intentional authenticated starting screen.
 
 The existing Lumen visual system remains unchanged: white and soft-grey
 surfaces, black structure, blue selection, Plus Jakarta Sans, 44px controls,
 and written status labels. Production copy must not call simulated behavior
-real. Creatorly currently has India-focused Instagram discovery; unavailable
-platforms and planned products must not look interactive.
+real. Creatorly currently has India-focused Instagram and YouTube discovery;
+empty repository platforms must stay hidden. Future products may appear in
+the sidebar only as non-clickable rows explicitly marked `Planned`.
 
 The core journey is:
 

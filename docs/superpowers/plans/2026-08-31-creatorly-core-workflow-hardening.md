@@ -4,7 +4,7 @@
 
 **Goal:** Connect Creatorly's existing production features into a truthful, fast discovery-to-campaign workflow.
 
-**Architecture:** Keep Convex as the authorization and data boundary. Add small typed frontend contracts for campaign drafts, selection, freshness, home summaries, and auth continuation; reuse existing Lumen components and workspace APIs. Complete and verify each task before starting the next.
+**Architecture:** Keep Convex as the authorization and data boundary. Add small typed frontend contracts for campaign drafts, selection, freshness, and auth continuation; reuse existing Lumen components and workspace APIs. Discovery is the intentional authenticated starting screen. Complete and verify each task before starting the next.
 
 **Tech Stack:** React 19, TypeScript, Vite, Convex, Convex Auth, Resend-compatible email HTTP API, Vitest, Testing Library, Chrome Manifest V3.
 
@@ -16,7 +16,7 @@
 - Do not invent campaign budget, platforms, dates, payment state, or data freshness.
 - Do not deploy an email flow until a production sender and API key are configured.
 - Do not expose one workspace's selections, campaigns, contacts, or summaries to another workspace.
-- Keep unavailable products out of primary navigation.
+- Hide unavailable discovery platforms. Investor-facing future products may appear only as non-clickable rows marked `Planned`.
 - Shared inbox and connected live reporting remain a later provider-backed phase.
 
 ---
@@ -133,7 +133,7 @@
 - [x] Show private CRM origins separately from Creatorly data.
 - [x] Verify missing-date behavior and commit item 6.
 
-### Task 7: Hide unavailable platforms and planned navigation
+### Task 7: Hide unavailable platforms and label future products
 
 **Files:**
 - Modify: `src/components/AppShell.tsx`
@@ -142,11 +142,12 @@
 - Test: `src/App.integration.test.tsx`
 
 **Interfaces:**
-- Produces: an available-platform list containing Instagram only until repository counts prove otherwise.
+- Produces: an available-platform list containing Instagram and YouTube, plus a static non-interactive list of future products.
 
-- [x] Test that discovery exposes Instagram only and primary navigation contains no disabled future modules.
-- [x] Remove TikTok, YouTube, and X discovery choices while preserving those platform types for private CRM data.
-- [x] Remove planned Inbox, Automations, Reports, Agents, and Integrations buttons from the app shell.
+- [x] Test that discovery exposes Instagram and YouTube but not empty TikTok or X repository filters.
+- [x] Preserve TikTok and X platform types for private CRM and campaign data without presenting them as available Discovery repositories.
+- [x] Show AI Agents, Inbox, Automations, Reports, and Integrations after Campaigns as non-clickable sidebar rows with `Planned` on the right.
+- [x] Keep History and Settings in their own section after the planned-product separator.
 - [x] Keep future add-ons described honestly on the marketing page.
 - [x] Verify desktop/mobile navigation and commit item 7.
 
@@ -164,34 +165,12 @@
 - [x] Test completing onboarding in three steps for agency, brand, and talent workspaces.
 - [x] Remove Team and Channels steps while retaining current workspace kind, role defaults, and goals.
 - [x] Change the stored onboarding-step validator and map legacy step values safely.
-- [x] Land on Discover or Campaigns according to the chosen first action; Home is added in Task 9.
+- [x] Land on Discover or Campaigns according to the chosen first action; Discovery remains the default authenticated route.
 - [x] Verify reload persistence and commit item 8.
-
-### Task 9: Build the operational Home dashboard
-
-**Files:**
-- Create: `convex/workspaceHome.ts`
-- Create: `src/features/workspace/HomeWorkspace.tsx`
-- Modify: `src/features/workspace/WorkspaceData.tsx`
-- Modify: `src/components/AppShell.tsx`
-- Modify: `src/App.tsx`
-- Modify: `src/hooks/useRoute.ts`
-- Modify: `src/types.ts`
-- Modify: `src/features/workspace/workspace.css`
-- Test: `src/App.integration.test.tsx`
-
-**Interfaces:**
-- Produces: `getWorkspaceHome(workspaceId)` returning saved-creator, active-campaign, overdue-task, pending-review, recent-activity, and next-action summaries.
-
-- [x] Add server authorization and frontend tests for empty and active workspaces.
-- [x] Build three compact metrics, one active-campaign focal panel, urgent next actions, and recent activity using existing Lumen tokens.
-- [x] Add Home as the first navigation item and make `/app` resolve to Home while `/app/discover` stays Discovery.
-- [x] Link every dashboard item to an existing actionable screen.
-- [ ] Verify desktop/mobile visuals, TypeScript, lint, Vitest, then commit item 9. TypeScript, lint, and 33 focused tests pass; browser visual verification is blocked by the signed-out production-connected session.
 
 ### Later phase: Shared inbox and live reporting
 
-This phase starts only after the user selects approved messaging and social-data providers and supplies production credentials. It requires consent and template rules, inbound webhooks, message ownership, delivery state, social metric snapshots, reporting attribution, and provider-specific tests. Do not represent it as shipped during Tasks 1–9.
+This phase starts only after the user selects approved messaging and social-data providers and supplies production credentials. It requires consent and template rules, inbound webhooks, message ownership, delivery state, social metric snapshots, reporting attribution, and provider-specific tests. Do not represent it as shipped during Tasks 1–8.
 
 ## Final Verification
 
@@ -199,12 +178,12 @@ This phase starts only after the user selects approved messaging and social-data
 - [ ] Run `npx eslint .`.
 - [ ] Run `npx vitest run`.
 - [ ] Run extension Node tests.
-- [ ] Walk the complete verified-signup → discovery → bulk campaign → dashboard workflow at 1440px and 390px.
+- [ ] Walk the complete verified-signup → discovery → bulk campaign workflow at 1440px and 390px.
 - [ ] Deploy Convex functions only when schema/server changes have passed canary checks; do not deploy the website unless separately requested.
 
 ## Self-Review
 
-- Spec coverage: items 1–9 have independent tests and commits; item 10 remains correctly provider-gated.
+- Spec coverage: items 1–8 have independent tests and commits; the later Inbox and Reports phase remains correctly provider-gated.
 - Placeholder scan: every current-phase task names its behavior, files, tests, and completion gate.
-- Type consistency: campaign drafts, bulk adds, creator freshness, and home summaries each have one typed interface.
+- Type consistency: campaign drafts, bulk adds, and creator freshness each have one typed interface.
 - Execution: the user requested sequential inline execution, so no subagents or parallel task work is used.
