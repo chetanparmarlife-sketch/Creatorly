@@ -354,6 +354,35 @@ export const copyFacebookImages = internalAction({
   },
 });
 
+export const clearUnavailableFacebookImages = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const creators = await ctx.db
+      .query("creators")
+      .withIndex("by_platform_followers", q => q.eq("platform", "facebook"))
+      .collect();
+    const unavailable = creators.filter(creator => !creator.profileImageStorageId && Boolean(creator.profileImageUrl));
+    await Promise.all(unavailable.map(creator => ctx.db.patch(creator._id, { profileImageUrl: undefined })));
+    return { scanned: creators.length, cleared: unavailable.length };
+  },
+});
+
+export const auditFacebookImages = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const creators = await ctx.db
+      .query("creators")
+      .withIndex("by_platform_followers", q => q.eq("platform", "facebook"))
+      .collect();
+    return {
+      total: creators.length,
+      stored: creators.filter(creator => Boolean(creator.profileImageStorageId) && Boolean(creator.profileImageUrl)).length,
+      external: creators.filter(creator => !creator.profileImageStorageId && Boolean(creator.profileImageUrl)).length,
+      missing: creators.filter(creator => !creator.profileImageUrl).length,
+    };
+  },
+});
+
 export const runBatch = internalAction({
   args: {},
   handler: async (ctx): Promise<null> => {
