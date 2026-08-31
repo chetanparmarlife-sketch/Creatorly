@@ -1,6 +1,7 @@
 import {
-  ArrowRight, BadgeCheck, Bot, Check, Database, FileBarChart, Globe2,
-  FolderKanban, Inbox, MapPin, Search, Sparkles, Upload, Users, Workflow,
+  ArrowRight, BadgeCheck, Bot, Camera, Check, Database, FileBarChart, Globe2,
+  FolderKanban, Inbox, MapPin, Plus, Search, Sparkles, Upload,
+  Users, Workflow,
 } from "lucide-react";
 import type { AppRoute } from "../hooks/useRoute";
 import { Logo } from "./Logo";
@@ -15,9 +16,15 @@ const products = [
 
 const addons = [
   { icon: Bot, title: "AI Agents", body: "Agents that help build shortlists, research contacts, and prepare campaign work." },
-  { icon: Inbox, title: "Unified Inbox", body: "Creator conversations and replies connected to the campaign record." },
+  { icon: Inbox, title: "Inbox", body: "Creator conversations and replies connected to the campaign record." },
   { icon: Workflow, title: "Automations", body: "Controlled follow-ups, handoffs, reminders, and repetitive campaign actions." },
-  { icon: FileBarChart, title: "Connected reporting", body: "Live performance reporting from connected social and outreach channels." },
+  { icon: FileBarChart, title: "Reports", body: "Live performance reporting from connected social and outreach channels." },
+] as const;
+
+const heroCreators = [
+  { initials: "MS", name: "Meera Shah", handle: "@meerashah", followers: "82.4K", engagement: "4.8%", city: "Mumbai", tone: "blue" },
+  { initials: "AK", name: "Aarav Khanna", handle: "@aaravcreates", followers: "46.1K", engagement: "5.2%", city: "Delhi", tone: "violet" },
+  { initials: "NI", name: "Naina Iyer", handle: "@naina.iyer", followers: "31.8K", engagement: "6.1%", city: "Bengaluru", tone: "coral" },
 ] as const;
 
 function ProductVisual({ type, onContinue }: { type: typeof products[number]["visual"]; onContinue(): void }) {
@@ -27,14 +34,30 @@ function ProductVisual({ type, onContinue }: { type: typeof products[number]["vi
   return <div className="product-ui campaign-ui"><header><span>Campaigns</span><button type="button" onClick={onContinue}>+ Create campaign</button></header><div className="campaign-tabs"><span>All campaigns <b>8</b></span><span className="selected">Northstar Foods <b>3</b></span><span>Aperture Labs <b>2</b></span></div><div className="campaign-card-preview"><small>Northstar Foods</small><strong>Festive creator launch</strong><p>Drive consideration with trusted lifestyle creators.</p><footer><span><Users size={13}/> 12 creators</span><span>INR 500,000</span></footer></div></div>;
 }
 
+function HeroDiscovery({ onContinue }: { onContinue(): void }) {
+  return <div className="hero-discovery" aria-label="Creatorly discovery preview">
+    <header><div><Logo compact/><span>Discovery</span></div><small><i/> Profiles ready to search</small></header>
+    <div className="hero-search"><Search size={16}/><span>Skincare creators in Mumbai</span><kbd>⌘ K</kbd></div>
+    <div className="hero-filter-row"><span><Camera size={12}/> Instagram</span><span>10K–100K</span><span>Mumbai</span><button type="button" onClick={onContinue}>Edit filters</button></div>
+    <div className="hero-results-head"><span>Best matches</span><small>Updated from supplied source data</small></div>
+    <div className="hero-creator-list">{heroCreators.map((creator, index) => <article className={index === 0 ? "is-featured" : ""} key={creator.handle}>
+      <div className={`hero-avatar ${creator.tone}`}>{creator.initials}<span><Camera size={9}/></span></div>
+      <div className="hero-creator-name"><strong>{creator.name}</strong><small>{creator.handle}</small></div>
+      <dl><div><dt>Followers</dt><dd>{creator.followers}</dd></div><div><dt>Engagement</dt><dd>{creator.engagement}</dd></div><div><dt>Location</dt><dd>{creator.city}</dd></div></dl>
+      <button type="button" aria-label={`Add ${creator.name} to your workspace`} onClick={onContinue}>{index === 0 ? <Check size={14}/> : <Plus size={14}/>}</button>
+    </article>)}</div>
+    <footer><div className="hero-shortlist-avatars">{heroCreators.map(creator => <span className={creator.tone} key={creator.initials}>{creator.initials}</span>)}</div><span><strong>Campaign shortlist</strong><small>3 creators ready to contact</small></span><button type="button" onClick={onContinue}>Open shortlist <ArrowRight size={14}/></button></footer>
+  </div>;
+}
+
 export function LandingPage({ navigate }: { navigate(route: AppRoute): void }) {
   const startFree = () => navigate({ name: "signup" });
   const continueFromPreview = () => navigate({ name: "signup", reason: "workspace" });
   return <main className="home-page">
     <header className="home-nav"><Logo/><nav aria-label="Landing navigation"><a href="#platform">Platform</a><a href="#workflow">How it works</a><a href="#addons">Add-ons</a><button onClick={() => navigate({ name: "pricing" })}>Pricing</button></nav><div className="home-nav-actions"><button className="text-button" onClick={() => navigate({ name: "login" })}>Log in</button><button className="button button-primary" onClick={startFree}>Start free</button></div></header>
-    <section className="home-hero" aria-labelledby="home-title"><div className="home-hero-copy"><p className="home-kicker"><Sparkles size={14}/> Built for Indian brands and agencies</p><h1 id="home-title"><span>Start in India.</span> Reach creators everywhere.</h1><p>Find the right creators, keep every relationship organised, and run campaigns from first shortlist to final report.</p><div className="home-market-note"><MapPin size={15}/><span><strong>India-first discovery</strong><small>Global creator reach when your brief needs it</small></span></div><div className="home-hero-actions"><button className="button button-primary" onClick={startFree}>Start free <ArrowRight size={17}/></button><a href="#workflow">See how it works</a></div><div className="home-trust"><span><Check size={14}/> 25 credits included</span><span><Check size={14}/> No card needed</span><span><Check size={14}/> Private workspace</span></div></div><div className="home-operating-rail" aria-label="Creatorly product workflow"><header><span>Your campaign path</span><small><i/> Ready to start</small></header><div className="operating-path" aria-hidden="true"/>{products.map(({ number, icon: Icon, name }, index) => <div className={`operating-step ${index === 0 ? "is-current" : ""}`} key={name}><code>{number}</code><span><Icon size={17}/></span><strong>{name}</strong><small>{index === 0 ? "Search" : index === 1 ? "Save" : index === 2 ? "Reach" : "Launch"}</small>{index < products.length - 1 ? <ArrowRight size={15}/> : <BadgeCheck size={16}/>}</div>)}<footer><span><b>12</b> shortlisted</span><span><b>8</b> contacted</span><span><b>4</b> in review</span><span><b>3</b> live</span></footer></div></section>
-    <section className="home-audience" aria-label="Built for Indian creator teams"><p>Built for India. Ready for global creator work.</p><div><span>Indian agencies</span><span>Indian brands</span><span>Global creator reach</span><span>Talent teams</span></div></section>
-    <section className="home-products" id="platform"><header className="home-section-head"><p className="eyebrow">What you can do</p><h2>Everything your creator team needs.</h2><p>Find creators, save relationships, and keep every campaign moving in one place.</p></header>{products.map(({ number, icon: Icon, name, title, body, points, visual }, index) => <article className={`home-product-row ${index % 2 ? "reverse" : ""}`} id={index === 0 ? "workflow" : undefined} key={name}><div className="home-product-copy"><span className="product-number">{number}</span><div className="product-name"><Icon size={18}/>{name}</div><h3>{title}</h3><p>{body}</p><ul>{points.map(point => <li key={point}><Check size={14}/>{point}</li>)}</ul></div><div className="home-product-stage"><ProductVisual type={visual} onContinue={continueFromPreview}/></div></article>)}</section>
+    <section className="home-hero" aria-labelledby="home-title"><div className="home-hero-copy"><p className="home-kicker"><Sparkles size={14}/> Built for Indian brands and agencies</p><h1 id="home-title">Find creators in India. <span>Run campaigns everywhere.</span></h1><p>Search creator profiles, build a private contact list, and move every campaign from shortlist to report in one workspace.</p><div className="home-market-note"><MapPin size={15}/><span><strong>India-first discovery</strong><small>Global creator reach when your brief needs it</small></span></div><div className="home-hero-actions"><button className="button button-primary" onClick={startFree}>Start free <ArrowRight size={17}/></button><a href="#workflow">See how it works</a></div><div className="home-trust"><span><Check size={14}/> 25 credits included</span><span><Check size={14}/> No card needed</span><span><Check size={14}/> Private workspace</span></div></div><HeroDiscovery onContinue={continueFromPreview}/></section>
+    <section className="home-audience" aria-label="Creatorly platform coverage"><p>Built for India. Ready for global creator work.</p><div><span>Instagram profiles</span><span>YouTube profiles</span><span>Facebook profiles</span><span>Creators from 1K followers</span></div></section>
+    <section className="home-products" id="platform"><header className="home-section-head"><p className="eyebrow">One connected workflow</p><h2>From creator search to live campaign.</h2><p>Keep the shortlist, contacts, approvals, and results together—without rebuilding the same spreadsheet every time.</p></header>{products.map(({ number, icon: Icon, name, title, body, points, visual }, index) => <article className={`home-product-row ${index % 2 ? "reverse" : ""}`} id={index === 0 ? "workflow" : undefined} key={name}><div className="home-product-copy"><span className="product-number">Step {number}</span><div className="product-name"><Icon size={18}/>{name}</div><h3>{title}</h3><p>{body}</p><ul>{points.map(point => <li key={point}><Check size={14}/>{point}</li>)}</ul></div><div className="home-product-stage"><ProductVisual type={visual} onContinue={continueFromPreview}/></div></article>)}</section>
     <section className="home-addons" id="addons"><header><div><p className="eyebrow">Coming later</p><h2>More tools are on the way.</h2></div><p>These features are planned and are not live yet.</p></header><div>{addons.map(({ icon: Icon, title, body }) => <article key={title}><span><Icon size={19}/></span><div><small>Planned</small><h3>{title}</h3><p>{body}</p></div></article>)}</div></section>
     <section className="home-final"><span><FolderKanban size={18}/> Start your creator workspace</span><h2>Run your next campaign in one place.</h2><p>Start free with the tools available today.</p><button className="button" onClick={startFree}>Start free <ArrowRight size={18}/></button></section>
     <footer className="home-footer"><Logo/><span>© 2026 Creatorly · Built for Indian creator teams</span><nav aria-label="Footer navigation"><a href="#platform">Platform</a><a href="#addons">Planned features</a><button onClick={() => navigate({ name: "pricing" })}>Pricing</button></nav></footer>

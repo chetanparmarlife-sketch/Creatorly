@@ -66,7 +66,7 @@ describe("Creatorly M1 user journey", () => {
     window.history.replaceState({}, "", "/");
     renderDemo();
 
-    expect(screen.getByRole("heading", { name: /start in india. reach creators everywhere/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /find creators in india. run campaigns everywhere/i })).toBeInTheDocument();
     const pageText = document.body.textContent ?? "";
     expect(pageText.indexOf("Creatorly Discovery")).toBeLessThan(pageText.indexOf("Private creator CRM"));
     expect(pageText.indexOf("Private creator CRM")).toBeLessThan(pageText.indexOf("Chrome extension"));
