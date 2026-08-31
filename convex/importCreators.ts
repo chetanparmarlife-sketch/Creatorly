@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { isRepositoryEligible } from "./lib/repositoryPolicy";
 
@@ -11,7 +12,7 @@ function sameContact(existing: { email?: string; phone?: string; whatsapp?: stri
 }
 
 export const ingestBatch = internalMutation({
-  args: { limit: v.optional(v.number()) },
+  args: { limit: v.optional(v.number()), continueInBackground: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 100), 200));
     const rows = await ctx.db.query("creatorImportStaging").withIndex("by_processed", q => q.eq("processed", undefined)).take(limit);
@@ -74,6 +75,12 @@ export const ingestBatch = internalMutation({
         contactsInserted += 1;
       }
       await ctx.db.patch(row._id, { processed: true });
+    }
+    if (args.continueInBackground && rows.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.importCreators.ingestBatch, {
+        limit,
+        continueInBackground: true,
+      });
     }
     return { processed: rows.length, creatorsInserted, creatorsUpdated, contactsInserted, skippedBelowMinimum };
   },
