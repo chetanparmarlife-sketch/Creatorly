@@ -28,6 +28,7 @@ import type * as lib_authEmail from "../lib/authEmail.js";
 import type * as lib_creatorImportMapping from "../lib/creatorImportMapping.js";
 import type * as lib_creditPolicy from "../lib/creditPolicy.js";
 import type * as lib_dodoCatalog from "../lib/dodoCatalog.js";
+import type * as lib_engagement from "../lib/engagement.js";
 import type * as lib_extensionCrm from "../lib/extensionCrm.js";
 import type * as lib_matching from "../lib/matching.js";
 import type * as lib_profileImagePolicy from "../lib/profileImagePolicy.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   "lib/creatorImportMapping": typeof lib_creatorImportMapping;
   "lib/creditPolicy": typeof lib_creditPolicy;
   "lib/dodoCatalog": typeof lib_dodoCatalog;
+  "lib/engagement": typeof lib_engagement;
   "lib/extensionCrm": typeof lib_extensionCrm;
   "lib/matching": typeof lib_matching;
   "lib/profileImagePolicy": typeof lib_profileImagePolicy;

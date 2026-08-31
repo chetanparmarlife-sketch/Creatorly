@@ -63,6 +63,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     normalizedHandle: "pendingimport",
     displayName: "Pending Import",
     followerCount: 10000,
+    engagementRatePercent: 1.2,
     location: "India",
     country: "India",
     categories: ["Lifestyle"],
@@ -79,6 +80,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     normalizedHandle: "mayacreates",
     displayName: "Maya Kapoor",
     followerCount: 842000,
+    engagementRatePercent: 4.8,
     location: "Mumbai, India",
     city: "Mumbai",
     country: "India",
@@ -107,6 +109,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     normalizedHandle: "techrishi",
     displayName: "Rishi Verma",
     followerCount: 1240000,
+    engagementRatePercent: 3.6,
     location: "Bengaluru, India",
     city: "Bengaluru",
     country: "India",
@@ -135,6 +138,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     normalizedHandle: "fitwithaanchal",
     displayName: "Aanchal Mehta",
     followerCount: 376000,
+    engagementRatePercent: 6.2,
     location: "Delhi, India",
     city: "Delhi",
     country: "India",
@@ -153,6 +157,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     normalizedHandle: "cookwithkabir",
     displayName: "Kabir Arora",
     followerCount: 695000,
+    engagementRatePercent: 2.9,
     location: "Pune, India",
     city: "Pune",
     country: "India",
@@ -179,6 +184,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     normalizedHandle: "travelnoor",
     displayName: "Noor Khan",
     followerCount: 518000,
+    engagementRatePercent: 5.4,
     location: "Hyderabad, India",
     city: "Hyderabad",
     country: "India",
@@ -198,6 +204,7 @@ const DEMO_CREATORS: DemoCreator[] = [
     normalizedHandle: "moneymadeclear",
     displayName: "Money Made Clear",
     followerCount: 289000,
+    engagementRatePercent: 1.8,
     location: "Chennai, India",
     city: "Chennai",
     country: "India",
@@ -383,6 +390,8 @@ export const demoData = {
       if (filters.country && creator.country?.toLowerCase() !== filters.country.toLowerCase()) return [];
       if (filters.city && creator.city?.toLowerCase() !== filters.city.toLowerCase()) return [];
       if (filters.postalCode && creator.postalCode?.toLowerCase() !== filters.postalCode.toLowerCase()) return [];
+      if (filters.minEngagementRate !== undefined && (creator.engagementRatePercent === undefined || creator.engagementRatePercent < filters.minEngagementRate)) return [];
+      if (filters.maxEngagementRate !== undefined && (creator.engagementRatePercent === undefined || creator.engagementRatePercent >= filters.maxEngagementRate)) return [];
       if (filters.category && !creator.categories?.some(category => category.toLowerCase() === filters.category?.toLowerCase())) return [];
       const matchScore = query.trim() ? rankCreatorMatch(query, creator) : 0;
       if (matchScore === null) return [];
@@ -392,6 +401,7 @@ export const demoData = {
         handle: creator.handle,
         displayName: creator.displayName,
         followerCount: creator.followerCount,
+        engagementRatePercent: creator.engagementRatePercent,
         location: creator.location,
         country: creator.country,
         city: creator.city,

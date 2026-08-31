@@ -136,6 +136,7 @@ export type CreatorSearchResult = {
   handle: string;
   displayName: string;
   followerCount: number;
+  engagementRatePercent?: number;
   location?: string;
   country?: string;
   city?: string;
@@ -175,6 +176,8 @@ export type CreatorSearchFilters = {
   verifiedOnly?: boolean;
   minFollowers?: number;
   maxFollowers?: number;
+  minEngagementRate?: number;
+  maxEngagementRate?: number;
   sortField?: "name" | "audience" | "location";
   sortDirection?: "asc" | "desc";
 };
