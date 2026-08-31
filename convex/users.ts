@@ -39,7 +39,7 @@ export const viewer = query({
       onboardingCompleted: user.onboardingCompleted ?? false,
       onboardingStep: user.onboardingStep ?? 1,
       onboardingPlanTier: user.onboardingPlanTier ?? user.currentPlanTier ?? "free",
-      isEmailVerified: user.isEmailVerified ?? false,
+      isEmailVerified: Boolean(user.emailVerificationTime ?? user.isEmailVerified),
       notificationPreferences: user.notificationPreferences ?? {
         requestFulfilled: true,
         lowBalance: true,

@@ -7,22 +7,11 @@ import {
 import { useAppData } from "../data/AppData";
 import type { AppRoute } from "../hooks/useRoute";
 import { daysRemaining, formatFollowers } from "../lib/format";
-import type { CreatorDetailData, CreatorSearchResult } from "../types";
+import { rankSimilarCreators, type SimilarCreatorMatch } from "../lib/similarCreators";
+import type { CreatorDetailData } from "../types";
 import { ContactCard } from "./ContactCard";
 import { CreatorPortrait } from "./CreatorPortrait";
 import { CONTACT_ACCESS_WINDOW_DAYS, CONTACT_UNLOCK_COST } from "../../convex/lib/creditPolicy";
-
-function rankSimilarCreators(current: CreatorDetailData["creator"], candidates: CreatorSearchResult[]) {
-  const primaryCategory = current.categories?.[0];
-  return candidates
-    .filter(candidate => candidate.id !== current.id)
-    .sort((left, right) => {
-      const leftMatches = primaryCategory && left.categories?.includes(primaryCategory) ? 1 : 0;
-      const rightMatches = primaryCategory && right.categories?.includes(primaryCategory) ? 1 : 0;
-      return rightMatches - leftMatches || right.followerCount - left.followerCount;
-    })
-    .slice(0, 4);
-}
 
 function formatPerformanceMetric(value: number) {
   return value < 10_000
@@ -37,7 +26,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
 }) {
   const data = useAppData();
   const [detail, setDetail] = useState<CreatorDetailData | null>();
-  const [similarCreators, setSimilarCreators] = useState<CreatorSearchResult[]>([]);
+  const [similarCreators, setSimilarCreators] = useState<SimilarCreatorMatch[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -53,8 +42,21 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
 
   useEffect(() => {
     let active = true;
-    Promise.all([data.getDetail(creatorId), data.search("", {})])
-      .then(([nextDetail, candidates]) => {
+    const detailPromise = data.getDetail(creatorId);
+    const broadPoolPromise = data.search("", {});
+    detailPromise
+      .then(async (nextDetail) => {
+        if (!nextDetail) return { nextDetail, candidates: [] };
+        const [sameCategory, broadPool] = await Promise.all([
+          nextDetail.creator.categories?.[0]
+            ? data.search("", { category: nextDetail.creator.categories[0] })
+            : Promise.resolve([]),
+          broadPoolPromise,
+        ]);
+        const candidates = [...new Map([...sameCategory, ...broadPool].map(candidate => [candidate.id, candidate])).values()];
+        return { nextDetail, candidates };
+      })
+      .then(({ nextDetail, candidates }) => {
         if (!active) return;
         setDetail(nextDetail);
         setSimilarCreators(nextDetail ? rankSimilarCreators(nextDetail.creator, candidates) : []);
@@ -248,8 +250,8 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
         </div>
 
         <aside className="profile-section similar-section" aria-labelledby="similar-title">
-          <div className="profile-section-heading"><div><p className="eyebrow">Keep exploring</p><h2 id="similar-title">Similar creators</h2></div></div>
-          <div className="similar-list">{similarCreators.map(similar => <button key={similar.id} onClick={() => navigate({ name: "creator", creatorId: similar.id })}><CreatorPortrait name={similar.displayName} platform={similar.platform} imageUrl={similar.profileImageUrl} size="small" /><span><strong>{similar.displayName}</strong><small>{similar.categories?.[0] ?? "Creator"}</small><em>{formatFollowers(similar.followerCount)} · {similar.platform}</em></span><ArrowUpRight size={17} aria-hidden="true" /></button>)}</div>
+          <div className="profile-section-heading"><div><p className="eyebrow">Keep exploring</p><h2 id="similar-title">Similar creators</h2><p>Matched by niche, audience, market, and profile fit.</p></div></div>
+          {similarCreators.length ? <div className="similar-list">{similarCreators.map(({ creator: similar, reasons }) => <button key={similar.id} onClick={() => navigate({ name: "creator", creatorId: similar.id })} aria-label={`Open ${similar.displayName}, matched for ${reasons.join(" and ")}`}><CreatorPortrait name={similar.displayName} platform={similar.platform} imageUrl={similar.profileImageUrl} size="small" /><span><strong>{similar.displayName}</strong><small>{formatFollowers(similar.followerCount)} · {similar.platform}</small><span className="similar-reasons">{reasons.map(reason => <span key={reason}>{reason}</span>)}</span></span><ArrowUpRight size={17} aria-hidden="true" /></button>)}</div> : <p className="similar-empty">No strong profile matches yet.</p>}
         </aside>
       </div>
 

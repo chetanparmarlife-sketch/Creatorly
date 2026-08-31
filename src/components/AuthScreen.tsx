@@ -5,7 +5,7 @@ import { Logo } from "./Logo";
 import type { AppRoute } from "../hooks/useRoute";
 import type { BillingCycle, PaidPlanTier } from "../lib/billingCatalog";
 
-export function AuthScreen({ initialMode = "signup", navigate, showVerificationAfterSignup = false, purchase, signupReason }: { initialMode?: "signup" | "signin"; navigate?(route: AppRoute): void; showVerificationAfterSignup?: boolean; purchase?: { tier: PaidPlanTier; billingCycle: BillingCycle }; signupReason?: "workspace" }) {
+export function AuthScreen({ initialMode = "signup", navigate, purchase, signupReason }: { initialMode?: "signup" | "signin"; navigate?(route: AppRoute): void; purchase?: { tier: PaidPlanTier; billingCycle: BillingCycle }; signupReason?: "workspace" }) {
   const data = useAppData();
   const [mode, setMode] = useState<"signup" | "signin">(initialMode);
   const [error, setError] = useState("");
@@ -18,18 +18,25 @@ export function AuthScreen({ initialMode = "signup", navigate, showVerificationA
     const form = new FormData(event.currentTarget);
     try {
       if (mode === "signup") {
-        await data.signUp({
+        const result = await data.signUp({
           name: String(form.get("name") ?? ""),
           companyName: String(form.get("companyName") ?? ""),
           email: String(form.get("email") ?? ""),
           password: String(form.get("password") ?? ""),
         });
-        if (showVerificationAfterSignup) navigate?.({ name: "verification", plan: purchase?.tier, cycle: purchase?.billingCycle });
+        if (result.verificationRequired) {
+          window.sessionStorage.setItem("creatorly.pendingVerificationEmail", result.email);
+          navigate?.({ name: "verification", plan: purchase?.tier, cycle: purchase?.billingCycle });
+        }
       } else {
-        await data.signIn(
+        const result = await data.signIn(
           String(form.get("email") ?? ""),
           String(form.get("password") ?? ""),
         );
+        if (result.verificationRequired) {
+          window.sessionStorage.setItem("creatorly.pendingVerificationEmail", result.email);
+          navigate?.({ name: "verification" });
+        }
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Sign in failed. Try again.");

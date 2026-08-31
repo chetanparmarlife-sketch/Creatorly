@@ -39,8 +39,10 @@ type AppData = {
   mode: DataMode;
   authenticated: boolean;
   authLoading: boolean;
-  signUp(input: SignUpInput): Promise<void>;
-  signIn(email: string, password: string): Promise<void>;
+  signUp(input: SignUpInput): Promise<AuthStartResult>;
+  signIn(email: string, password: string): Promise<AuthStartResult>;
+  verifyEmail(email: string, code: string): Promise<void>;
+  resendEmailVerification(email: string): Promise<void>;
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
   search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
@@ -66,6 +68,8 @@ type AppData = {
   createExtensionToken(): Promise<{ token: string }>;
 };
 
+type AuthStartResult = { email: string; verificationRequired: boolean };
+
 const AppDataContext = createContext<AppData | null>(null);
 
 export function useAppData() {
@@ -83,11 +87,15 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     signUp: async (input) => {
       await demoData.signUp(input);
       setAuthenticated(true);
+      return { email: input.email.trim().toLowerCase(), verificationRequired: false };
     },
     signIn: async (email) => {
       await demoData.signIn(email);
       setAuthenticated(true);
+      return { email: email.trim().toLowerCase(), verificationRequired: false };
     },
+    verifyEmail: async () => undefined,
+    resendEmailVerification: async () => undefined,
     signOut: async () => {
       await demoData.signOut();
       setAuthenticated(false);
@@ -191,20 +199,40 @@ export function ConvexDataProvider({
   const { signIn: authSignIn, signOut: authSignOut } = useAuthActions();
 
   const signUp = useCallback(async (input: SignUpInput) => {
+    const email = input.email.trim().toLowerCase();
     const form = new FormData();
     form.set("flow", "signUp");
     form.set("name", input.name);
     form.set("companyName", input.companyName);
-    form.set("email", input.email);
+    form.set("email", email);
     form.set("password", input.password);
-    await authSignIn("password", form);
+    const result = await authSignIn("password", form);
+    return { email, verificationRequired: !result.signingIn };
   }, [authSignIn]);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
     const form = new FormData();
     form.set("flow", "signIn");
-    form.set("email", email);
+    form.set("email", normalizedEmail);
     form.set("password", password);
+    const result = await authSignIn("password", form);
+    return { email: normalizedEmail, verificationRequired: !result.signingIn };
+  }, [authSignIn]);
+
+  const verifyEmail = useCallback(async (email: string, code: string) => {
+    const form = new FormData();
+    form.set("flow", "email-verification");
+    form.set("email", email.trim().toLowerCase());
+    form.set("code", code.trim());
+    const result = await authSignIn("password", form);
+    if (!result.signingIn) throw new Error("The verification code is invalid or expired.");
+  }, [authSignIn]);
+
+  const resendEmailVerification = useCallback(async (email: string) => {
+    const form = new FormData();
+    form.set("flow", "email-verification");
+    form.set("email", email.trim().toLowerCase());
     await authSignIn("password", form);
   }, [authSignIn]);
 
@@ -214,6 +242,8 @@ export function ConvexDataProvider({
     authLoading,
     signUp,
     signIn,
+    verifyEmail,
+    resendEmailVerification,
     signOut: authSignOut,
     getViewer: () => convex.query(viewerRef, {}),
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
@@ -239,7 +269,7 @@ export function ConvexDataProvider({
     markNotificationRead: async (notificationId) => { await convex.mutation(markReadRef, { notificationId }); },
     listAdminUsers: () => convex.query(adminUsersRef, {}),
     createExtensionToken: () => convex.mutation(extensionTokenRef, {}),
-  }), [authenticated, authLoading, authSignOut, convex, signIn, signUp]);
+  }), [authenticated, authLoading, authSignOut, convex, resendEmailVerification, signIn, signUp, verifyEmail]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 }

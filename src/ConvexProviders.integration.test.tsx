@@ -9,11 +9,16 @@ import { ConvexWorkspaceDataProvider } from "./features/workspace/WorkspaceData"
 import type { CreatorDetailData, Viewer } from "./types";
 import { CONTACT_ACCESS_WINDOW_MS, CONTACT_UNLOCK_COST } from "../convex/lib/creditPolicy";
 
+const { authSignInMock, authSignOutMock } = vi.hoisted(() => ({
+  authSignInMock: vi.fn(),
+  authSignOutMock: vi.fn(),
+}));
+
 vi.mock("@convex-dev/auth/react", async (importOriginal) => {
   const original = await importOriginal<typeof import("@convex-dev/auth/react")>();
   return {
     ...original,
-    useAuthActions: () => ({ signIn: vi.fn(), signOut: vi.fn() }),
+    useAuthActions: () => ({ signIn: authSignInMock, signOut: authSignOutMock }),
   };
 });
 
@@ -86,16 +91,9 @@ function renderConnected(options: { onUnlock?: () => void; authenticated?: boole
     if (functionName === "notifications:listMine" || functionName === "billing:listTransactions") return [];
     if (functionName === "creators:getById") return creatorDetail(unlocked, creditBalance);
     if (functionName === "creators:search") return [];
+    if (functionName === "creators:browsePage") return { page: [], continueCursor: "", isDone: true };
     if (functionName === "savedCreators:list") return [];
-    if (functionName === "home:getSummary") return {
-      savedCreatorCount: 0,
-      activeCampaignCount: 0,
-      pendingReviewCount: 0,
-      overdueTasks: [],
-      pendingReviews: [],
-      activeCampaigns: [],
-      recentActivity: [],
-    };
+    if (functionName === "campaigns:list") return [];
     if (functionName === "campaignExecution:getCampaign") {
       if (options.campaignLoad === "error") throw new Error("Connection interrupted.");
       if (options.campaignLoad === "missing") return null;
@@ -120,7 +118,7 @@ function renderConnected(options: { onUnlock?: () => void; authenticated?: boole
 
   const rendered = render(
     <ConvexProvider client={client}>
-      <ConvexDataProvider authenticated authLoading={false}>
+      <ConvexDataProvider authenticated={options.authenticated ?? true} authLoading={false}>
         <ConvexWorkspaceDataProvider><App /></ConvexWorkspaceDataProvider>
       </ConvexDataProvider>
     </ConvexProvider>,
@@ -132,16 +130,50 @@ function renderConnected(options: { onUnlock?: () => void; authenticated?: boole
 describe("Creatorly connected Convex provider journeys", () => {
   afterEach(() => {
     cleanup();
+    authSignInMock.mockReset();
+    authSignOutMock.mockReset();
     vi.restoreAllMocks();
   });
 
-  it("loads Home from the connected Convex provider", async () => {
+  it("sends /app to Discovery with the connected Convex provider", async () => {
     window.history.replaceState({}, "", "/app");
     const connected = renderConnected();
 
-    expect(await screen.findByRole("heading", { name: "Northstar Agency" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /saved creators\s*0/i })).toBeInTheDocument();
-    expect(connected.queryMock.mock.calls.some(([reference]) => getFunctionName(reference) === "home:getSummary")).toBe(true);
+    expect(await screen.findByRole("heading", { name: /Discover creators across India/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/app/discover");
+    expect(screen.queryByRole("button", { name: /^Home$/i })).not.toBeInTheDocument();
+    connected.close();
+  });
+
+  it("verifies the emailed code before starting the selected checkout", async () => {
+    window.history.replaceState({}, "", "/signup?plan=pro&cycle=annual");
+    authSignInMock
+      .mockResolvedValueOnce({ signingIn: false })
+      .mockResolvedValueOnce({ signingIn: true });
+    const connected = renderConnected({ authenticated: false });
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("Full name"), "Aisha Shah");
+    await user.type(screen.getByLabelText("Agency name"), "Northstar Agency");
+    await user.type(screen.getByLabelText("Work email"), "aisha@example.com");
+    await user.type(screen.getByLabelText("Password"), "creatorly123");
+    await user.click(screen.getByRole("button", { name: /create free account/i }));
+
+    expect(await screen.findByRole("heading", { name: /check your email/i })).toBeInTheDocument();
+    expect(connected.actionMock).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText(/verification code/i), "123456");
+    await user.click(screen.getByRole("button", { name: /verify email/i }));
+
+    await waitFor(() => expect(authSignInMock).toHaveBeenLastCalledWith("password", expect.any(FormData)));
+    const verificationForm = authSignInMock.mock.calls.at(-1)?.[1] as FormData;
+    expect(Object.fromEntries(verificationForm.entries())).toMatchObject({
+      flow: "email-verification",
+      email: "aisha@example.com",
+      code: "123456",
+    });
+    await waitFor(() => expect(connected.actionMock).toHaveBeenCalled());
+    const checkoutCall = connected.actionMock.mock.calls.find(([reference]) => getFunctionName(reference) === "billing:createCheckout");
+    expect(checkoutCall?.[1]).toEqual({ purchase: { kind: "core_plan", tier: "pro", billingCycle: "annual" } });
     connected.close();
   });
 
@@ -182,14 +214,12 @@ describe("Creatorly connected Convex provider journeys", () => {
     connected.close();
   });
 
-  it("continues a verified pro annual signup into the matching checkout", async () => {
+  it("does not start checkout when the verification session is missing", async () => {
     window.history.replaceState({}, "", "/verify?plan=pro&cycle=annual");
     const connected = renderConnected();
 
-    expect(await screen.findByText("Your account is ready. Opening Pro checkout, billed annually.")).toBeInTheDocument();
-    await waitFor(() => expect(connected.actionMock).toHaveBeenCalled());
-    const checkoutCall = connected.actionMock.mock.calls.find(([reference]) => getFunctionName(reference) === "billing:createCheckout");
-    expect(checkoutCall?.[1]).toEqual({ purchase: { kind: "core_plan", tier: "pro", billingCycle: "annual" } });
+    expect(await screen.findByRole("heading", { name: /start verification again/i })).toBeInTheDocument();
+    expect(connected.actionMock).not.toHaveBeenCalled();
     connected.close();
   });
 

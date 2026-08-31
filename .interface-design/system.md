@@ -47,9 +47,12 @@ The product signature expands the **contact signal rail** into a campaign execut
 - Modal — 480–640px centered white surface · 14–16px radius · neutral dim backdrop · restrained shadow
 - Selected filter or row — action-blue text with `#EAF0FF` background
 - Success, warning, and danger states use both words and semantic color; color is never the only signal
-- Operational home — three compact metrics, one active-campaign focal card, and a recent-activity list; every module points to a next action
 - Discovery command — one natural-language search bar, precise platform/category/location/follower filters, and a dense creator result table
 - Creator CRM row — creator identity, platform, audience, relationship stage, owner, next action, and an explicit written verification state
+- Similar creators — an explainable profile-fit list, never a generic “recommended” carousel. Rank shared niche first, then comparable audience, platform, market, language, profile type, management style, production quality, and engagement. Show the strongest two reasons as written blue-soft chips; do not expose an unexplained score.
+- Similar creator row — 92px minimum height · 48px portrait · creator name at 12px semibold · audience and platform at 10px muted · up to two 20px reason chips · native button with visible hover and focus states. Use a 330px sticky sidebar on desktop and a full-width section after the main profile content below 760px.
+- Similar creator states — show up to four strong matches, exclude the current profile, deduplicate the candidate pool, and use “No strong profile matches yet” when evidence is insufficient. Selecting a match opens that creator’s full profile.
+- Visual similarity boundary — profile metadata cannot establish visual style. Do not claim a visual match until recent post images or reviewed visual-style tags are stored and compared.
 - Campaign rail — horizontally scrollable 280px stage columns with compact creator cards; stage names remain visible while moving work
 - Workspace onboarding — five focused steps for workspace, goals, team, channels, and first result; external channels are labelled Planned until connected
 - Campaign view switcher — compact black selected tab across Dashboard, Rail, Table, Calendar, and Review; every mode reads the same execution record

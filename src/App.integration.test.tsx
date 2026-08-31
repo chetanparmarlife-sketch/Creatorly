@@ -118,6 +118,10 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByText("hello.maya@example.test")).toBeInTheDocument();
     expect(storedCreditBalance()).toBe(20);
     expect(screen.queryByRole("button", { name: /unlock for 5 credits/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /open Riya On The Go, matched for/i }));
+    expect(await screen.findByRole("heading", { name: /Riya On The Go/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/creator/riya-on-the-go");
   });
 
   it("keeps pending contacts unavailable without charging or revealing them", async () => {
@@ -441,14 +445,14 @@ describe("Creatorly M1 user journey", () => {
 
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter creator column")).not.toBeInTheDocument();
-    expect(screen.getByText("Use search above")).toBeInTheDocument();
-    expect(screen.getByText("Instagram", { selector: ".filter-static-note" })).toBeInTheDocument();
+    const creatorFilters = screen.getByRole("complementary", { name: /creator filters/i });
+    expect(within(creatorFilters).getByText("Instagram", { selector: "summary small" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter platform column")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter category column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter city or country column")).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter contact column")).not.toBeInTheDocument();
-    expect(screen.getByText("Verification status")).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: /creator table sorting/i })).getByText("Contact")).toBeInTheDocument();
     for (const planned of ["Inbox", "Automations", "Reports", "Agents", "Integrations"]) expect(screen.queryByRole("button", { name: new RegExp(planned, "i") })).not.toBeInTheDocument();
     const roadmap = screen.getByRole("complementary", { name: /product roadmap/i });
     for (const upcoming of ["AI Agents", "Unified Inbox", "Automations", "Connected reporting"]) expect(within(roadmap).getByText(upcoming)).toBeInTheDocument();
@@ -468,8 +472,9 @@ describe("Creatorly M1 user journey", () => {
     firstRender.unmount();
     window.history.replaceState({}, "", "/app/home");
     renderDemo();
-    expect(await screen.findByRole("heading", { name: "Northstar Beauty" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /saved creators\s*0/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Discover creators across India/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/app/discover");
+    expect(screen.queryByRole("button", { name: /^Home$/i })).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}").id).toBe(workspaceId);
   });
 
@@ -687,22 +692,15 @@ describe("Creatorly M1 user journey", () => {
     expect(campaigns[0].creators).toHaveLength(3);
   });
 
-  it("shows real workspace activity and campaign counts on Home", async () => {
+  it("sends the removed /app homepage route to Discovery", async () => {
     await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
     window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
-    window.localStorage.setItem("creatorly.saved-creators.v1", JSON.stringify([{ id: "saved-1", creator: { id: "creator-1", displayName: "Creator One" }, source: "manual", relationshipStage: "discovered", ownerName: "Me", priority: "normal", tags: [], updatedAt: Date.now() }]));
-    window.localStorage.setItem("creatorly.campaigns.v1.demo-workspace", JSON.stringify([{ id: "campaign-1", name: "Launch", goal: "Launch the collection", platforms: ["instagram"], status: "active", ownerName: "Me", currency: "INR", creators: [{ id: "cc-1", savedCreatorId: "saved-1", stage: "in_review", ownerName: "Me", deliverables: [{ id: "deliverable-1", campaignCreatorId: "cc-1", title: "Launch reel", channel: "instagram", format: "reel", status: "in_review", approvals: [], createdAt: Date.now(), updatedAt: Date.now() }] }], tasks: [{ id: "task-1", title: "Confirm usage rights", status: "open", dueAt: Date.now() - 86_400_000, assigneeName: "Me", createdAt: Date.now(), updatedAt: Date.now() }], createdAt: Date.now(), updatedAt: Date.now() }]));
-    window.localStorage.setItem("creatorly.workspace-activity.v1", JSON.stringify([{ id: "activity-1", summary: "Added Creator One to Launch", entityType: "campaign_creator", createdAt: Date.now() }]));
     window.history.replaceState({}, "", "/app");
     renderDemo();
 
-    expect(await screen.findByRole("heading", { name: "Northstar Agency" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /saved creators\s*1/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /active campaigns\s*1/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /pending reviews\s*1/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Launch" })).toBeInTheDocument();
-    expect(screen.getByText("Confirm usage rights")).toBeInTheDocument();
-    expect(screen.getByText("Added Creator One to Launch")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Discover creators across India/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/app/discover");
+    expect(screen.queryByRole("button", { name: /^Home$/i })).not.toBeInTheDocument();
   });
 
   it("switches Discovery from Instagram to YouTube creators", async () => {
@@ -717,6 +715,6 @@ describe("Creatorly M1 user journey", () => {
 
     expect(await screen.findByRole("button", { name: /Rishi Verma/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Maya Kapoor/i })).not.toBeInTheDocument();
-    expect(screen.getByText("YouTube", { selector: ".filter-static-note" })).toBeInTheDocument();
+    expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByText("YouTube", { selector: "summary small" })).toBeInTheDocument();
   });
 });

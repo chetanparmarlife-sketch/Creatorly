@@ -15,7 +15,6 @@ export type AppRoute =
   | { name: "payment"; status: "success" | "failure" }
   | { name: "history" }
   | { name: "admin" }
-  | { name: "home" }
   | { name: "discover" }
   | { name: "creators" }
   | { name: "campaigns" }
@@ -60,8 +59,7 @@ function readRoute(): AppRoute {
   }
   if (path === "/history") return { name: "history" };
   if (path === "/admin") return { name: "admin" };
-  if (path === "/app" || path === "/app/home") return { name: "home" };
-  if (path === "/app/discover" || path === "/search") return { name: "discover" };
+  if (path === "/app" || path === "/app/home" || path === "/app/discover" || path === "/search") return { name: "discover" };
   if (path === "/app/creators") return { name: "creators" };
   if (path === "/app/campaigns") return { name: "campaigns" };
   const campaignMatch = path.match(/^\/app\/campaigns\/([^/]+)$/);
@@ -73,10 +71,8 @@ export function useRoute() {
   const [route, setRoute] = useState<AppRoute>(readRoute);
 
   useEffect(() => {
-    if (window.location.pathname === "/search") {
+    if (window.location.pathname === "/search" || window.location.pathname === "/app" || window.location.pathname === "/app/home") {
       window.history.replaceState({}, "", "/app/discover");
-    } else if (window.location.pathname === "/app/home") {
-      window.history.replaceState({}, "", "/app");
     }
     const handlePopState = () => setRoute(readRoute());
     window.addEventListener("popstate", handlePopState);
@@ -87,7 +83,6 @@ export function useRoute() {
     const url = next.name === "creator"
       ? `/creator/${encodeURIComponent(next.creatorId)}`
       : next.name === "campaign" ? `/app/campaigns/${encodeURIComponent(next.campaignId)}`
-      : next.name === "home" ? "/app"
       : next.name === "discover" ? "/app/discover"
       : next.name === "creators" ? "/app/creators"
       : next.name === "campaigns" ? "/app/campaigns"
@@ -103,7 +98,7 @@ export function useRoute() {
         : next.name === "pricing" ? "/pricing"
         : next.name === "settings" ? "/settings"
         : next.name === "payment" ? `/payment/${next.status}`
-        : "/app";
+        : "/app/discover";
     window.history.pushState({}, "", url);
     setRoute(next);
     window.scrollTo({ top: 0, behavior: "auto" });

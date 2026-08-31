@@ -299,6 +299,8 @@ export const search = query({
           isDemo: creator.isDemo,
           contentLanguages: creator.contentLanguages,
           profileType: creator.profileType,
+          contentQuality: creator.contentQuality,
+          managementType: creator.managementType,
           profileImageUrl: creator.profileImageUrl,
           biography: creator.biography,
           gender: creator.gender,
