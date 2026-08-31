@@ -94,7 +94,15 @@ export const countPage = query({
     const minFollowers = Math.max(MIN_REPOSITORY_FOLLOWERS, args.minFollowers ?? MIN_REPOSITORY_FOLLOWERS);
     const maxFollowers = args.maxFollowers;
     const paginationOpts = { cursor: args.paginationOpts.cursor, numItems: Math.min(args.paginationOpts.numItems, 100) };
-    const result = category && args.platform && args.verifiedOnly
+    const locationSearch = args.postalCode?.trim() || args.city?.trim() || args.country?.trim() || args.location?.trim();
+    const result = locationSearch
+      ? await ctx.db.query("creators").withSearchIndex("search_location", q => {
+          if (args.platform && args.verifiedOnly) return q.search("location", locationSearch).eq("platform", args.platform).eq("isVerified", true);
+          if (args.platform) return q.search("location", locationSearch).eq("platform", args.platform);
+          if (args.verifiedOnly) return q.search("location", locationSearch).eq("isVerified", true);
+          return q.search("location", locationSearch);
+        }).paginate(paginationOpts)
+      : category && args.platform && args.verifiedOnly
       ? await ctx.db.query("creators").withIndex("by_platform_category_verified_followers", q => maxFollowers === undefined
           ? q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
           : q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
@@ -179,23 +187,31 @@ export const browsePage = query({
       numItems: Math.min(args.paginationOpts.numItems, 24),
     };
     if (args.country?.trim() || args.city?.trim() || args.postalCode?.trim()) {
+      const locationSearch = args.postalCode?.trim() || args.city?.trim() || args.country?.trim();
       let scanCursor = args.paginationOpts.cursor;
       let isDone = false;
       const matching: Doc<"creators">[] = [];
       for (let scan = 0; scan < 5 && matching.length < paginationOpts.numItems && !isDone; scan += 1) {
-        const candidates = await ctx.db
-          .query("creators")
-          .withIndex("by_followers", q => maxFollowers === undefined
-            ? q.gte("followerCount", minFollowers)
-            : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-          .filter(q => q.and(
-            q.eq(q.field("isDemo"), false),
-            ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
-            ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
-            ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
-          ))
-          .order(sortField === "audience" ? sortDirection : "desc")
-          .paginate({ cursor: scanCursor, numItems: paginationOpts.numItems });
+        const candidates = locationSearch
+          ? await ctx.db.query("creators").withSearchIndex("search_location", q => {
+              if (args.platform && args.verifiedOnly) return q.search("location", locationSearch).eq("platform", args.platform).eq("isVerified", true);
+              if (args.platform) return q.search("location", locationSearch).eq("platform", args.platform);
+              if (args.verifiedOnly) return q.search("location", locationSearch).eq("isVerified", true);
+              return q.search("location", locationSearch);
+            }).paginate({ cursor: scanCursor, numItems: paginationOpts.numItems })
+          : await ctx.db
+              .query("creators")
+              .withIndex("by_followers", q => maxFollowers === undefined
+                ? q.gte("followerCount", minFollowers)
+                : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+              .filter(q => q.and(
+                q.eq(q.field("isDemo"), false),
+                ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+                ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+                ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+              ))
+              .order(sortField === "audience" ? sortDirection : "desc")
+              .paginate({ cursor: scanCursor, numItems: paginationOpts.numItems });
         matching.push(...candidates.page.filter(creator => passesFilters(creator, args)));
         scanCursor = candidates.continueCursor;
         isDone = candidates.isDone;
