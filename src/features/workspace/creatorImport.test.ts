@@ -29,7 +29,7 @@ describe("customer-owned creator imports", () => {
     expect(preview.readyCount).toBe(0);
     expect(preview.errorCount).toBe(2);
     expect(preview.rows[0]).toMatchObject({ status: "error", errors: ["Creator name is required."] });
-    expect(preview.rows[1].errors).toEqual(expect.arrayContaining(["Platform must be Instagram, TikTok, YouTube, or X.", "Add a handle, email, phone, or WhatsApp number."]));
+    expect(preview.rows[1].errors).toEqual(expect.arrayContaining(["Platform must be Instagram, Facebook, TikTok, YouTube, LinkedIn, or X.", "Add a handle, email, phone, or WhatsApp number."]));
   });
 
   it("detects duplicates against the CRM and within the same file", () => {

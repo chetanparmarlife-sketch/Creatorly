@@ -1,4 +1,4 @@
-export type Platform = "instagram" | "tiktok" | "youtube" | "twitter";
+export type Platform = "instagram" | "facebook" | "tiktok" | "youtube" | "twitter";
 export type SocialPlatform = Platform | "linkedin" | "twitter";
 export type PlanTier = "free" | "basic" | "pro";
 
@@ -53,6 +53,33 @@ export type YouTubeMetrics = {
   uploadsPlaylistId?: string;
   bannerImageUrl?: string;
   audience?: Array<{ ageGroup: string; gender: string; percentage: number }>;
+};
+
+export type FacebookMetrics = {
+  engagementRatePercent?: number;
+  averageRate?: number;
+  storyRateMin?: number;
+  storyRateMax?: number;
+  postRateMin?: number;
+  postRateMax?: number;
+  videoRateMin?: number;
+  videoRateMax?: number;
+  pageEngagedUsers?: number;
+  pageImpressions?: number;
+  pageImpressionsOrganic?: number;
+  pageImpressionsPaid?: number;
+  pagePostEngagements?: number;
+  pageViewsTotal?: number;
+  pageImpressionsUnique?: number;
+  pageImpressionsOrganicUnique?: number;
+  pageImpressionsPaidUnique?: number;
+  pageViewsLoggedInUnique?: number;
+  followerRange?: string;
+  priceRange?: string;
+  coverImageUrl?: string;
+  websiteUrl?: string;
+  audience?: Array<{ ageGroup: string; gender: string; value: number }>;
+  audienceCities?: Array<{ city: string; value: number }>;
 };
 
 export type Viewer = {
@@ -126,6 +153,8 @@ export type CreatorSearchResult = {
   instagramMetrics?: InstagramMetrics;
   youtubeChannelId?: string;
   youtubeMetrics?: YouTubeMetrics;
+  facebookPageId?: string;
+  facebookMetrics?: FacebookMetrics;
   sourceLabel?: string;
   lastUpdatedAt?: number;
   metricProvenance?: "supplied" | "live";

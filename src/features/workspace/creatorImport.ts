@@ -25,6 +25,8 @@ const platformNames: Record<string, SocialPlatform> = {
   tiktok: "tiktok",
   youtube: "youtube",
   yt: "youtube",
+  facebook: "facebook",
+  fb: "facebook",
   linkedin: "linkedin",
   li: "linkedin",
   x: "twitter",
@@ -127,7 +129,7 @@ function rowInput(headers: Array<keyof PrivateCreatorInput | undefined>, values:
 function validateInput(input: PrivateCreatorInput, rawPlatform?: string) {
   const errors: string[] = [];
   if (!input.displayName) errors.push("Creator name is required.");
-  if (rawPlatform?.trim() && !input.platform) errors.push("Platform must be Instagram, TikTok, YouTube, or X.");
+  if (rawPlatform?.trim() && !input.platform) errors.push("Platform must be Instagram, Facebook, TikTok, YouTube, LinkedIn, or X.");
   if (input.followerCount !== undefined && (!Number.isInteger(input.followerCount) || input.followerCount < 0)) errors.push("Followers must be a whole number of zero or more.");
   if (input.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) errors.push("Email address is not valid.");
   if (!input.handle && !input.email && !input.phone && !input.whatsapp) errors.push("Add a handle, email, phone, or WhatsApp number.");

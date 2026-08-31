@@ -7,7 +7,7 @@ import { CreatorResult } from "./CreatorResult";
 import { RequestContactModal } from "./RequestContactModal";
 
 const CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
-const REPOSITORY_SCOPE = "Current coverage: India-focused Instagram creators with supplied audience and engagement metrics from 1K followers upward. YouTube coverage is not loaded yet.";
+const REPOSITORY_SCOPE = "Current coverage: India-focused Instagram, YouTube, and Facebook creators with supplied profile and performance metrics from 1K followers upward.";
 const CATEGORY_SHORTCUTS = [
   { label: "Lifestyle", icon: Sparkles },
   { label: "Entertainment", icon: Clapperboard },
@@ -84,7 +84,7 @@ export function SearchView({
         </div>
         <div className="search-proof">
           <Sparkles size={17} aria-hidden="true" />
-          <span><strong>6,973 real profiles</strong> ready to discover</span>
+          <span><strong>7,580 real profiles</strong> ready to discover</span>
         </div>
       </section>
 
@@ -121,6 +121,7 @@ export function SearchView({
             [undefined, "All"],
             ["instagram", "Instagram"],
             ["youtube", "YouTube"],
+            ["facebook", "Facebook"],
           ].map(([value, label]) => (
             <button
               key={label}

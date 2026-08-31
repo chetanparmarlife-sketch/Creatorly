@@ -6,7 +6,7 @@ import {
 } from "../convex/lib/profileImagePolicy";
 
 describe("profile image migration policy", () => {
-  it("accepts only the known HTTPS Instagram and YouTube profile-image hosts", () => {
+  it("accepts only the known HTTPS Instagram, YouTube, and Facebook profile-image hosts", () => {
     expect(isAllowedProfileImageSource(
       "https://storage.googleapis.com/opportune-production.appspot.com/scrapedInstagramInfluencers/9c44a65c07/image1732998900",
     )).toBe(true);
@@ -28,6 +28,10 @@ describe("profile image migration policy", () => {
     expect(isAllowedProfileImageSource("https://yt3.googleusercontent.com/profile-image")).toBe(false);
     expect(isAllowedProfileImageSource("https://yt3.ggpht.com.evil.example/profile-image")).toBe(false);
     expect(isAllowedProfileImageSource("http://yt3.ggpht.com/profile-image")).toBe(false);
+    expect(isAllowedProfileImageSource("https://scontent-bom1-1.xx.fbcdn.net/v/t39.30808-1/profile.jpg?x=1")).toBe(true);
+    expect(isAllowedProfileImageSource("https://example.fbcdn.net/v/t39.30808-1/profile.jpg")).toBe(false);
+    expect(isAllowedProfileImageSource("https://scontent-bom1-1.xx.fbcdn.net.evil.example/profile.jpg")).toBe(false);
+    expect(isAllowedProfileImageSource("http://scontent-bom1-1.xx.fbcdn.net/profile.jpg")).toBe(false);
     expect(isAllowedProfileImageSource("not a url")).toBe(false);
   });
 

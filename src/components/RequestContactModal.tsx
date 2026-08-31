@@ -62,7 +62,7 @@ export function RequestContactModal({
             <p>Tell us which profile you need. Matching requests are grouped for faster research.</p>
             <form className="request-form" onSubmit={submit}>
               <div className="field-row">
-                <label><span>Platform</span><select name="platform" aria-label="Platform" defaultValue={initialPlatform}><option value="instagram">Instagram</option><option value="youtube">YouTube</option></select></label>
+                <label><span>Platform</span><select name="platform" aria-label="Platform" defaultValue={initialPlatform}><option value="instagram">Instagram</option><option value="youtube">YouTube</option><option value="facebook">Facebook</option></select></label>
                 <label><span>Creator handle</span><input name="handle" aria-label="Creator handle" defaultValue={initialHandle} autoFocus required /></label>
               </div>
               <label><span>Notes (optional)</span><textarea name="notes" aria-label="Notes (optional)" rows={3} placeholder="Role needed, campaign timing, or useful context" /></label>

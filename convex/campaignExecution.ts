@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { campaignManagers, requireWorkspaceMember, requireWorkspaceRole } from "./lib/workspaceAuth";
 
-const platform = v.union(v.literal("instagram"), v.literal("tiktok"), v.literal("youtube"), v.literal("twitter"));
+const platform = v.union(v.literal("instagram"), v.literal("facebook"), v.literal("tiktok"), v.literal("youtube"), v.literal("twitter"));
 const taskStatus = v.union(v.literal("open"), v.literal("done"), v.literal("cancelled"));
 const decision = v.union(v.literal("approved"), v.literal("changes_requested"));
 

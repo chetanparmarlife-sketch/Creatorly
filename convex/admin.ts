@@ -6,7 +6,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { normalize } from "./lib/matching";
 import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 
-const platform = v.union(v.literal("instagram"), v.literal("youtube"));
+const platform = v.union(v.literal("instagram"), v.literal("youtube"), v.literal("facebook"));
 const contactType = v.union(
   v.literal("creator_direct"),
   v.literal("manager"),

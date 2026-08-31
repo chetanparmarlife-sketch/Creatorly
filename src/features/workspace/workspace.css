@@ -39,6 +39,7 @@
 .discovery-filter-section.is-open > .discovery-filter-section-trigger > svg { transform:rotate(90deg); }
 .discovery-filter-section-content { padding:0 14px 12px 46px;background:var(--inset); }
 .discovery-filter-panel .platform-filter { display:grid;grid-template-columns:42px 1fr 1fr;gap:4px; }
+.discovery-filter-panel .platform-filter button:last-child { grid-column:2 / 4; }
 .discovery-filter-panel .platform-filter button { min-width:0;min-height:36px;padding:0 6px;border:1px solid var(--line);border-radius:8px;color:var(--ink-muted);background:white;cursor:pointer;font:650 9px "Plus Jakarta Sans Variable",sans-serif; }
 .discovery-filter-panel .platform-filter button:hover { color:var(--ink);border-color:var(--line-strong); }
 .discovery-filter-panel .platform-filter button:focus-visible { outline:0;border-color:var(--signal);box-shadow:0 0 0 3px var(--signal-wash); }

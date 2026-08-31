@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { BadgeCheck, Camera, CheckCircle2, Inbox, PlaySquare, ShieldCheck } from "lucide-react";
+import { AtSign, BadgeCheck, Camera, CheckCircle2, Inbox, PlaySquare, ShieldCheck } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import { formatDate } from "../lib/format";
 import type { AdminContactRequest, AdminUser, FulfillRequestInput } from "../types";
@@ -91,7 +91,7 @@ export function AdminView() {
         <div className="admin-layout">
           <section className="admin-queue" aria-label="Pending contact requests">
             {requests.map((request) => <button key={request.id} className={request.id === selected.id ? "is-selected" : ""} onClick={() => { setSelectedId(request.id); setSuccess(""); }}>
-              <span className="admin-platform">{request.requestedPlatform === "instagram" ? <Camera size={15} /> : <PlaySquare size={16} />}</span>
+              <span className="admin-platform">{request.requestedPlatform === "instagram" ? <Camera size={15} /> : request.requestedPlatform === "youtube" ? <PlaySquare size={16} /> : <AtSign size={15}/>}</span>
               <span><strong>{request.requestedHandle}</strong><small>{request.requester.companyName} · {formatDate(request.requestDate)}</small></span>
             </button>)}
           </section>

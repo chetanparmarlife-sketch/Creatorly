@@ -108,6 +108,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
   const freshnessLabel = creator.lastUpdatedAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(creator.lastUpdatedAt) : "Update date unavailable";
   const instagramMetrics = creator.instagramMetrics;
   const youtubeMetrics = creator.youtubeMetrics;
+  const facebookMetrics = creator.facebookMetrics;
   const instagramPerformanceMetrics = instagramMetrics ? [
     { label: "Following", value: instagramMetrics.followingCount, suffix: "", context: "accounts followed" },
     { label: "Posts", value: instagramMetrics.postCount, suffix: "", context: "published posts" },
@@ -133,7 +134,21 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
     { label: "Sponsored rate", value: youtubeMetrics.sponsoredVideoRateMin, suffix: "", context: youtubeMetrics.sponsoredVideoRateMax !== undefined ? `up to ${formatPerformanceMetric(youtubeMetrics.sponsoredVideoRateMax)}` : "supplied minimum" },
     { label: "Average rate", value: youtubeMetrics.averageRate, suffix: "", context: youtubeMetrics.priceRange ?? "supplied rate" },
   ].filter((metric) => metric.value !== undefined) : [];
-  const performanceMetrics = creator.platform === "youtube" ? youtubePerformanceMetrics : instagramPerformanceMetrics;
+  const facebookPerformanceMetrics = facebookMetrics ? [
+    { label: "Engagement rate", value: facebookMetrics.engagementRatePercent, suffix: "%", context: "supplied engagement rate" },
+    { label: "Engaged users", value: facebookMetrics.pageEngagedUsers, suffix: "", context: "page engaged users" },
+    { label: "Post engagements", value: facebookMetrics.pagePostEngagements, suffix: "", context: "page post engagement" },
+    { label: "Page impressions", value: facebookMetrics.pageImpressions, suffix: "", context: "total impressions" },
+    { label: "Organic impressions", value: facebookMetrics.pageImpressionsOrganic, suffix: "", context: "organic impressions" },
+    { label: "Paid impressions", value: facebookMetrics.pageImpressionsPaid, suffix: "", context: "paid impressions" },
+    { label: "Unique impressions", value: facebookMetrics.pageImpressionsUnique, suffix: "", context: "unique reach signal" },
+    { label: "Page views", value: facebookMetrics.pageViewsTotal, suffix: "", context: "total page views" },
+    { label: "Average rate", value: facebookMetrics.averageRate, suffix: "", context: facebookMetrics.priceRange ?? "supplied rate" },
+    { label: "Story rate", value: facebookMetrics.storyRateMin, suffix: "", context: facebookMetrics.storyRateMax !== undefined ? `up to ${formatPerformanceMetric(facebookMetrics.storyRateMax)}` : "supplied minimum" },
+    { label: "Post rate", value: facebookMetrics.postRateMin, suffix: "", context: facebookMetrics.postRateMax !== undefined ? `up to ${formatPerformanceMetric(facebookMetrics.postRateMax)}` : "supplied minimum" },
+    { label: "Video rate", value: facebookMetrics.videoRateMin, suffix: "", context: facebookMetrics.videoRateMax !== undefined ? `up to ${formatPerformanceMetric(facebookMetrics.videoRateMax)}` : "supplied minimum" },
+  ].filter((metric) => metric.value !== undefined) : [];
+  const performanceMetrics = creator.platform === "youtube" ? youtubePerformanceMetrics : creator.platform === "facebook" ? facebookPerformanceMetrics : instagramPerformanceMetrics;
   const upgradeRequired = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount > 0;
   const verificationPending = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount === 0 && detail.pendingContactCount > 0;
   const insufficientCredits = detail.creditBalance < CONTACT_UNLOCK_COST;
@@ -144,7 +159,9 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
     handle: creator.handle,
     url: creator.platform === "youtube"
       ? creator.youtubeChannelId ? `https://www.youtube.com/channel/${encodeURIComponent(creator.youtubeChannelId)}` : `https://www.youtube.com/@${encodeURIComponent(creator.handle.replace(/^@/, ""))}`
-      : `https://www.instagram.com/${encodeURIComponent(creator.handle.replace(/^@/, ""))}/`,
+      : creator.platform === "facebook"
+        ? creator.handle.startsWith("@") ? `https://www.facebook.com/${encodeURIComponent(creator.handle.replace(/^@/, ""))}` : `https://www.facebook.com/profile.php?id=${encodeURIComponent(creator.facebookPageId ?? creator.handle)}`
+        : `https://www.instagram.com/${encodeURIComponent(creator.handle.replace(/^@/, ""))}/`,
     followerCount: creator.followerCount,
     isVerified: creator.isVerified,
   }];
@@ -201,9 +218,11 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
           </section>
 
           {performanceMetrics.length ? <section className="profile-section creator-performance" aria-labelledby="performance-title">
-            <div className="profile-section-heading"><div><p className="eyebrow">{creator.platform === "youtube" ? "YouTube performance" : "Instagram performance"} · Supplied metrics</p><h2 id="performance-title">Audience and engagement</h2></div></div>
+            <div className="profile-section-heading"><div><p className="eyebrow">{creator.platform === "youtube" ? "YouTube performance" : creator.platform === "facebook" ? "Facebook performance" : "Instagram performance"} · Supplied metrics</p><h2 id="performance-title">Audience and engagement</h2></div></div>
             <div className="performance-metrics">{performanceMetrics.map(metric => <article key={metric.label}><small>{metric.label}</small><strong>{formatPerformanceMetric(metric.value!)}{metric.suffix}</strong><span>{metric.context}</span></article>)}</div>
             {youtubeMetrics?.audience?.length ? <div className="youtube-audience"><h3>Audience age and gender</h3><div>{youtubeMetrics.audience.map(item => <span key={`${item.ageGroup}-${item.gender}`}><strong>{item.percentage.toLocaleString("en-IN", { maximumFractionDigits: 1 })}%</strong><small>{item.ageGroup} · {item.gender}</small></span>)}</div></div> : null}
+            {facebookMetrics?.audience?.length ? <div className="youtube-audience"><h3>Audience age and gender</h3><div>{facebookMetrics.audience.map(item => <span key={`${item.ageGroup}-${item.gender}`}><strong>{formatPerformanceMetric(item.value)}</strong><small>{item.ageGroup} · {item.gender}</small></span>)}</div></div> : null}
+            {facebookMetrics?.audienceCities?.length ? <div className="youtube-audience"><h3>Top audience cities</h3><div>{[...facebookMetrics.audienceCities].sort((a, b) => b.value - a.value).slice(0, 12).map(item => <span key={item.city}><strong>{formatPerformanceMetric(item.value)}</strong><small>{item.city}</small></span>)}</div></div> : null}
           </section> : null}
 
           <section className="profile-section profile-facts" aria-labelledby="profile-facts-title">
@@ -217,6 +236,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
               {creator.biography ? <div><dt><AtSign size={20} /><span>Biography</span></dt><dd>{creator.biography}</dd></div> : null}
               {creator.gender || creator.age !== undefined ? <div><dt><UserRound size={20} /><span>Profile demographics</span></dt><dd>{[creator.gender, creator.age !== undefined ? `Age ${creator.age}` : ""].filter(Boolean).join(" · ")}</dd></div> : null}
               {instagramMetrics?.businessCategoryName ? <div><dt><Tags size={20} /><span>Business category</span></dt><dd>{instagramMetrics.businessCategoryName}{instagramMetrics.isBusinessAccount ? " · Business account" : ""}</dd></div> : null}
+              {facebookMetrics?.websiteUrl ? <div><dt><Link2 size={20} /><span>Website</span></dt><dd><a href={facebookMetrics.websiteUrl} target="_blank" rel="noreferrer">Open supplied website <ExternalLink size={12}/></a></dd></div> : null}
             </dl>
           </section>
 

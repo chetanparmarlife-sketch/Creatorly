@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { buildImportedCreatorFields, importedPlatform, youtubeChannelUrl } from "./lib/creatorImportMapping";
+import { buildImportedCreatorFields, facebookPageUrl, importedPlatform, youtubeChannelUrl } from "./lib/creatorImportMapping";
 import { isRepositoryEligible } from "./lib/repositoryPolicy";
 
 function sameContact(existing: { email?: string; phone?: string; whatsapp?: string }, incoming: { email?: string; phone?: string; whatsapp?: string }) {
@@ -34,6 +34,9 @@ export const ingestBatch = internalMutation({
       if (creatorPlatform === "youtube" && row.youtubeChannelId) {
         existing = await ctx.db.query("creators").withIndex("by_youtube_channel_id", q => q.eq("youtubeChannelId", row.youtubeChannelId)).first();
       }
+      if (creatorPlatform === "facebook" && row.facebookPageId) {
+        existing = await ctx.db.query("creators").withIndex("by_facebook_page_id", q => q.eq("facebookPageId", row.facebookPageId)).first();
+      }
       if (!existing) {
         const candidates = await ctx.db.query("creators").withIndex("by_normalized_handle", q => q.eq("normalizedHandle", row.normalizedHandle)).collect();
         existing = candidates.find(creator => creator.platform === creatorPlatform && creator.handle.toLowerCase() === row.handle.toLowerCase());
@@ -59,6 +62,19 @@ export const ingestBatch = internalMutation({
         };
         if (existingYouTube) await ctx.db.patch(existingYouTube._id, socialFields);
         else await ctx.db.insert("creatorSocialProfiles", { creatorId: creatorId!, platform: "youtube", ...socialFields });
+      }
+      if (creatorPlatform === "facebook" && row.facebookPageId) {
+        const socialProfiles = await ctx.db.query("creatorSocialProfiles").withIndex("by_creator", q => q.eq("creatorId", creatorId!)).collect();
+        const existingFacebook = socialProfiles.find(profile => profile.platform === "facebook");
+        const socialFields = {
+          handle: row.handle,
+          normalizedHandle: row.normalizedHandle,
+          url: row.facebookUrl ?? facebookPageUrl(row.facebookPageId, row.handle.startsWith("@") ? row.handle : undefined),
+          followerCount: row.followerCount,
+          isVerified: row.isVerified,
+        };
+        if (existingFacebook) await ctx.db.patch(existingFacebook._id, socialFields);
+        else await ctx.db.insert("creatorSocialProfiles", { creatorId: creatorId!, platform: "facebook", ...socialFields });
       }
       const existingContacts = row.contacts.length
         ? await ctx.db.query("contacts").withIndex("by_creator", q => q.eq("creatorId", creatorId!)).collect()
@@ -167,6 +183,52 @@ export const auditYouTubeDiscovery = internalQuery({
         subscriberCount: creator.followerCount,
         hasProfileImage: Boolean(creator.profileImageUrl),
         hasYouTubeMetrics: Boolean(creator.youtubeMetrics),
+        isDemo: creator.isDemo,
+      }));
+  },
+});
+
+export const auditFacebookSample = internalQuery({
+  args: { pageIds: v.array(v.string()) },
+  handler: async (ctx, args) => Promise.all(args.pageIds.slice(0, 10).map(async pageId => {
+    const creator = await ctx.db.query("creators").withIndex("by_facebook_page_id", q => q.eq("facebookPageId", pageId)).first();
+    if (!creator || creator.platform !== "facebook") return { pageId, found: false as const };
+    const socialProfiles = await ctx.db.query("creatorSocialProfiles").withIndex("by_creator", q => q.eq("creatorId", creator._id)).collect();
+    return {
+      pageId,
+      found: true as const,
+      creatorId: creator._id,
+      handle: creator.handle,
+      displayName: creator.displayName,
+      followerCount: creator.followerCount,
+      profileImageUrl: creator.profileImageUrl,
+      hasStoredProfileImage: Boolean(creator.profileImageStorageId),
+      hasFacebookMetrics: Boolean(creator.facebookMetrics),
+      audienceRows: creator.facebookMetrics?.audience?.length ?? 0,
+      audienceCityRows: creator.facebookMetrics?.audienceCities?.length ?? 0,
+      profileUrl: socialProfiles.find(profile => profile.platform === "facebook")?.url,
+      isDemo: creator.isDemo,
+    };
+  })),
+});
+
+export const auditFacebookDiscovery = internalQuery({
+  args: { minFollowers: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const minFollowers = Math.max(1_000, args.minFollowers ?? 1_000);
+    const creators = await ctx.db
+      .query("creators")
+      .withIndex("by_platform_followers", q => q.eq("platform", "facebook").gte("followerCount", minFollowers))
+      .take(20);
+    return creators
+      .filter(creator => !creator.isDemo)
+      .map(creator => ({
+        pageId: creator.facebookPageId,
+        handle: creator.handle,
+        followerCount: creator.followerCount,
+        hasProfileImage: Boolean(creator.profileImageUrl),
+        hasStoredProfileImage: Boolean(creator.profileImageStorageId),
+        hasFacebookMetrics: Boolean(creator.facebookMetrics),
         isDemo: creator.isDemo,
       }));
   },

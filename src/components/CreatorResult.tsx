@@ -1,4 +1,4 @@
-import { ArrowUpRight, BadgeCheck, Camera, PlaySquare } from "lucide-react";
+import { ArrowUpRight, AtSign, BadgeCheck, Camera, PlaySquare } from "lucide-react";
 import { formatFollowers } from "../lib/format";
 import type { CreatorSearchResult } from "../types";
 import { CreatorPortrait } from "./CreatorPortrait";
@@ -15,7 +15,8 @@ export function CreatorResult({
   const updatedLabel = creator.lastUpdatedAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(creator.lastUpdatedAt) : "Update date unavailable";
   const performance = [
     creator.instagramMetrics?.averageComments !== undefined ? `${creator.instagramMetrics.averageComments.toLocaleString("en-IN", { maximumFractionDigits: 1 })} avg comments` : "",
-    creator.instagramMetrics?.engagementRatePercent !== undefined ? `${creator.instagramMetrics.engagementRatePercent.toLocaleString("en-IN", { maximumFractionDigits: 2 })}% engagement` : "",
+    (creator.instagramMetrics?.engagementRatePercent ?? creator.facebookMetrics?.engagementRatePercent) !== undefined ? `${(creator.instagramMetrics?.engagementRatePercent ?? creator.facebookMetrics?.engagementRatePercent)!.toLocaleString("en-IN", { maximumFractionDigits: 2 })}% engagement` : "",
+    creator.facebookMetrics?.pagePostEngagements !== undefined ? `${formatFollowers(creator.facebookMetrics.pagePostEngagements)} post engagements` : "",
   ].filter(Boolean);
 
   return (
@@ -28,7 +29,7 @@ export function CreatorResult({
         </span>
         <span className="creator-category">{creator.categories?.[0] ?? "Independent creator"}</span>
         <span className="creator-handle">
-          {creator.platform === "instagram" ? <Camera size={14} /> : <PlaySquare size={15} />}
+          {creator.platform === "instagram" ? <Camera size={14} /> : creator.platform === "youtube" ? <PlaySquare size={15} /> : <AtSign size={14} />}
           {formatFollowers(creator.followerCount)}
           <span aria-hidden="true">·</span>
           {creator.handle}

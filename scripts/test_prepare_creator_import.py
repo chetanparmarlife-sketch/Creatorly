@@ -10,6 +10,7 @@ from prepare_creator_import import (
     normalize_email,
     normalize_indian_phone,
     normalize_location,
+    prepare_facebook_profile_rows,
     prepare_rows,
     prepare_youtube_profile_rows,
 )
@@ -154,6 +155,76 @@ class CreatorImportCleanupTests(unittest.TestCase):
         self.assertNotIn("sourceUpdatedAt", profile)
         self.assertEqual(report["creatorProfiles"], 1)
         self.assertEqual(report["rejectedByReason"], {"below_1000_subscribers": 1})
+
+    def test_prepares_facebook_profiles_and_attaches_audience_rows(self):
+        fieldnames = [
+            "Influencer Id", "Facebook Profile Name", "About", "Profile Picture", "Cover",
+            "Follower Count", "Username", "facebook_id", "Website", "Category", "Follower Range",
+            "Engagement Rate", "Average Rate", "Story Rate - Min", "Post Rate - Min",
+            "Video Rate - Min", "Price Range", "Story Rate - Max", "Post Rate - Max",
+            "Video Rate - Max", "Page Engaged User", "Page Impression", "Page Impression Organic",
+            "Page Impression Paid", "Page Post Engagement", "Page Views Total",
+            "Page Impression Unique", "Page Impression Organic Unique", "Page Impression Paid Unique",
+            "Page Views Logged In Unique", "Created On", "Updated On",
+            "Age Group (Audience Gender and Age Breakup)", "Gender (Audience Gender and Age Breakup)",
+            "Value (Audience Gender and Age Breakup)", "City (Audience City)", "Value (Audience City)",
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "facebook.csv"
+            with source.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerow({
+                    "Influencer Id": "low", "Facebook Profile Name": "Small page", "facebook_id": "100",
+                    "Follower Count": "999",
+                })
+                writer.writerow({
+                    "Influencer Id": "creator-one", "Facebook Profile Name": "Maya Creates",
+                    "About": "Lifestyle and travel", "Profile Picture": "https://scontent-bom1-1.xx.fbcdn.net/maya.jpg",
+                    "Cover": "https://scontent-bom1-1.xx.fbcdn.net/cover.jpg", "Follower Count": "12,500",
+                    "Username": "maya.creates", "facebook_id": "123456", "Website": "https://maya.example",
+                    "Category": "Digital creator", "Follower Range": "10k-100k", "Engagement Rate": "3.4",
+                    "Average Rate": "8000", "Story Rate - Min": "2000", "Story Rate - Max": "4000",
+                    "Post Rate - Min": "5000", "Post Rate - Max": "9000", "Video Rate - Min": "7000",
+                    "Video Rate - Max": "12000", "Price Range": "5k-15k", "Page Engaged User": "6400",
+                    "Page Impression": "22000", "Page Post Engagement": "5100", "Page Views Total": "7800",
+                    "Age Group (Audience Gender and Age Breakup)": "18-24",
+                    "Gender (Audience Gender and Age Breakup)": "Female",
+                    "Value (Audience Gender and Age Breakup)": "4200",
+                    "City (Audience City)": "Mumbai", "Value (Audience City)": "2300",
+                    "Created On": "2024-01-01", "Updated On": "2026-08-31",
+                })
+                writer.writerow({
+                    "Age Group (Audience Gender and Age Breakup)": "25-34",
+                    "Gender (Audience Gender and Age Breakup)": "Male",
+                    "Value (Audience Gender and Age Breakup)": "2100",
+                    "City (Audience City)": "Delhi", "Value (Audience City)": "1100",
+                })
+
+            rows, report = prepare_facebook_profile_rows(source)
+
+        self.assertEqual(len(rows), 1)
+        profile = rows[0]
+        self.assertEqual(profile["platform"], "facebook")
+        self.assertEqual(profile["facebookPageId"], "123456")
+        self.assertEqual(profile["handle"], "@maya.creates")
+        self.assertEqual(profile["followerCount"], 12500)
+        self.assertEqual(profile["categories"], ["Digital creator"])
+        self.assertEqual(profile["facebookUrl"], "https://www.facebook.com/maya.creates")
+        self.assertEqual(profile["facebookMetrics"]["pageEngagedUsers"], 6400)
+        self.assertEqual(profile["facebookMetrics"]["engagementRatePercent"], 3.4)
+        self.assertEqual(profile["facebookMetrics"]["audience"], [
+            {"ageGroup": "18-24", "gender": "Female", "value": 4200},
+            {"ageGroup": "25-34", "gender": "Male", "value": 2100},
+        ])
+        self.assertEqual(profile["facebookMetrics"]["audienceCities"], [
+            {"city": "Mumbai", "value": 2300},
+            {"city": "Delhi", "value": 1100},
+        ])
+        self.assertNotIn("createdOn", profile)
+        self.assertNotIn("updatedOn", profile)
+        self.assertEqual(report["creatorProfiles"], 1)
+        self.assertEqual(report["rejectedByReason"], {"below_1000_followers": 1})
 
 
 if __name__ == "__main__":

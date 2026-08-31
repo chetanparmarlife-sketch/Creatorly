@@ -7,10 +7,12 @@ import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 import { normalize, score } from "./lib/matching";
 import { MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
 
-function canonicalProfileUrl(platform: string, handle: string, youtubeChannelId?: string) {
+function canonicalProfileUrl(platform: string, handle: string, youtubeChannelId?: string, facebookPageId?: string) {
   const clean = handle.replace(/^@/, "");
   if (platform === "youtube" && youtubeChannelId) return `https://www.youtube.com/channel/${encodeURIComponent(youtubeChannelId)}`;
   if (platform === "youtube") return `https://www.youtube.com/@${encodeURIComponent(clean)}`;
+  if (platform === "facebook" && handle.startsWith("@")) return `https://www.facebook.com/${encodeURIComponent(clean)}`;
+  if (platform === "facebook" && facebookPageId) return `https://www.facebook.com/profile.php?id=${encodeURIComponent(facebookPageId)}`;
   if (platform === "tiktok") return `https://www.tiktok.com/@${encodeURIComponent(clean)}`;
   if (platform === "twitter") return `https://x.com/${encodeURIComponent(clean)}`;
   return `https://www.instagram.com/${encodeURIComponent(clean)}/`;
@@ -18,6 +20,7 @@ function canonicalProfileUrl(platform: string, handle: string, youtubeChannelId?
 
 const platformValidator = v.union(
   v.literal("instagram"),
+  v.literal("facebook"),
   v.literal("tiktok"),
   v.literal("youtube"),
   v.literal("twitter"),
@@ -189,6 +192,8 @@ export const browsePage = query({
         instagramMetrics: creator.instagramMetrics,
         youtubeChannelId: creator.youtubeChannelId,
         youtubeMetrics: creator.youtubeMetrics,
+        facebookPageId: creator.facebookPageId,
+        facebookMetrics: creator.facebookMetrics,
         sourceLabel: "Creatorly database",
         lastUpdatedAt: creator.lastUpdatedAt,
         metricProvenance: "supplied" as const,
@@ -309,6 +314,8 @@ export const search = query({
           instagramMetrics: creator.instagramMetrics,
           youtubeChannelId: creator.youtubeChannelId,
           youtubeMetrics: creator.youtubeMetrics,
+          facebookPageId: creator.facebookPageId,
+          facebookMetrics: creator.facebookMetrics,
           sourceLabel: "Creatorly database",
           lastUpdatedAt: creator.lastUpdatedAt,
           metricProvenance: "supplied" as const,
@@ -388,7 +395,7 @@ export const getById = query({
         })) : [{
           platform: creator.platform,
           handle: creator.handle,
-          url: canonicalProfileUrl(creator.platform, creator.handle, creator.youtubeChannelId),
+          url: canonicalProfileUrl(creator.platform, creator.handle, creator.youtubeChannelId, creator.facebookPageId),
           followerCount: creator.followerCount,
           isVerified: creator.isVerified,
         }],
@@ -404,6 +411,8 @@ export const getById = query({
         instagramMetrics: creator.instagramMetrics,
         youtubeChannelId: creator.youtubeChannelId,
         youtubeMetrics: creator.youtubeMetrics,
+        facebookPageId: creator.facebookPageId,
+        facebookMetrics: creator.facebookMetrics,
         sourceLabel: "Creatorly database",
         lastUpdatedAt: creator.lastUpdatedAt,
         metricProvenance: "supplied" as const,

@@ -20,6 +20,7 @@ HANDLE_IN_TEXT = re.compile(r"@([A-Za-z0-9._]{2,30})")
 RESERVED = {"accounts", "about", "direct", "explore", "https", "invites", "p", "reel", "reels", "stories", "web"}
 INSTAGRAM_PROFILE_COLUMNS = {"Username", "Followers", "Following", "Average Comments"}
 YOUTUBE_PROFILE_COLUMNS = {"Influencer Id", "channel_id", "Subscribers", "YouTube API Response"}
+FACEBOOK_PROFILE_COLUMNS = {"Influencer Id", "Facebook Profile Name", "Follower Count", "facebook_id"}
 
 
 def extract_instagram_handle(value: str) -> str:
@@ -112,6 +113,16 @@ def valid_youtube_url(value: str) -> str:
     except ValueError:
         return ""
     return text if host in {"youtube.com", "youtu.be"} else ""
+
+
+def valid_web_url(value: str, https_only: bool = False) -> str:
+    text = (value or "").strip()
+    try:
+        parsed = urlparse(text)
+    except ValueError:
+        return ""
+    allowed_schemes = {"https"} if https_only else {"http", "https"}
+    return text if parsed.scheme.lower() in allowed_schemes and bool(parsed.netloc) else ""
 
 
 def choose_display_name(row: dict[str, str], handle: str) -> str:
@@ -605,6 +616,200 @@ def prepare_youtube_profile_rows(source: Path, contacts_verified: bool = False) 
     return output, report
 
 
+FACEBOOK_METRIC_COLUMNS = {
+    "Engagement Rate": "engagementRatePercent",
+    "Average Rate": "averageRate",
+    "Story Rate - Min": "storyRateMin",
+    "Story Rate - Max": "storyRateMax",
+    "Post Rate - Min": "postRateMin",
+    "Post Rate - Max": "postRateMax",
+    "Video Rate - Min": "videoRateMin",
+    "Video Rate - Max": "videoRateMax",
+    "Page Engaged User": "pageEngagedUsers",
+    "Page Impression": "pageImpressions",
+    "Page Impression Organic": "pageImpressionsOrganic",
+    "Page Impression Paid": "pageImpressionsPaid",
+    "Page Post Engagement": "pagePostEngagements",
+    "Page Views Total": "pageViewsTotal",
+    "Page Impression Unique": "pageImpressionsUnique",
+    "Page Impression Organic Unique": "pageImpressionsOrganicUnique",
+    "Page Impression Paid Unique": "pageImpressionsPaidUnique",
+    "Page Views Logged In Unique": "pageViewsLoggedInUnique",
+}
+
+
+def facebook_audience_entry(row: dict[str, str]) -> dict | None:
+    age_group = clean_text(row.get("Age Group (Audience Gender and Age Breakup)") or "")
+    gender = clean_text(row.get("Gender (Audience Gender and Age Breakup)") or "")
+    value = parse_optional_number(row.get("Value (Audience Gender and Age Breakup)") or "")
+    if not age_group or not gender or value is None:
+        return None
+    return {"ageGroup": age_group, "gender": gender, "value": value}
+
+
+def facebook_city_entry(row: dict[str, str]) -> dict | None:
+    city = clean_text(row.get("City (Audience City)") or "")
+    value = parse_optional_number(row.get("Value (Audience City)") or "")
+    if not city or value is None:
+        return None
+    return {"city": city, "value": value}
+
+
+def prepare_facebook_profile_row(row: dict[str, str], audience_rows: list[dict[str, str]]) -> dict | None:
+    page_id = clean_text(row.get("facebook_id") or "")
+    username = clean_handle(row.get("Username") or "")
+    display_name = clean_text(row.get("Facebook Profile Name") or "")
+    follower_count = parse_number(row.get("Follower Count") or "")
+    if not page_id or not display_name or follower_count < 1000:
+        return None
+
+    metrics = {
+        target: value
+        for source, target in FACEBOOK_METRIC_COLUMNS.items()
+        if (value := parse_optional_number(row.get(source) or "")) is not None
+    }
+    string_metrics = {
+        "followerRange": clean_text(row.get("Follower Range") or ""),
+        "priceRange": clean_text(row.get("Price Range") or ""),
+        "coverImageUrl": valid_web_url(row.get("Cover") or "", https_only=True),
+        "websiteUrl": valid_web_url(row.get("Website") or ""),
+    }
+    metrics.update({key: value for key, value in string_metrics.items() if value})
+
+    audience = {}
+    cities = {}
+    for audience_row in audience_rows:
+        if entry := facebook_audience_entry(audience_row):
+            audience[(entry["ageGroup"].casefold(), entry["gender"].casefold())] = entry
+        if entry := facebook_city_entry(audience_row):
+            cities[entry["city"].casefold()] = entry
+    if audience:
+        metrics["audience"] = list(audience.values())
+    if cities:
+        metrics["audienceCities"] = list(cities.values())
+
+    categories = split_categories(row.get("Category") or "")
+    handle = f"@{username}" if username else page_id
+    profile = {
+        "sourceKey": hashlib.sha256(f"facebook:{page_id.casefold()}".encode()).hexdigest()[:24],
+        "platform": "facebook",
+        "handle": handle,
+        "normalizedHandle": normalize_handle(username or page_id),
+        "displayName": display_name,
+        "followerCount": follower_count,
+        "isVerified": False,
+        "categories": categories,
+        "contacts": [],
+        "contactVerificationStatus": "pending_verification",
+        "facebookPageId": page_id,
+        "facebookUrl": f"https://www.facebook.com/{username}" if username else f"https://www.facebook.com/profile.php?id={page_id}",
+        "facebookMetrics": metrics,
+    }
+    optional_text = {
+        "biography": clean_text(row.get("About") or ""),
+        "profileImageUrl": valid_web_url(row.get("Profile Picture") or "", https_only=True),
+        "profileType": categories[0] if categories else "",
+    }
+    profile.update({key: value for key, value in optional_text.items() if value})
+    return profile
+
+
+def merge_facebook_profiles(existing: dict, incoming: dict) -> dict:
+    preferred, other = (incoming, existing) if len(json.dumps(incoming)) > len(json.dumps(existing)) else (existing, incoming)
+    merged = dict(preferred)
+    for key, value in other.items():
+        if key not in merged or merged[key] in (None, "", [], {}):
+            merged[key] = value
+    merged["followerCount"] = max(existing["followerCount"], incoming["followerCount"])
+    merged["categories"] = list(dict.fromkeys(existing["categories"] + incoming["categories"]))
+    metrics = dict(existing.get("facebookMetrics", {}))
+    incoming_metrics = incoming.get("facebookMetrics", {})
+    existing_audience = metrics.pop("audience", [])
+    existing_cities = metrics.pop("audienceCities", [])
+    incoming_audience = incoming_metrics.get("audience", [])
+    incoming_cities = incoming_metrics.get("audienceCities", [])
+    metrics.update({key: value for key, value in incoming_metrics.items() if key not in {"audience", "audienceCities"}})
+    audience = {(item["ageGroup"].casefold(), item["gender"].casefold()): item for item in existing_audience + incoming_audience}
+    cities = {item["city"].casefold(): item for item in existing_cities + incoming_cities}
+    if audience:
+        metrics["audience"] = list(audience.values())
+    if cities:
+        metrics["audienceCities"] = list(cities.values())
+    merged["facebookMetrics"] = metrics
+    return merged
+
+
+def prepare_facebook_profile_rows(source: Path, contacts_verified: bool = False) -> tuple[list[dict], dict]:
+    del contacts_verified
+    profiles: dict[str, dict] = {}
+    rejected = defaultdict(int)
+    source_rows = 0
+    source_profiles = 0
+    eligible_profiles = 0
+    current_row: dict[str, str] | None = None
+    current_audience: list[dict[str, str]] = []
+
+    def finish_current() -> None:
+        nonlocal eligible_profiles
+        if current_row is None:
+            return
+        page_id = clean_text(current_row.get("facebook_id") or "")
+        display_name = clean_text(current_row.get("Facebook Profile Name") or "")
+        follower_count = parse_number(current_row.get("Follower Count") or "")
+        if not page_id:
+            rejected["missing_facebook_page_id"] += 1
+            return
+        if not display_name:
+            rejected["missing_profile_name"] += 1
+            return
+        if follower_count < 1000:
+            rejected["below_1000_followers"] += 1
+            return
+        prepared = prepare_facebook_profile_row(current_row, current_audience)
+        if not prepared:
+            rejected["invalid_profile"] += 1
+            return
+        eligible_profiles += 1
+        key = page_id.casefold()
+        profiles[key] = merge_facebook_profiles(profiles[key], prepared) if key in profiles else prepared
+
+    with source.open(newline="", encoding="utf-8-sig") as handle:
+        for row in csv.DictReader(handle):
+            source_rows += 1
+            is_profile_row = bool(clean_text(row.get("Influencer Id") or "") or clean_text(row.get("facebook_id") or "") or clean_text(row.get("Facebook Profile Name") or ""))
+            if is_profile_row:
+                finish_current()
+                source_profiles += 1
+                current_row = row
+                current_audience = [row]
+            elif current_row is not None:
+                current_audience.append(row)
+            elif facebook_audience_entry(row) or facebook_city_entry(row):
+                rejected["orphan_audience_row"] += 1
+        finish_current()
+
+    output = [profiles[key] for key in sorted(profiles)]
+    report = {
+        "sourceFile": source.name,
+        "sourceFormat": "facebook_profiles_with_audience_continuations",
+        "sourceRows": source_rows,
+        "sourceProfiles": source_profiles,
+        "eligibleSourceProfiles": eligible_profiles,
+        "creatorProfiles": len(output),
+        "exactDuplicatePagesMerged": eligible_profiles - len(output),
+        "rejectedProfiles": sum(rejected.values()),
+        "rejectedByReason": dict(sorted(rejected.items())),
+        "minimumFollowerCount": 1000,
+        "profilesWithImage": sum(bool(profile.get("profileImageUrl")) for profile in output),
+        "profilesWithBiography": sum(bool(profile.get("biography")) for profile in output),
+        "profilesWithAudienceData": sum(bool(profile["facebookMetrics"].get("audience")) for profile in output),
+        "profilesWithAudienceCityData": sum(bool(profile["facebookMetrics"].get("audienceCities")) for profile in output),
+        "profilesWithPricingData": sum(any(key in profile["facebookMetrics"] for key in ("averageRate", "storyRateMin", "postRateMin", "videoRateMin")) for profile in output),
+        "excludedColumns": ["Created On", "Updated On"],
+    }
+    return output, report
+
+
 def prepare_rows(source: Path, contacts_verified: bool = False) -> tuple[list[dict], dict]:
     with source.open(newline="", encoding="utf-8-sig") as handle:
         fieldnames = set(csv.DictReader(handle).fieldnames or [])
@@ -612,6 +817,8 @@ def prepare_rows(source: Path, contacts_verified: bool = False) -> tuple[list[di
         return prepare_instagram_profile_rows(source, contacts_verified)
     if YOUTUBE_PROFILE_COLUMNS.issubset(fieldnames):
         return prepare_youtube_profile_rows(source, contacts_verified)
+    if FACEBOOK_PROFILE_COLUMNS.issubset(fieldnames):
+        return prepare_facebook_profile_rows(source, contacts_verified)
     return prepare_legacy_rows(source, contacts_verified)
 
 

@@ -5,12 +5,13 @@ import { v } from "convex/values";
 const planTier = v.union(v.literal("free"), v.literal("basic"), v.literal("pro"));
 const platform = v.union(
   v.literal("instagram"),
+  v.literal("facebook"),
   v.literal("tiktok"),
   v.literal("youtube"),
   v.literal("twitter"),
 );
 const socialPlatform = v.union(
-  v.literal("instagram"), v.literal("tiktok"), v.literal("youtube"), v.literal("linkedin"), v.literal("twitter"),
+  v.literal("instagram"), v.literal("facebook"), v.literal("tiktok"), v.literal("youtube"), v.literal("linkedin"), v.literal("twitter"),
 );
 const workspaceKind = v.union(v.literal("agency"), v.literal("brand"), v.literal("talent"));
 const workspaceRole = v.union(v.literal("owner"), v.literal("admin"), v.literal("manager"), v.literal("contributor"), v.literal("reviewer"));
@@ -65,6 +66,39 @@ const youtubeMetrics = v.object({
     ageGroup: v.string(),
     gender: v.string(),
     percentage: v.number(),
+  }))),
+});
+const facebookMetrics = v.object({
+  engagementRatePercent: v.optional(v.number()),
+  averageRate: v.optional(v.number()),
+  storyRateMin: v.optional(v.number()),
+  storyRateMax: v.optional(v.number()),
+  postRateMin: v.optional(v.number()),
+  postRateMax: v.optional(v.number()),
+  videoRateMin: v.optional(v.number()),
+  videoRateMax: v.optional(v.number()),
+  pageEngagedUsers: v.optional(v.number()),
+  pageImpressions: v.optional(v.number()),
+  pageImpressionsOrganic: v.optional(v.number()),
+  pageImpressionsPaid: v.optional(v.number()),
+  pagePostEngagements: v.optional(v.number()),
+  pageViewsTotal: v.optional(v.number()),
+  pageImpressionsUnique: v.optional(v.number()),
+  pageImpressionsOrganicUnique: v.optional(v.number()),
+  pageImpressionsPaidUnique: v.optional(v.number()),
+  pageViewsLoggedInUnique: v.optional(v.number()),
+  followerRange: v.optional(v.string()),
+  priceRange: v.optional(v.string()),
+  coverImageUrl: v.optional(v.string()),
+  websiteUrl: v.optional(v.string()),
+  audience: v.optional(v.array(v.object({
+    ageGroup: v.string(),
+    gender: v.string(),
+    value: v.number(),
+  }))),
+  audienceCities: v.optional(v.array(v.object({
+    city: v.string(),
+    value: v.number(),
   }))),
 });
 
@@ -132,6 +166,8 @@ export default defineSchema({
     instagramMetrics: v.optional(instagramMetrics),
     youtubeChannelId: v.optional(v.string()),
     youtubeMetrics: v.optional(youtubeMetrics),
+    facebookPageId: v.optional(v.string()),
+    facebookMetrics: v.optional(facebookMetrics),
     contentLanguages: v.optional(v.array(v.string())),
     profileType: v.optional(v.string()),
     contentQuality: v.optional(v.string()),
@@ -159,6 +195,7 @@ export default defineSchema({
     .index("by_platform_category_verified_followers", ["platform", "primaryCategory", "isVerified", "followerCount"])
     .index("by_normalized_handle", ["normalizedHandle"])
     .index("by_youtube_channel_id", ["youtubeChannelId"])
+    .index("by_facebook_page_id", ["facebookPageId"])
     .searchIndex("search_normalized_handle", { searchField: "normalizedHandle", filterFields: ["platform"] })
     .searchIndex("search_display_name", { searchField: "displayName", filterFields: ["platform"] })
     .searchIndex("search_location", { searchField: "location", filterFields: ["platform", "isVerified"] })
@@ -358,7 +395,7 @@ export default defineSchema({
     .index("by_token", ["token"]),
   creatorImportStaging: defineTable({
     sourceKey: v.string(),
-    platform: v.optional(v.union(v.literal("instagram"), v.literal("youtube"))),
+    platform: v.optional(v.union(v.literal("instagram"), v.literal("youtube"), v.literal("facebook"))),
     handle: v.string(),
     normalizedHandle: v.string(),
     displayName: v.string(),
@@ -367,6 +404,7 @@ export default defineSchema({
     isVerified: v.boolean(),
     categories: v.array(v.string()),
     youtubeUrl: v.optional(v.string()),
+    facebookUrl: v.optional(v.string()),
     profileImageUrl: v.optional(v.string()),
     biography: v.optional(v.string()),
     gender: v.optional(v.string()),
@@ -377,6 +415,8 @@ export default defineSchema({
     instagramMetrics: v.optional(instagramMetrics),
     youtubeChannelId: v.optional(v.string()),
     youtubeMetrics: v.optional(youtubeMetrics),
+    facebookPageId: v.optional(v.string()),
+    facebookMetrics: v.optional(facebookMetrics),
     contactVerificationStatus: v.optional(v.union(v.literal("verified"), v.literal("pending_verification"))),
     contacts: v.array(v.object({
       email: v.optional(v.string()),

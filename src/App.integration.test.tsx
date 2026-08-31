@@ -254,8 +254,9 @@ describe("Creatorly M1 user journey", () => {
     await user.type(await screen.findByLabelText("Creator name or handle"), "MrBeast");
 
     expect(await screen.findByRole("heading", { name: /no creator found/i })).toBeInTheDocument();
-    expect(screen.getByText(/India-focused Instagram and YouTube creators/i)).toBeInTheDocument();
+    expect(screen.getByText(/India-focused Instagram, YouTube, and Facebook creators/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "YouTube" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Facebook" })).toBeInTheDocument();
   });
 
   it("lets a demo admin fulfill a pending request", async () => {
@@ -731,5 +732,18 @@ describe("Creatorly M1 user journey", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: /Maya Kapoor/i })).not.toBeInTheDocument());
     expect(await screen.findByRole("button", { name: /Rishi Verma/i })).toBeInTheDocument();
     expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("button", { name: "YouTube" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("offers Facebook as a real Discovery platform filter", async () => {
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.history.replaceState({}, "", "/app/discover");
+    renderDemo();
+    const user = userEvent.setup();
+
+    const facebook = await screen.findByRole("button", { name: "Facebook" });
+    await user.click(facebook);
+
+    expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("button", { name: "Facebook" })).toHaveAttribute("aria-pressed", "true");
   });
 });

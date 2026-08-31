@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { normalize } from "./lib/matching";
 
-const platform = v.union(v.literal("instagram"), v.literal("youtube"));
+const platform = v.union(v.literal("instagram"), v.literal("youtube"), v.literal("facebook"));
 
 export const create = mutation({
   args: {

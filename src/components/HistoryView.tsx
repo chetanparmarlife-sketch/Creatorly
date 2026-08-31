@@ -27,7 +27,7 @@ export function HistoryView({
   const [items, setItems] = useState<UnlockHistoryItem[]>([]);
   const [filter, setFilter] = useState<HistoryFilter>("active");
   const [query, setQuery] = useState("");
-  const [platform, setPlatform] = useState<"all" | "instagram" | "youtube">("all");
+  const [platform, setPlatform] = useState<"all" | "instagram" | "youtube" | "facebook">("all");
   const [period, setPeriod] = useState<"all" | "30" | "90">("all");
   const [sort, setSort] = useState<"newest" | "name">("newest");
   const [now] = useState(() => Date.now());
@@ -128,7 +128,7 @@ export function HistoryView({
           <span className="sr-only">Search unlock history</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search creator" />
         </label>
-        <select aria-label="Filter by platform" value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="youtube">YouTube</option></select>
+        <select aria-label="Filter by platform" value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="all">All platforms</option><option value="instagram">Instagram</option><option value="youtube">YouTube</option><option value="facebook">Facebook</option></select>
         <select aria-label="Filter by date" value={period} onChange={e => setPeriod(e.target.value as typeof period)}><option value="all">Any date</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select>
         <select aria-label="Sort history" value={sort} onChange={e => setSort(e.target.value as typeof sort)}><option value="newest">Newest first</option><option value="name">Creator name</option></select>
       </section>

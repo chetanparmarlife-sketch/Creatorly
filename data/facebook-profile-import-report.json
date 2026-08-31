@@ -1,0 +1,24 @@
+{
+  "sourceFile": "Facebook Profile.csv",
+  "sourceFormat": "facebook_profiles_with_audience_continuations",
+  "sourceRows": 118430,
+  "sourceProfiles": 2516,
+  "eligibleSourceProfiles": 617,
+  "creatorProfiles": 607,
+  "exactDuplicatePagesMerged": 10,
+  "rejectedProfiles": 1899,
+  "rejectedByReason": {
+    "below_1000_followers": 1887,
+    "missing_profile_name": 12
+  },
+  "minimumFollowerCount": 1000,
+  "profilesWithImage": 607,
+  "profilesWithBiography": 546,
+  "profilesWithAudienceData": 399,
+  "profilesWithAudienceCityData": 380,
+  "profilesWithPricingData": 607,
+  "excludedColumns": [
+    "Created On",
+    "Updated On"
+  ]
+}

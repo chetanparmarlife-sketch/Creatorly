@@ -142,9 +142,9 @@
 - Test: `src/App.integration.test.tsx`
 
 **Interfaces:**
-- Produces: an available-platform list containing Instagram and YouTube, plus a static non-interactive list of future products.
+- Produces: an available-platform list containing Instagram, YouTube, and Facebook, plus a static non-interactive list of future products.
 
-- [x] Test that discovery exposes Instagram and YouTube but not empty TikTok or X repository filters.
+- [x] Test that discovery exposes Instagram, YouTube, and Facebook but not empty TikTok or X repository filters.
 - [x] Preserve TikTok and X platform types for private CRM and campaign data without presenting them as available Discovery repositories.
 - [x] Show AI Agents, Inbox, Automations, Reports, and Integrations after Campaigns as non-clickable sidebar rows with `Planned` on the right.
 - [x] Keep History and Settings in their own section after the planned-product separator.

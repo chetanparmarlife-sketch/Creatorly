@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { campaignManagers, requireWorkspaceMember, requireWorkspaceRole } from "./lib/workspaceAuth";
 
 const stage = v.union(v.literal("discovered"), v.literal("shortlisted"), v.literal("contacted"), v.literal("replied"), v.literal("negotiating"), v.literal("contracted"), v.literal("creating"), v.literal("in_review"), v.literal("scheduled"), v.literal("live"), v.literal("paid"));
-const platform = v.union(v.literal("instagram"), v.literal("tiktok"), v.literal("youtube"), v.literal("linkedin"), v.literal("twitter"));
+const platform = v.union(v.literal("instagram"), v.literal("facebook"), v.literal("tiktok"), v.literal("youtube"), v.literal("linkedin"), v.literal("twitter"));
 const privateSource = v.union(v.literal("csv_upload"), v.literal("manual"));
 const privateCreator = v.object({
   displayName: v.string(),
@@ -20,7 +20,7 @@ const privateCreator = v.object({
 
 const normalizeHandle = (value?: string) => value?.trim().toLowerCase().replace(/^@/, "") || undefined;
 const normalizeEmail = (value?: string) => value?.trim().toLowerCase() || undefined;
-const privateKeys = (item: { platform?: "instagram" | "tiktok" | "youtube" | "linkedin" | "twitter"; handle?: string; email?: string }) => {
+const privateKeys = (item: { platform?: "instagram" | "facebook" | "tiktok" | "youtube" | "linkedin" | "twitter"; handle?: string; email?: string }) => {
   const keys: string[] = [];
   const handle = normalizeHandle(item.handle);
   const email = normalizeEmail(item.email);

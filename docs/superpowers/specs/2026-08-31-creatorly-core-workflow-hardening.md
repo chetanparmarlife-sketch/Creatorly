@@ -10,7 +10,7 @@ onboarding, with Discovery as the intentional authenticated starting screen.
 The existing Lumen visual system remains unchanged: white and soft-grey
 surfaces, black structure, blue selection, Plus Jakarta Sans, 44px controls,
 and written status labels. Production copy must not call simulated behavior
-real. Creatorly currently has India-focused Instagram and YouTube discovery;
+real. Creatorly currently has India-focused Instagram, YouTube, and Facebook discovery;
 empty repository platforms must stay hidden. Future products may appear in
 the sidebar only as non-clickable rows explicitly marked `Planned`.
 
