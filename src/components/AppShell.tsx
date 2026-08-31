@@ -1,4 +1,4 @@
-import { Bot, ChartNoAxesCombined, ChevronDown, History, Inbox, LogOut, Megaphone, Menu, Plug, Search, Settings, ShieldCheck, UserRound, Users, Workflow, X } from "lucide-react";
+import { ChevronDown, History, LogOut, Megaphone, Menu, Search, Settings, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Viewer } from "../types";
 import { Logo } from "./Logo";
@@ -41,12 +41,6 @@ export function AppShell({
             </button>
             <button className={`nav-item ${activePage === "creators" ? "is-active" : ""}`} onClick={() => go({ name: "creators" })} aria-current={activePage === "creators" ? "page" : undefined}><Users size={17}/> Creators</button>
             <button className={`nav-item ${activePage === "campaigns" ? "is-active" : ""}`} onClick={() => go({ name: "campaigns" })} aria-current={activePage === "campaigns" ? "page" : undefined}><Megaphone size={17}/> Campaigns</button>
-            <div className="nav-divider" />
-            <button className="nav-item is-planned" disabled><Inbox size={17}/> Inbox <small>Planned</small></button>
-            <button className="nav-item is-planned" disabled><Workflow size={17}/> Automations <small>Planned</small></button>
-            <button className="nav-item is-planned" disabled><ChartNoAxesCombined size={17}/> Reports <small>Planned</small></button>
-            <button className="nav-item is-planned" disabled><Bot size={17}/> Agents <small>Planned</small></button>
-            <button className="nav-item is-planned" disabled><Plug size={17}/> Integrations <small>Planned</small></button>
             <div className="nav-divider" />
             <button className={`nav-item ${activePage === "history" ? "is-active" : ""}`} onClick={onHistory} aria-current={activePage === "history" ? "page" : undefined}>
               <History size={17} aria-hidden="true" /> History

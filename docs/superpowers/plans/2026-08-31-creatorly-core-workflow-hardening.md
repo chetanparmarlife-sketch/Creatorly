@@ -144,11 +144,11 @@
 **Interfaces:**
 - Produces: an available-platform list containing Instagram only until repository counts prove otherwise.
 
-- [ ] Test that discovery exposes Instagram only and primary navigation contains no disabled future modules.
-- [ ] Remove TikTok, YouTube, and X discovery choices while preserving those platform types for private CRM data.
-- [ ] Remove planned Inbox, Automations, Reports, Agents, and Integrations buttons from the app shell.
-- [ ] Keep future add-ons described honestly on the marketing page.
-- [ ] Verify desktop/mobile navigation and commit item 7.
+- [x] Test that discovery exposes Instagram only and primary navigation contains no disabled future modules.
+- [x] Remove TikTok, YouTube, and X discovery choices while preserving those platform types for private CRM data.
+- [x] Remove planned Inbox, Automations, Reports, Agents, and Integrations buttons from the app shell.
+- [x] Keep future add-ons described honestly on the marketing page.
+- [x] Verify desktop/mobile navigation and commit item 7.
 
 ### Task 8: Shorten onboarding
 

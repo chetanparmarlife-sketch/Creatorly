@@ -251,7 +251,7 @@ describe("Creatorly M1 user journey", () => {
 
     expect(await screen.findByRole("heading", { name: /no creator found/i })).toBeInTheDocument();
     expect(screen.getByText(/India-focused Instagram creators/i)).toBeInTheDocument();
-    expect(screen.getByText(/YouTube creator data is not loaded yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/YouTube creator data/i)).not.toBeInTheDocument();
   });
 
   it("lets a demo admin fulfill a pending request", async () => {
@@ -410,17 +410,19 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter creator column")).not.toBeInTheDocument();
     expect(screen.getByText("Use search above")).toBeInTheDocument();
-    expect(screen.getByLabelText("Filter platform column")).toBeInTheDocument();
+    expect(screen.getByText("Instagram only")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Filter platform column")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter category column")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter city or country column")).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter contact column")).not.toBeInTheDocument();
     expect(screen.getByText("Verification status")).toBeInTheDocument();
+    for (const planned of ["Inbox", "Automations", "Reports", "Agents", "Integrations"]) expect(screen.queryByRole("button", { name: new RegExp(planned, "i") })).not.toBeInTheDocument();
     await screen.findByRole("button", { name: /view Pending Import profile/i });
     await user.click(screen.getByRole("button", { name: "Sort creator name ascending" }));
     await waitFor(() => expect(document.querySelector(".discovery-row")).toHaveTextContent("Aanchal Mehta"));
     await user.click(screen.getByRole("button", { name: "Sort audience high to low" }));
-    await waitFor(() => expect(document.querySelector(".discovery-row")).toHaveTextContent("Rishi Verma"));
+    await waitFor(() => expect(document.querySelector(".discovery-row")).toHaveTextContent("Maya Kapoor"));
     await user.selectOptions(screen.getByLabelText("Filter audience column"), "1k5k");
     await waitFor(() => expect(screen.queryByRole("button", { name: /view Maya Kapoor profile/i })).not.toBeInTheDocument());
     expect(await screen.findByRole("heading", { name: /no creators match these filters/i })).toBeInTheDocument();
@@ -518,15 +520,15 @@ describe("Creatorly M1 user journey", () => {
 
     await user.click(await screen.findByRole("button", { name: /^search$/i }));
     const search = await screen.findByLabelText("Creator name or handle");
-    await user.type(search, "Riya On The Go");
+    await user.type(search, "Maya Kapoor");
     await user.click(within(search.closest("section")!).getByRole("button", { name: /^search$/i }));
-    const row = await screen.findByRole("button", { name: /view Riya On The Go profile/i });
+    const row = await screen.findByRole("button", { name: /view Maya Kapoor profile/i });
     const resultRow = row.closest("article");
     expect(resultRow).not.toBeNull();
     await user.click(within(resultRow!).getByRole("button", { name: /^save$/i }));
 
     await user.click(screen.getByRole("button", { name: /^creators$/i }));
-    expect(await screen.findByText("@riyaonthego")).toBeInTheDocument();
+    expect(await screen.findByText("@maya_creates")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^campaigns$/i }));
     await user.click((await screen.findAllByRole("button", { name: /create campaign/i }))[0]);
     const campaignName = screen.getByPlaceholderText("Festive creator launch");
@@ -535,15 +537,15 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("checkbox", { name: "Instagram" }));
     await user.click(within(campaignName.closest("form")!).getByRole("button", { name: /^create campaign$/i }));
     expect(await screen.findByRole("heading", { name: "Monsoon Escape" })).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("Saved creator"), screen.getByRole("option", { name: "Riya On The Go" }));
+    await user.selectOptions(screen.getByLabelText("Saved creator"), screen.getByRole("option", { name: "Maya Kapoor" }));
     await user.click(screen.getByRole("button", { name: /^add$/i }));
     await user.click(await screen.findByRole("button", { name: /^rail$/i }));
-    const stage = await screen.findByLabelText(/move Riya On The Go/i);
+    const stage = await screen.findByLabelText(/move Maya Kapoor/i);
     await user.selectOptions(stage, "contacted");
-    await waitFor(() => expect(screen.getByLabelText(/move Riya On The Go/i)).toHaveValue("contacted"));
+    await waitFor(() => expect(screen.getByLabelText(/move Maya Kapoor/i)).toHaveValue("contacted"));
 
     const rail = screen.getByRole("region", { name: /campaign creator rail/i });
-    await user.click(within(rail).getByRole("button", { name: /Riya On The Go/i }));
+    await user.click(within(rail).getByRole("button", { name: /Maya Kapoor/i }));
     const drawer = await screen.findByRole("complementary", { name: /campaign execution details/i });
     await user.type(within(drawer).getByLabelText(/agreed fee/i), "75000");
     await user.click(within(drawer).getByRole("button", { name: /save fee/i }));
