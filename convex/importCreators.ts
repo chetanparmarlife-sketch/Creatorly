@@ -291,13 +291,6 @@ export const backfillEngagementRateBatch = internalMutation({
   },
 });
 
-export const engagementBackfillStatus = internalQuery({
-  args: {},
-  handler: async (ctx) => ({
-    complete: (await ctx.db.query("creators").withIndex("by_engagement_backfilled", q => q.eq("engagementRateBackfilled", undefined)).first()) === null,
-  }),
-});
-
 export const backfillEngagementRates = internalAction({
   args: {},
   handler: async (ctx) => {
