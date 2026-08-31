@@ -54,10 +54,10 @@
 - Consumes: `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, and Convex Auth's password `verify` provider.
 - Produces: `signUp` requesting an OTP, `verifyEmail(email, code)`, resend behavior, and checkout continuation only after OTP verification.
 
-- [ ] Add tests for signup → code entry → verified account and paid-plan continuation after verification.
-- [ ] Configure `Password({ verify: Email(...) })`; send a six-digit OTP through the server using the configured sender.
-- [ ] Store `isEmailVerified: false` at account creation and set it only after Convex Auth confirms verification.
-- [ ] Replace demo copy with code entry, resend, expiry, error, and change-email states.
+- [x] Add tests for signup → code entry → verified account and paid-plan continuation after verification.
+- [x] Configure `Password({ verify: Email(...) })`; send a six-digit OTP through the server using the configured sender.
+- [x] Store `isEmailVerified: false` at account creation and set it only after Convex Auth confirms verification.
+- [x] Replace demo copy with code entry, resend, expiry, error, and change-email states.
 - [ ] Verify a real email round-trip in development and production before marking complete.
 - [ ] Commit item 2 independently.
 
@@ -73,11 +73,11 @@
 **Interfaces:**
 - Produces: `CampaignDraft` with explicit `name`, `goal`, `platforms`, `currency`, optional `budget`, optional `startsAt`, optional `endsAt`, and optional group ID.
 
-- [ ] Add a test proving campaign creation stores only values entered by the user.
-- [ ] Add platform checkboxes, currency, optional budget, and date fields to the existing campaign form.
-- [ ] Reject empty platforms, negative budgets, and end dates before start dates on the server.
-- [ ] Remove the hard-coded INR 500,000 and three-platform values.
-- [ ] Verify creation for agency and brand workspaces, then commit item 3.
+- [x] Add a test proving campaign creation stores only values entered by the user.
+- [x] Add platform checkboxes, currency, optional budget, and date fields to the existing campaign form.
+- [x] Reject empty platforms, negative budgets, and end dates before start dates on the server.
+- [x] Remove the hard-coded INR 500,000 and three-platform values.
+- [x] Verify creation for agency and brand workspaces, then commit item 3.
 
 ### Task 4: Preserve payment results and loading states
 

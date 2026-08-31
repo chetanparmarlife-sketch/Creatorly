@@ -6,10 +6,15 @@ const platform = v.union(v.literal("instagram"), v.literal("tiktok"), v.literal(
 const stage = v.union(v.literal("discovered"), v.literal("shortlisted"), v.literal("contacted"), v.literal("replied"), v.literal("negotiating"), v.literal("contracted"), v.literal("creating"), v.literal("in_review"), v.literal("scheduled"), v.literal("live"), v.literal("paid"));
 
 export const create = mutation({
-  args: { workspaceId: v.id("workspaces"), clientId: v.optional(v.id("clients")), divisionId: v.optional(v.id("brandDivisions")), name: v.string(), goal: v.string(), platforms: v.array(platform), currency: v.string(), budget: v.optional(v.number()) },
+  args: { workspaceId: v.id("workspaces"), clientId: v.optional(v.id("clients")), divisionId: v.optional(v.id("brandDivisions")), name: v.string(), goal: v.string(), platforms: v.array(platform), currency: v.string(), budget: v.optional(v.number()), startsAt: v.optional(v.number()), endsAt: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const { userId } = await requireWorkspaceRole(ctx, args.workspaceId, campaignManagers);
     if (!args.name.trim()) throw new ConvexError("Enter a campaign name.");
+    if (!args.goal.trim()) throw new ConvexError("Enter a campaign goal.");
+    if (!args.platforms.length) throw new ConvexError("Choose at least one platform.");
+    if (!args.currency.trim()) throw new ConvexError("Choose a currency.");
+    if (args.budget !== undefined && args.budget < 0) throw new ConvexError("Budget cannot be negative.");
+    if (args.startsAt !== undefined && args.endsAt !== undefined && args.endsAt < args.startsAt) throw new ConvexError("End date cannot be before start date.");
     if (args.clientId && args.divisionId) throw new ConvexError("A campaign can belong to one client or division.");
     const workspace = await ctx.db.get(args.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found.");
@@ -22,7 +27,7 @@ export const create = mutation({
       if (workspace.kind !== "brand" || !division || division.workspaceId !== args.workspaceId) throw new ConvexError("Division not found in this workspace.");
     }
     const now = Date.now();
-    const campaignId = await ctx.db.insert("campaigns", { workspaceId: args.workspaceId, clientId: args.clientId, divisionId: args.divisionId, name: args.name.trim(), goal: args.goal.trim(), platforms: args.platforms, status: "active", currency: args.currency, budget: args.budget, createdBy: userId, createdAt: now, updatedAt: now });
+    const campaignId = await ctx.db.insert("campaigns", { workspaceId: args.workspaceId, clientId: args.clientId, divisionId: args.divisionId, name: args.name.trim(), goal: args.goal.trim(), platforms: [...new Set(args.platforms)], status: "active", currency: args.currency.trim().toUpperCase(), budget: args.budget, startsAt: args.startsAt, endsAt: args.endsAt, createdBy: userId, createdAt: now, updatedAt: now });
     await ctx.db.insert("activityEvents", { workspaceId: args.workspaceId, actorUserId: userId, entityType: "campaign", entityId: campaignId, action: "created", summary: `Created campaign ${args.name.trim()}`, createdAt: now });
     return { campaignId };
   },

@@ -341,4 +341,5 @@ export type Campaign = {
   createdAt: number;
   updatedAt: number;
 };
+export type CampaignDraft = Pick<Campaign, "name" | "goal" | "platforms" | "currency" | "budget" | "startsAt" | "endsAt" | "clientId" | "divisionId">;
 export type WorkspaceActivity = { id: string; summary: string; entityType: "workspace" | "saved_creator" | "campaign" | "campaign_creator" | "deliverable" | "approval" | "task"; createdAt: number };

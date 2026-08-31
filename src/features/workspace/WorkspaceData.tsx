@@ -3,7 +3,7 @@ import { useConvex } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id, TableNames } from "../../../convex/_generated/dataModel";
 import { demoData } from "../../lib/demoData";
-import type { ApprovalDecision, Campaign, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, GroupCollaborator, GroupCollaboratorRole, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceGroup, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
+import type { ApprovalDecision, Campaign, CampaignDraft, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, GroupCollaborator, GroupCollaboratorRole, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceGroup, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
 import { creatorDuplicateKey } from "./creatorImport";
 
 type WorkspaceData = {
@@ -18,7 +18,7 @@ type WorkspaceData = {
   createGroup(workspaceId: string, input: Pick<WorkspaceGroup, "name" | "website" | "divisionType" | "parentDivisionId">): Promise<string>;
   listGroupCollaborators(workspaceId: string): Promise<GroupCollaborator[]>;
   addGroupCollaborator(workspaceId: string, group: WorkspaceGroup, email: string, role: GroupCollaboratorRole): Promise<void>;
-  createCampaign(workspaceId: string, input: Pick<Campaign, "name" | "goal" | "platforms" | "currency" | "budget" | "clientId" | "divisionId">): Promise<string>;
+  createCampaign(workspaceId: string, input: CampaignDraft): Promise<string>;
   listCampaigns(workspaceId: string): Promise<Campaign[]>;
   addCampaignCreator(workspaceId: string, campaignId: string, savedCreatorId: string): Promise<void>;
   moveCampaignCreator(workspaceId: string, campaignId: string, campaignCreatorId: string, stage: CampaignStage): Promise<void>;

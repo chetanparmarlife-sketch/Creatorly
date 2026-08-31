@@ -512,6 +512,7 @@ describe("Creatorly M1 user journey", () => {
     const campaignName = screen.getByPlaceholderText("Festive creator launch");
     await user.type(campaignName, "Monsoon Escape");
     await user.type(screen.getByPlaceholderText(/drive consideration/i), "Launch a travel collection");
+    await user.click(screen.getByRole("checkbox", { name: "Instagram" }));
     await user.click(within(campaignName.closest("form")!).getByRole("button", { name: /^create campaign$/i }));
     expect(await screen.findByRole("heading", { name: "Monsoon Escape" })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Saved creator"), screen.getByRole("option", { name: "Riya On The Go" }));
@@ -556,6 +557,8 @@ describe("Creatorly M1 user journey", () => {
 
     await user.click(screen.getAllByRole("button", { name: /create campaign/i })[0]);
     await user.type(screen.getByLabelText("Campaign name"), "Festive Creator Launch");
+    await user.type(screen.getByLabelText("Goal"), "Launch the festive collection");
+    await user.click(screen.getByRole("checkbox", { name: "Instagram" }));
     await user.click(within(screen.getByLabelText("Campaign name").closest("form")!).getByRole("button", { name: /^create campaign$/i }));
     const savedCampaigns = JSON.parse(window.localStorage.getItem("creatorly.campaigns.v1.demo-workspace") ?? "[]") as Array<{ clientId?: string }>;
     expect(savedCampaigns[0].clientId).toBeTruthy();
@@ -571,5 +574,32 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.getByRole("option", { name: "Region" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Internal stakeholder" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Agency collaborator" })).toBeInTheDocument();
+  });
+
+  it("stores only the campaign values entered by the user", async () => {
+    const user = userEvent.setup();
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.history.replaceState({}, "", "/app/campaigns");
+    renderDemo();
+
+    await user.click((await screen.findAllByRole("button", { name: /create campaign/i }))[0]);
+    const form = screen.getByLabelText("Campaign name").closest("form")!;
+    await user.type(within(form).getByLabelText("Campaign name"), "Summer launch");
+    await user.type(within(form).getByLabelText("Goal"), "Collect qualified leads");
+    await user.click(within(form).getByRole("checkbox", { name: "Instagram" }));
+    await user.click(within(form).getByRole("checkbox", { name: "YouTube" }));
+    await user.selectOptions(within(form).getByLabelText("Currency"), "USD");
+    await user.type(within(form).getByLabelText("Budget (optional)"), "12000");
+    await user.type(within(form).getByLabelText("Start date (optional)"), "2026-09-10");
+    await user.type(within(form).getByLabelText("End date (optional)"), "2026-10-05");
+    await user.click(within(form).getByRole("button", { name: /^create campaign$/i }));
+
+    const campaigns = JSON.parse(window.localStorage.getItem("creatorly.campaigns.v1.demo-workspace") ?? "[]") as Array<Record<string, unknown>>;
+    expect(campaigns[0]).toMatchObject({ name: "Summer launch", goal: "Collect qualified leads", platforms: ["instagram", "youtube"], currency: "USD", budget: 12000 });
+    expect(campaigns[0].startsAt).toBe(new Date("2026-09-10T00:00:00").getTime());
+    expect(campaigns[0].endsAt).toBe(new Date("2026-10-05T00:00:00").getTime());
+    expect(JSON.stringify(campaigns[0])).not.toContain("500000");
+    expect(JSON.stringify(campaigns[0])).not.toContain("Creator partnerships");
   });
 });
