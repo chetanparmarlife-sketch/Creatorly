@@ -622,4 +622,31 @@ describe("Creatorly M1 user journey", () => {
     expect(JSON.stringify(campaigns[0])).not.toContain("500000");
     expect(JSON.stringify(campaigns[0])).not.toContain("Creator partnerships");
   });
+
+  it("adds creators directly and in bulk without campaign duplicates", async () => {
+    const user = userEvent.setup();
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.localStorage.setItem("creatorly.campaigns.v1.demo-workspace", JSON.stringify([{ id: "campaign-one", name: "Launch", goal: "Launch", platforms: ["instagram"], currency: "INR", status: "active", ownerName: "Me", creators: [], tasks: [], createdAt: Date.now(), updatedAt: Date.now() }]));
+    window.history.replaceState({}, "", "/app");
+    renderDemo();
+
+    const checkboxes = await screen.findAllByRole("checkbox", { name: /^Select / });
+    await waitFor(() => expect(screen.getByLabelText("Campaign for selected creators")).toHaveValue("campaign-one"));
+    await user.click(checkboxes[0]);
+    await user.click(checkboxes[1]);
+    await user.click(within(screen.getByRole("region", { name: "Creator selection actions" })).getByRole("button", { name: "Add to campaign" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("2 added to campaign");
+
+    const thirdRow = checkboxes[2].closest("article")!;
+    await user.click(within(thirdRow).getByRole("button", { name: "Add to campaign" }));
+    await waitFor(() => {
+      const campaigns = JSON.parse(window.localStorage.getItem("creatorly.campaigns.v1.demo-workspace") ?? "[]") as Array<{ creators: unknown[] }>;
+      expect(campaigns[0].creators).toHaveLength(3);
+    });
+    await user.click(within(thirdRow).getByRole("button", { name: "Add to campaign" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 already there"));
+    const campaigns = JSON.parse(window.localStorage.getItem("creatorly.campaigns.v1.demo-workspace") ?? "[]") as Array<{ creators: unknown[] }>;
+    expect(campaigns[0].creators).toHaveLength(3);
+  });
 });

@@ -21,6 +21,7 @@ type WorkspaceData = {
   createCampaign(workspaceId: string, input: CampaignDraft): Promise<string>;
   listCampaigns(workspaceId: string): Promise<Campaign[]>;
   addCampaignCreator(workspaceId: string, campaignId: string, savedCreatorId: string): Promise<void>;
+  addCampaignCreators(workspaceId: string, campaignId: string, savedCreatorIds: string[]): Promise<{ added: number; alreadyAdded: number }>;
   moveCampaignCreator(workspaceId: string, campaignId: string, campaignCreatorId: string, stage: CampaignStage): Promise<void>;
   getCampaignExecution(workspaceId: string, campaignId: string): Promise<Campaign | null>;
   addDeliverable(workspaceId: string, campaignId: string, campaignCreatorId: string, input: { title: string; channel: Platform; format: string; dueAt?: number }): Promise<void>;
@@ -175,6 +176,19 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
       write(campaignKey(workspaceId), campaigns.map(item => item.id === campaignId ? { ...item, creators: [...item.creators, creator], updatedAt: Date.now() } : item));
       record(`Added ${saved.creator.displayName} to ${campaign.name}`, "campaign_creator");
     },
+    async addCampaignCreators(workspaceId, campaignId, savedCreatorIds) {
+      const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign); const campaign = campaigns.find(item => item.id === campaignId);
+      const saved = read<SavedCreator[]>(savedKey(workspaceId), []); let added = 0; let alreadyAdded = 0;
+      if (!campaign) return { added, alreadyAdded };
+      const additions: Campaign["creators"] = [];
+      for (const savedCreatorId of [...new Set(savedCreatorIds)]) {
+        if (campaign.creators.some(item => item.savedCreatorId === savedCreatorId) || additions.some(item => item.savedCreatorId === savedCreatorId)) { alreadyAdded += 1; continue; }
+        const creator = saved.find(item => item.id === savedCreatorId); if (!creator) continue;
+        additions.push({ id: crypto.randomUUID(), savedCreatorId, stage: "shortlisted", ownerName: creator.ownerName, nextAction: "Send campaign brief", deliverables: [] }); added += 1;
+      }
+      if (additions.length) { write(campaignKey(workspaceId), campaigns.map(item => item.id === campaignId ? { ...item, creators: [...item.creators, ...additions], updatedAt: Date.now() } : item)); record(`Added ${additions.length} creator${additions.length === 1 ? "" : "s"} to ${campaign.name}`, "campaign_creator"); }
+      return { added, alreadyAdded };
+    },
     async moveCampaignCreator(workspaceId, campaignId, campaignCreatorId, stage) {
       const campaigns = read<Campaign[]>(campaignKey(workspaceId), []).map(normalizeCampaign);
       const campaign = campaigns.find(item => item.id === campaignId);
@@ -232,6 +246,7 @@ const addCollaboratorRef = api.groupOperations.addCollaborator;
 const createCampaignRef = api.campaigns.create;
 const listCampaignsRef = api.campaigns.list;
 const addCampaignCreatorRef = api.campaigns.addCreator;
+const addCampaignCreatorsRef = api.campaigns.addCreators;
 const moveCampaignCreatorRef = api.campaigns.moveCreator;
 const getExecutionRef = api.campaignExecution.getCampaign;
 const addDeliverableRef = api.campaignExecution.addDeliverable;
@@ -304,6 +319,7 @@ export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode 
     createCampaign: async (workspaceId, input) => (await convex.mutation(createCampaignRef, { ...input, workspaceId: toConvexId<"workspaces">(workspaceId), clientId: input.clientId ? toConvexId<"clients">(input.clientId) : undefined, divisionId: input.divisionId ? toConvexId<"brandDivisions">(input.divisionId) : undefined })).campaignId,
     listCampaigns: async (workspaceId) => (await convex.query(listCampaignsRef, { workspaceId: toConvexId<"workspaces">(workspaceId) })).map(mapCampaignRow),
     addCampaignCreator: async (workspaceId, campaignId, savedCreatorId) => { await convex.mutation(addCampaignCreatorRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId), savedCreatorId: toConvexId<"savedCreators">(savedCreatorId) }); },
+    addCampaignCreators: (workspaceId, campaignId, savedCreatorIds) => convex.mutation(addCampaignCreatorsRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId), savedCreatorIds: savedCreatorIds.map(id => toConvexId<"savedCreators">(id)) }),
     moveCampaignCreator: async (workspaceId, _campaignId, campaignCreatorId, stage) => { await convex.mutation(moveCampaignCreatorRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignCreatorId: toConvexId<"campaignCreators">(campaignCreatorId), stage }); },
     getCampaignExecution: async (workspaceId, campaignId) => { const row = await convex.query(getExecutionRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId) }); return row ? mapCampaignRow(row) : null; },
     addDeliverable: async (workspaceId, campaignId, campaignCreatorId, input) => { await convex.mutation(addDeliverableRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId), campaignCreatorId: toConvexId<"campaignCreators">(campaignCreatorId), ...input }); },

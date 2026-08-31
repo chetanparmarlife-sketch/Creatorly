@@ -109,11 +109,11 @@
 **Interfaces:**
 - Produces: `addCreators(workspaceId, campaignId, creatorIds)` as one authorized, duplicate-safe mutation and a discovery selection bar.
 
-- [ ] Test selecting multiple discovery rows and adding them to an existing or newly created campaign.
-- [ ] Add row checkboxes, select-page, clear-selection, Save to CRM, and Add to campaign actions.
-- [ ] Make the server mutation idempotent and reject cross-workspace IDs.
-- [ ] Keep the single-row Save action for fast use.
-- [ ] Verify keyboard, mobile, empty-campaign, and duplicate states, then commit item 5.
+- [x] Test selecting multiple discovery rows and adding them to an existing campaign.
+- [x] Add row checkboxes, select-page, clear-selection, Save to CRM, and Add to campaign actions.
+- [x] Make the server mutation idempotent and reject cross-workspace IDs.
+- [x] Keep the single-row Save action for fast use.
+- [x] Verify keyboard, mobile, empty-campaign, and duplicate states, then commit item 5.
 
 ### Task 6: Show source and freshness
 

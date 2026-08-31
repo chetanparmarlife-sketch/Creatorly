@@ -61,6 +61,28 @@ export const addCreator = mutation({
   },
 });
 
+export const addCreators = mutation({
+  args: { workspaceId: v.id("workspaces"), campaignId: v.id("campaigns"), savedCreatorIds: v.array(v.id("savedCreators")) },
+  handler: async (ctx, args) => {
+    const { userId } = await requireWorkspaceRole(ctx, args.workspaceId, campaignManagers);
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.workspaceId !== args.workspaceId) throw new ConvexError("Campaign not found in this workspace.");
+    const savedCreators = await Promise.all([...new Set(args.savedCreatorIds)].map(id => ctx.db.get(id)));
+    if (savedCreators.some(saved => !saved || saved.workspaceId !== args.workspaceId)) throw new ConvexError("A selected creator does not belong to this workspace.");
+    let added = 0; let alreadyAdded = 0;
+    for (const saved of savedCreators) {
+      if (!saved) continue;
+      const existing = await ctx.db.query("campaignCreators").withIndex("by_campaign_creator", q => q.eq("campaignId", args.campaignId).eq("savedCreatorId", saved._id)).unique();
+      if (existing) { alreadyAdded += 1; continue; }
+      const now = Date.now();
+      const campaignCreatorId = await ctx.db.insert("campaignCreators", { workspaceId: args.workspaceId, campaignId: args.campaignId, savedCreatorId: saved._id, stage: "shortlisted", createdAt: now, updatedAt: now });
+      await ctx.db.insert("activityEvents", { workspaceId: args.workspaceId, actorUserId: userId, entityType: "campaign_creator", entityId: campaignCreatorId, action: "added", summary: `Added creator to ${campaign.name}`, createdAt: now });
+      added += 1;
+    }
+    return { added, alreadyAdded };
+  },
+});
+
 export const moveCreator = mutation({
   args: { workspaceId: v.id("workspaces"), campaignCreatorId: v.id("campaignCreators"), stage, nextAction: v.optional(v.string()) },
   handler: async (ctx, args) => {
