@@ -15,6 +15,14 @@
   "profilesWithBiography": 592,
   "profilesWithAudienceData": 605,
   "profilesWithPricingData": 633,
+  "productionImport": {
+    "stagingRowsAppended": 633,
+    "creatorsIngested": 633,
+    "pendingRowsAfterIngestion": 0,
+    "profileImagesCopiedToConvex": 182,
+    "unavailableSourceImages": 451,
+    "verifiedStoredImageChannelId": "UC0eqwuhJ1wyFFpHMeWcj5sQ"
+  },
   "excludedColumns": [
     "YouTube API Response",
     "Created On",
