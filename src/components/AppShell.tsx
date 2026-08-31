@@ -89,7 +89,7 @@ export function AppShell({
           </nav>
           <div className="account-strip">
             <NotificationCenter/>
-            <div className="profile-menu"><button className="profile-trigger" aria-label="Open account menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><UserRound size={17}/><span><strong>{viewer?.name ?? "Account"}</strong><small>{viewer?.companyName || "Creatorly workspace"}</small></span><ChevronDown size={13}/></button>{profileOpen ? <div className="profile-popover"><button onClick={() => { setProfileOpen(false); go({ name: "settings" }); }}><Settings size={15}/> Account settings</button><button onClick={onSignOut}><LogOut size={15}/> Sign out</button></div> : null}</div>
+            <div className="profile-menu"><button className="profile-trigger" title="Account" aria-label="Open account menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><UserRound size={17}/><span><strong>{viewer?.name ?? "Account"}</strong><small>{viewer?.companyName || "Creatorly workspace"}</small></span><ChevronDown size={13}/></button>{profileOpen ? <div className="profile-popover"><button onClick={() => { setProfileOpen(false); go({ name: "settings" }); }}><Settings size={15}/> Account settings</button><button onClick={onSignOut}><LogOut size={15}/> Sign out</button></div> : null}</div>
           </div>
         </div>
         <button className="icon-button mobile-menu-button" aria-label="Toggle navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(v => !v)}>{mobileOpen ? <X size={18}/> : <Menu size={18}/>}</button>
