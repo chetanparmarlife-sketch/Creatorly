@@ -139,7 +139,7 @@ describe("Creatorly connected Convex provider journeys", () => {
     window.history.replaceState({}, "", "/app");
     const connected = renderConnected();
 
-    expect(await screen.findByRole("heading", { name: /Discover creators across India/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^Discover creators$/i })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/app/discover");
     expect(screen.queryByRole("button", { name: /^Home$/i })).not.toBeInTheDocument();
     connected.close();

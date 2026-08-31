@@ -79,7 +79,7 @@ export function PricingView({ viewer, navigate }: { viewer?: Viewer | null; navi
       <button className="text-button" type="button" onClick={() => navigate({ name: "login" })}>Log in</button>
     </nav> : null}
     <header className="pricing-intro">
-      <div><p className="eyebrow">Core plans and contact credits</p><h1>Pay for the workspace you use.</h1><p>Core plans cover Discovery, private CRM, the extension, and campaigns. Dodo Payments handles checkout; Creatorly grants access only after a signed payment confirmation.</p></div>
+      <div><p className="eyebrow">Plans for Indian creator teams</p><h1>Simple plans. Clear pricing.</h1><p>Choose the discovery, contact, CRM, and campaign tools your team needs.</p></div>
       <div className="billing-toggle"><button className={!annual ? "is-active" : ""} onClick={() => setAnnual(false)}>Monthly</button><button className={annual ? "is-active" : ""} onClick={() => setAnnual(true)}>Annual <small>2 months free</small></button></div>
     </header>
     {error ? <div className="form-error" role="alert">{error}</div> : null}
@@ -98,9 +98,9 @@ export function PricingView({ viewer, navigate }: { viewer?: Viewer | null; navi
         </button>
       </article>;
     })}</section>
-    {viewer ? <section className="credit-packs"><div><Coins/><p className="eyebrow">One-time top-up</p><h2>Need more verified introductions?</h2><p>Contact packs do not change your core plan.</p></div><button disabled={Boolean(busyKey)} onClick={() => void openCheckout({ kind: "contact_credits", credits: 50 }, "credits-50")}><strong>{busyKey === "credits-50" ? "Opening Dodo…" : "50 credits"}</strong><span>₹699 · 10 unlocks</span></button><button disabled={Boolean(busyKey)} onClick={() => void openCheckout({ kind: "contact_credits", credits: 100 }, "credits-100")}><strong>{busyKey === "credits-100" ? "Opening Dodo…" : "100 credits"}</strong><span>₹1,199 · 20 unlocks</span></button></section> : null}
+    {viewer ? <section className="credit-packs"><div><Coins/><p className="eyebrow">One-time top-up</p><h2>Need more contacts?</h2><p>Add credits without changing your plan.</p></div><button disabled={Boolean(busyKey)} onClick={() => void openCheckout({ kind: "contact_credits", credits: 50 }, "credits-50")}><strong>{busyKey === "credits-50" ? "Opening Dodo…" : "50 credits"}</strong><span>₹699 · 10 unlocks</span></button><button disabled={Boolean(busyKey)} onClick={() => void openCheckout({ kind: "contact_credits", credits: 100 }, "credits-100")}><strong>{busyKey === "credits-100" ? "Opening Dodo…" : "100 credits"}</strong><span>₹1,199 · 20 unlocks</span></button></section> : null}
     {viewer?.currentPlanTier !== "free" && hasDodoCustomer ? <button className="button button-secondary" disabled={Boolean(busyKey)} onClick={() => void openPortal()}><ExternalLink size={15}/> Manage subscription and invoices in Dodo</button> : null}
     {transactions.length ? <section className="transactions"><h2>Credit activity</h2>{transactions.slice(0, 6).map((item) => <div key={item._id}><span><strong>{item.description}</strong><small>{new Date(item.createdAt).toLocaleDateString()}</small></span><b className={item.amount > 0 ? "positive" : ""}>{item.amount > 0 ? "+" : ""}{item.amount}</b></div>)}</section> : null}
-    <section className="future-billing"><p className="eyebrow">Future add-ons</p><h2>Inbox, AI Agents, and connected reporting</h2><p>These products are not charged yet. Pricing will be introduced only when the features and usage controls are ready.</p></section>
+    <section className="future-billing"><p className="eyebrow">Planned features</p><h2>Inbox, AI Agents, and reports</h2><p>These features are not live or charged yet.</p></section>
   </main>;
 }

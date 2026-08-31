@@ -7,7 +7,7 @@ import { CreatorResult } from "./CreatorResult";
 import { RequestContactModal } from "./RequestContactModal";
 
 const CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
-const REPOSITORY_SCOPE = "Current coverage: India-focused Instagram, YouTube, and Facebook creators with supplied profile and performance metrics from 1K followers upward.";
+const REPOSITORY_SCOPE = "India-first coverage with Instagram, YouTube, and Facebook creators worldwide, from 1K followers upward.";
 const CATEGORY_SHORTCUTS = [
   { label: "Lifestyle", icon: Sparkles },
   { label: "Entertainment", icon: Clapperboard },
@@ -79,8 +79,8 @@ export function SearchView({
       <section className="search-intro">
         <div>
           <p className="eyebrow">Creator discovery</p>
-          <h1>Who do you need to reach?</h1>
-          <p>Search directly or narrow the repository into a campaign-ready shortlist.</p>
+          <h1>Find your next creator.</h1>
+          <p>Start with India or search creators worldwide.</p>
         </div>
         <div className="search-proof">
           <Sparkles size={17} aria-hidden="true" />

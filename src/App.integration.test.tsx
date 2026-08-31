@@ -62,16 +62,16 @@ describe("Creatorly M1 user journey", () => {
     expect(window.location.pathname).toBe("/pricing");
   });
 
-  it("positions live products before clearly labelled future add-ons", () => {
+  it("positions live products before clearly labelled planned features", () => {
     window.history.replaceState({}, "", "/");
     renderDemo();
 
-    expect(screen.getByRole("heading", { name: /find the right creators. run the whole campaign/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /find creators. run campaigns. grow your brand/i })).toBeInTheDocument();
     const pageText = document.body.textContent ?? "";
     expect(pageText.indexOf("Creatorly Discovery")).toBeLessThan(pageText.indexOf("Private creator CRM"));
     expect(pageText.indexOf("Private creator CRM")).toBeLessThan(pageText.indexOf("Chrome extension"));
     expect(pageText.indexOf("Chrome extension")).toBeLessThan(pageText.indexOf("Campaign workspace"));
-    expect(screen.getAllByText("Future add-on")).toHaveLength(4);
+    expect(screen.getAllByText("Planned")).toHaveLength(4);
   });
 
   it("sends every homepage preview action to workspace signup", async () => {
@@ -340,16 +340,16 @@ describe("Creatorly M1 user journey", () => {
     window.history.replaceState({}, "", "/onboarding");
 
     const onboardingRender = renderDemo();
-    expect(await screen.findByRole("heading", { name: /who is running creator campaigns/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /what kind of team are you/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^continue/i }));
-    expect(await screen.findByRole("heading", { name: /what should creatorly help/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /what do you want to do/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^continue/i }));
-    expect(await screen.findByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /where do you want to start/i })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}").onboardingStep).toBe(3);
 
     onboardingRender.unmount();
     renderDemo();
-    expect(await screen.findByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /where do you want to start/i })).toBeInTheDocument();
   });
 
   it("does not trap onboarding when progress syncing fails", async () => {
@@ -374,10 +374,10 @@ describe("Creatorly M1 user journey", () => {
     const user = userEvent.setup();
     renderDemo();
 
-    expect(await screen.findByRole("heading", { name: /who is running creator campaigns/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /what kind of team are you/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^continue/i }));
 
-    expect(await screen.findByRole("heading", { name: /what should creatorly help/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /what do you want to do/i })).toBeInTheDocument();
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not sync, but you can keep going/i);
   });
 
@@ -390,7 +390,7 @@ describe("Creatorly M1 user journey", () => {
     window.history.replaceState({}, "", "/onboarding");
     renderDemo();
     expect(await screen.findByText("Step 3 of 3")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /where do you want to start/i })).toBeInTheDocument();
   });
 
   it.each([
@@ -488,7 +488,7 @@ describe("Creatorly M1 user journey", () => {
     firstRender.unmount();
     window.history.replaceState({}, "", "/app/home");
     renderDemo();
-    expect(await screen.findByRole("heading", { name: /Discover creators across India/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^Discover creators$/i })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/app/discover");
     expect(screen.queryByRole("button", { name: /^Home$/i })).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}").id).toBe(workspaceId);
@@ -714,7 +714,7 @@ describe("Creatorly M1 user journey", () => {
     window.history.replaceState({}, "", "/app");
     renderDemo();
 
-    expect(await screen.findByRole("heading", { name: /Discover creators across India/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^Discover creators$/i })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/app/discover");
     expect(screen.queryByRole("button", { name: /^Home$/i })).not.toBeInTheDocument();
   });

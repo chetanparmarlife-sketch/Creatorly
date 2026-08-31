@@ -50,11 +50,11 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
       <section className="auth-story" aria-labelledby="auth-title">
         <button className="brand-button" onClick={() => navigate?.({ name: "landing" })}><Logo /></button>
         <div className="auth-story-copy">
-          <p className="eyebrow">Your creator contact desk</p>
-          <h1 id="auth-title">From shortlist to the right inbox in minutes.</h1>
+          <p className="eyebrow">Built for Indian creator teams</p>
+          <h1 id="auth-title">Find creators. Reach the right contact.</h1>
           <p>
-            Search a creator, see who handles partnerships, and unlock the contact
-            your campaign actually needs.
+            Search creators across India and beyond, then unlock the contact your
+            campaign needs.
           </p>
         </div>
         <div className="signal-demo" aria-hidden="true">
@@ -75,7 +75,7 @@ export function AuthScreen({ initialMode = "signup", navigate, purchase, signupR
         ) : null}
         <div className="auth-form-wrap">
           <p className="eyebrow">{mode === "signup" ? "Start free" : "Welcome back"}</p>
-          <h2>{mode === "signup" ? "Create your workspace" : "Sign in to Creatorly"}</h2>
+          <h2>{mode === "signup" ? "Create your workspace" : "Welcome back"}</h2>
           <p className="supporting-copy">
             {mode === "signup"
               ? "Get 25 credits and find your first contact."
