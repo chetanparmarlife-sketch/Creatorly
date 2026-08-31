@@ -450,6 +450,8 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.queryByLabelText("Filter contact column")).not.toBeInTheDocument();
     expect(screen.getByText("Verification status")).toBeInTheDocument();
     for (const planned of ["Inbox", "Automations", "Reports", "Agents", "Integrations"]) expect(screen.queryByRole("button", { name: new RegExp(planned, "i") })).not.toBeInTheDocument();
+    const roadmap = screen.getByRole("complementary", { name: /product roadmap/i });
+    for (const upcoming of ["AI Agents", "Unified Inbox", "Automations", "Connected reporting"]) expect(within(roadmap).getByText(upcoming)).toBeInTheDocument();
     await screen.findByRole("button", { name: /view Pending Import profile/i });
     await user.click(screen.getByRole("button", { name: "Sort creator name ascending" }));
     await waitFor(() => expect(document.querySelector(".discovery-row")).toHaveTextContent("Aanchal Mehta"));
