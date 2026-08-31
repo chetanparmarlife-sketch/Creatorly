@@ -232,7 +232,7 @@ describe("Creatorly M1 user journey", () => {
     await user.click(await screen.findByRole("button", { name: /request contact/i }));
     expect(screen.getByRole("dialog", { name: /request a creator contact/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Creator handle")).toHaveValue("@new.creator");
-    await user.selectOptions(screen.getByLabelText("Platform"), "instagram");
+    await user.selectOptions(within(screen.getByRole("dialog", { name: /request a creator contact/i })).getByLabelText("Platform"), "instagram");
     await user.type(screen.getByLabelText("Notes (optional)"), "Need the campaign manager.");
     await user.click(screen.getByRole("button", { name: /^submit request$/i }));
 
@@ -255,8 +255,9 @@ describe("Creatorly M1 user journey", () => {
 
     expect(await screen.findByRole("heading", { name: /no creator found/i })).toBeInTheDocument();
     expect(screen.getByText(/India-focused Instagram, YouTube, and Facebook creators/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "YouTube" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Facebook" })).toBeInTheDocument();
+    const platformFilter = screen.getByRole("combobox", { name: "Filter creator platform" });
+    expect(within(platformFilter).getByRole("option", { name: "YouTube" })).toBeInTheDocument();
+    expect(within(platformFilter).getByRole("option", { name: "Facebook" })).toBeInTheDocument();
   });
 
   it("lets a demo admin fulfill a pending request", async () => {
@@ -447,7 +448,7 @@ describe("Creatorly M1 user journey", () => {
     expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter creator column")).not.toBeInTheDocument();
     const creatorFilters = screen.getByRole("complementary", { name: /creator filters/i });
-    expect(within(creatorFilters).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(creatorFilters).getByRole("combobox", { name: "Filter creator platform" })).toHaveValue("all");
     expect(screen.queryByLabelText("Filter platform column")).not.toBeInTheDocument();
     await user.click(within(creatorFilters).getByRole("button", { name: /^Audience size/i }));
     expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
@@ -731,11 +732,11 @@ describe("Creatorly M1 user journey", () => {
     const user = userEvent.setup();
 
     expect(await screen.findByRole("button", { name: /Maya Kapoor/i })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "YouTube" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter creator platform" }), "youtube");
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /Maya Kapoor/i })).not.toBeInTheDocument());
     expect(await screen.findByRole("button", { name: /Rishi Verma/i })).toBeInTheDocument();
-    expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("button", { name: "YouTube" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("combobox", { name: "Filter creator platform" })).toHaveValue("youtube");
   });
 
   it("offers Facebook as a real Discovery platform filter", async () => {
@@ -745,10 +746,10 @@ describe("Creatorly M1 user journey", () => {
     renderDemo();
     const user = userEvent.setup();
 
-    const facebook = await screen.findByRole("button", { name: "Facebook" });
-    await user.click(facebook);
+    const facebook = await screen.findByRole("combobox", { name: "Filter creator platform" });
+    await user.selectOptions(facebook, "facebook");
 
-    expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("button", { name: "Facebook" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("combobox", { name: "Filter creator platform" })).toHaveValue("facebook");
   });
 
   it("filters creators by engagement rate and keeps engagement separate from audience", async () => {
@@ -764,7 +765,7 @@ describe("Creatorly M1 user journey", () => {
     expect(initialTable).toBeInTheDocument();
     const filters = screen.getByRole("complementary", { name: /creator filters/i });
 
-    await user.click(within(filters).getByRole("button", { name: "Instagram" }));
+    await user.selectOptions(within(filters).getByRole("combobox", { name: "Filter creator platform" }), "instagram");
     await user.click(within(filters).getByRole("button", { name: /^Engagement rate/i }));
     await user.click(screen.getByRole("button", { name: "3%–6%" }));
 
