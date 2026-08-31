@@ -17,6 +17,14 @@
   "profilesWithAudienceData": 399,
   "profilesWithAudienceCityData": 380,
   "profilesWithPricingData": 607,
+  "productionImport": {
+    "stagingRowsAppended": 607,
+    "creatorsIngested": 607,
+    "pendingRowsAfterIngestion": 0,
+    "profileImagesCopiedToConvex": 580,
+    "pagesWithoutUsableProfileImage": 27,
+    "externalProfileImageUrlsRemaining": 0
+  },
   "excludedColumns": [
     "Created On",
     "Updated On"

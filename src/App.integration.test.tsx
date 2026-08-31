@@ -105,7 +105,7 @@ describe("Creatorly M1 user journey", () => {
     await user.click(mayaResult);
 
     expect(await screen.findByRole("heading", { name: /creator profile/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /similar creators/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /similar creators/i })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /reveal 1 contact/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /unlock for 5 credits/i }));
 
