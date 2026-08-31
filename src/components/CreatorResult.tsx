@@ -12,6 +12,7 @@ export function CreatorResult({
   bestMatch: boolean;
   onOpen(): void;
 }) {
+  const updatedLabel = creator.lastUpdatedAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(creator.lastUpdatedAt) : "Update date unavailable";
   const performance = [
     creator.instagramMetrics?.averageComments !== undefined ? `${creator.instagramMetrics.averageComments.toLocaleString("en-IN", { maximumFractionDigits: 1 })} avg comments` : "",
     creator.instagramMetrics?.engagementRatePercent !== undefined ? `${creator.instagramMetrics.engagementRatePercent.toLocaleString("en-IN", { maximumFractionDigits: 2 })}% engagement` : "",
@@ -33,6 +34,7 @@ export function CreatorResult({
           {creator.handle}
         </span>
         {performance.length ? <span className="creator-engagement">{performance.join(" · ")}</span> : null}
+        <span className="creator-provenance">{creator.sourceLabel ?? "Creatorly database"} · {updatedLabel} · {creator.metricProvenance === "live" ? "Live metrics" : "Supplied metrics"}</span>
       </span>
       <span className="creator-metric">
         <strong>{creator.followerCount > 0 ? formatFollowers(creator.followerCount) : "—"}</strong>

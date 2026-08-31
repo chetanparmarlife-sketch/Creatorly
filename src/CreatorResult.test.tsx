@@ -16,12 +16,16 @@ describe("CreatorResult Instagram metrics", () => {
         contactCount: 1,
         matchScore: 80,
         instagramMetrics: { averageComments: 18, engagementRatePercent: 3.4 },
+        sourceLabel: "Creatorly database",
+        lastUpdatedAt: new Date("2026-08-12T00:00:00Z").getTime(),
+        metricProvenance: "supplied",
       }}
       bestMatch={false}
       onOpen={vi.fn()}
     />);
 
     expect(screen.getByText("18 avg comments · 3.4% engagement")).toBeInTheDocument();
+    expect(screen.getByText(/Creatorly database · 12 Aug 2026 · Supplied metrics/)).toBeInTheDocument();
   });
 
   it("renders the imported profile picture in discovery", () => {

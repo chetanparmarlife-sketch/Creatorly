@@ -127,11 +127,11 @@
 **Interfaces:**
 - Produces: `sourceLabel`, `lastUpdatedAt`, and metric provenance on search and detail results.
 
-- [ ] Test that creator results show `Creatorly database`, the actual update date, and `Supplied metrics`.
-- [ ] Return stored `lastUpdatedAt` without manufacturing a new timestamp.
-- [ ] Show source/freshness beside profile identity and explain supplied versus live metrics.
-- [ ] Show private CRM origins separately from Creatorly data.
-- [ ] Verify missing-date behavior and commit item 6.
+- [x] Test that creator results show `Creatorly database`, the actual update date, and `Supplied metrics`.
+- [x] Return stored `lastUpdatedAt` without manufacturing a new timestamp.
+- [x] Show source/freshness beside profile identity and explain supplied versus live metrics.
+- [x] Show private CRM origins separately from Creatorly data.
+- [x] Verify missing-date behavior and commit item 6.
 
 ### Task 7: Hide unavailable platforms and planned navigation
 

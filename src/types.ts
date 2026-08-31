@@ -101,6 +101,9 @@ export type CreatorSearchResult = {
   age?: number;
   instagramAccountId?: string;
   instagramMetrics?: InstagramMetrics;
+  sourceLabel?: string;
+  lastUpdatedAt?: number;
+  metricProvenance?: "supplied" | "live";
   contactCount: number;
   matchScore: number;
 };
@@ -281,6 +284,9 @@ export type CrmCreatorProfile = {
   categories?: string[];
   isVerified?: boolean;
   contactCount?: number;
+  sourceLabel?: string;
+  lastUpdatedAt?: number;
+  metricProvenance?: "supplied" | "live";
 };
 export type SavedCreator = {
   id: string;
