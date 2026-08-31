@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isEmailVerified, requireVerifiedEmail } from "../convex/lib/emailVerification";
+import { isEmailVerificationBypassed, isEmailVerified, requireVerifiedEmail } from "../convex/lib/emailVerification";
 import { isEmailVerificationRequired } from "./components/EmailVerificationPrompt";
 
 describe("verified-email enforcement", () => {
@@ -15,8 +15,26 @@ describe("verified-email enforcement", () => {
     "start checkout",
     "start an ownership claim",
   ])("refuses an unverified account before it can %s", (operation) => {
-    expect(() => requireVerifiedEmail({ isEmailVerified: false }, operation)).toThrow(`Verify your email first, then ${operation}.`);
-    expect(() => requireVerifiedEmail({ emailVerificationTime: Date.now() }, operation)).not.toThrow();
+    const verificationEnabled = {
+      RESEND_API_KEY: "re_test",
+      AUTH_EMAIL_FROM: "Creatorly <verify@example.com>",
+    };
+    expect(() => requireVerifiedEmail({ isEmailVerified: false }, operation, verificationEnabled)).toThrow(`Verify your email first, then ${operation}.`);
+    expect(() => requireVerifiedEmail({ emailVerificationTime: Date.now() }, operation, verificationEnabled)).not.toThrow();
+  });
+
+  it("honors the temporary production bypass until its exact expiry", () => {
+    const environment = {
+      CREATORLY_ENVIRONMENT: "production",
+      AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL: "2026-09-02T18:29:59.000Z",
+    };
+    const beforeExpiry = Date.parse("2026-09-02T18:29:58.000Z");
+    const atExpiry = Date.parse("2026-09-02T18:29:59.000Z");
+
+    expect(isEmailVerificationBypassed(environment, beforeExpiry)).toBe(true);
+    expect(() => requireVerifiedEmail({ isEmailVerified: false }, "start an ownership claim", environment, beforeExpiry)).not.toThrow();
+    expect(isEmailVerificationBypassed(environment, atExpiry)).toBe(false);
+    expect(() => requireVerifiedEmail({ isEmailVerified: false }, "start an ownership claim", environment, atExpiry)).toThrow("Verify your email first");
   });
 
   it("keeps every protected handler wired to the shared rule", () => {
