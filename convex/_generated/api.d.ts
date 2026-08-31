@@ -24,6 +24,7 @@ import type * as groupOperations from "../groupOperations.js";
 import type * as home from "../home.js";
 import type * as http from "../http.js";
 import type * as importCreators from "../importCreators.js";
+import type * as lib_creditPolicy from "../lib/creditPolicy.js";
 import type * as lib_dodoCatalog from "../lib/dodoCatalog.js";
 import type * as lib_extensionCrm from "../lib/extensionCrm.js";
 import type * as lib_matching from "../lib/matching.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   home: typeof home;
   http: typeof http;
   importCreators: typeof importCreators;
+  "lib/creditPolicy": typeof lib_creditPolicy;
   "lib/dodoCatalog": typeof lib_dodoCatalog;
   "lib/extensionCrm": typeof lib_extensionCrm;
   "lib/matching": typeof lib_matching;

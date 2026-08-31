@@ -40,7 +40,7 @@ function searchContext() {
             withSearchIndex: () => ({ take: async () => creatorResults }),
           }
         : {
-            withIndex: () => ({ collect: async () => [] }),
+            withIndex: () => ({ collect: async () => [], take: async () => [] }),
           },
     },
   };

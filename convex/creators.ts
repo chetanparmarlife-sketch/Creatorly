@@ -63,7 +63,43 @@ export const browsePage = query({
     const maxFollowers = args.maxFollowers;
     const sortField = args.sortField ?? "audience";
     const sortDirection = args.sortDirection ?? (sortField === "audience" ? "desc" : "asc");
-    const result = sortField === "name"
+    const paginationOpts = {
+      cursor: args.paginationOpts.cursor,
+      numItems: Math.min(args.paginationOpts.numItems, 24),
+    };
+    const result = location && category && args.platform
+      ? await ctx.db
+          .query("creators")
+          .withIndex("by_repository_platform_category_location_followers", (q) => maxFollowers === undefined
+            ? q.eq("isDemo", false).eq("platform", args.platform!).eq("primaryCategory", category).eq("location", location).gte("followerCount", minFollowers)
+            : q.eq("isDemo", false).eq("platform", args.platform!).eq("primaryCategory", category).eq("location", location).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+          .order(sortDirection)
+          .paginate(paginationOpts)
+      : location && category
+        ? await ctx.db
+            .query("creators")
+            .withIndex("by_repository_category_location_followers", (q) => maxFollowers === undefined
+              ? q.eq("isDemo", false).eq("primaryCategory", category).eq("location", location).gte("followerCount", minFollowers)
+              : q.eq("isDemo", false).eq("primaryCategory", category).eq("location", location).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+            .order(sortDirection)
+            .paginate(paginationOpts)
+      : location && args.platform
+        ? await ctx.db
+            .query("creators")
+            .withIndex("by_repository_platform_location_followers", (q) => maxFollowers === undefined
+              ? q.eq("isDemo", false).eq("platform", args.platform!).eq("location", location).gte("followerCount", minFollowers)
+              : q.eq("isDemo", false).eq("platform", args.platform!).eq("location", location).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+            .order(sortDirection)
+            .paginate(paginationOpts)
+      : location
+        ? await ctx.db
+            .query("creators")
+            .withIndex("by_repository_location_followers", (q) => maxFollowers === undefined
+              ? q.eq("isDemo", false).eq("location", location).gte("followerCount", minFollowers)
+              : q.eq("isDemo", false).eq("location", location).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+            .order(sortDirection)
+            .paginate(paginationOpts)
+      : sortField === "name"
       ? await ctx.db
           .query("creators")
           .withIndex("by_repository_name", (q) => q.eq("isDemo", false))
@@ -75,7 +111,7 @@ export const browsePage = query({
             ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
           ))
           .order(sortDirection)
-          .paginate(args.paginationOpts)
+          .paginate(paginationOpts)
       : sortField === "location"
         ? await ctx.db
             .query("creators")
@@ -88,7 +124,7 @@ export const browsePage = query({
               ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
             ))
             .order(sortDirection)
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         : category && args.platform
         ? await ctx.db
             .query("creators")
@@ -97,7 +133,7 @@ export const browsePage = query({
               : q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
             .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
             .order(sortDirection)
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         : category
           ? await ctx.db
               .query("creators")
@@ -106,7 +142,7 @@ export const browsePage = query({
                 : q.eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
               .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
               .order(sortDirection)
-              .paginate(args.paginationOpts)
+              .paginate(paginationOpts)
           : args.platform
             ? await ctx.db
                 .query("creators")
@@ -115,7 +151,7 @@ export const browsePage = query({
                   : q.eq("platform", args.platform!).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
                 .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
                 .order(sortDirection)
-                .paginate(args.paginationOpts)
+                .paginate(paginationOpts)
             : await ctx.db
                 .query("creators")
                 .withIndex("by_followers", (q) => maxFollowers === undefined
@@ -123,13 +159,13 @@ export const browsePage = query({
                   : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
                 .filter((q) => location ? q.and(q.eq(q.field("isDemo"), false), q.eq(q.field("location"), location)) : q.eq(q.field("isDemo"), false))
                 .order(sortDirection)
-                .paginate(args.paginationOpts);
+                .paginate(paginationOpts);
 
     const page = await Promise.all(result.page.map(async (creator) => {
       const contacts = await ctx.db
         .query("contacts")
         .withIndex("by_creator", (q) => q.eq("creatorId", creator._id))
-        .collect();
+        .take(20);
       return {
         id: creator._id,
         platform: creator.platform,
@@ -244,7 +280,7 @@ export const search = query({
         const contacts = await ctx.db
           .query("contacts")
           .withIndex("by_creator", (q) => q.eq("creatorId", creator._id))
-          .collect();
+          .take(20);
         return {
           id: creator._id,
           platform: creator.platform,

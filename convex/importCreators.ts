@@ -116,6 +116,9 @@ export const auditSample = internalQuery({
         isDemo: creator.isDemo,
         contactCount: contacts.length,
         verificationStatuses: [...new Set(contacts.map(item => item.verificationStatus))],
+        hasInstagramMetrics: Boolean(creator.instagramMetrics),
+        averageComments: creator.instagramMetrics?.averageComments,
+        engagementRatePercent: creator.instagramMetrics?.engagementRatePercent,
         includesContactValues: false,
       };
     }));
