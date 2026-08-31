@@ -751,6 +751,29 @@ describe("Creatorly M1 user journey", () => {
     expect(within(screen.getByRole("complementary", { name: /creator filters/i })).getByRole("button", { name: "Facebook" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("filters creators by engagement rate and keeps engagement separate from audience", async () => {
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
+    window.history.replaceState({}, "", "/app/discover");
+    renderDemo();
+    const user = userEvent.setup();
+    await screen.findByRole("button", { name: /view Maya Kapoor profile/i });
+    const filters = screen.getByRole("complementary", { name: /creator filters/i });
+
+    await user.click(within(filters).getByRole("button", { name: "Instagram" }));
+    await user.click(within(filters).getByRole("button", { name: /^Engagement rate/i }));
+    await user.click(screen.getByRole("button", { name: "3%–6%" }));
+
+    await waitFor(() => expect(document.querySelector(".data-source-chip")).toHaveTextContent(/^2 matching profiles$/));
+    expect(screen.getByRole("button", { name: /view Maya Kapoor profile/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view Noor Khan profile/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /view Pending Import profile/i })).not.toBeInTheDocument();
+    const table = screen.getByRole("table", { name: /creator discovery results/i });
+    expect(within(table).getByRole("columnheader", { name: "Audience" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Engagement" })).toBeInTheDocument();
+    expect(within(table).getByText("4.8%")).toBeInTheDocument();
+  });
+
   it("turns a campaign brief into precise, removable Discovery filters", async () => {
     await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
     window.localStorage.setItem("creatorly.workspace.v1", JSON.stringify({ id: "demo-workspace", name: "Northstar Agency", kind: "agency", role: "owner" }));
