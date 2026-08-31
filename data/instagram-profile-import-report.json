@@ -1,0 +1,24 @@
+{
+  "sourceFile": "Web Scraped Instagram Profile.csv",
+  "sourceFormat": "detailed_instagram_profiles",
+  "sourceRows": 236283,
+  "eligibleSourceRows": 155090,
+  "creatorProfiles": 155090,
+  "contactRecords": 11796,
+  "exactDuplicateRowsMerged": 0,
+  "rejectedRows": 81193,
+  "rejectedByReason": {
+    "below_1000_followers": 81192,
+    "invalid_instagram_handle": 1
+  },
+  "minimumFollowerCount": 1000,
+  "contactVerificationStatus": "verified",
+  "excludedOperationalColumns": [
+    "Scraping Status",
+    "Scraping In Progress",
+    "Profile Picture Stored in Firebase"
+  ],
+  "profilesWithBiography": 146116,
+  "profilesWithAverageComments": 155090,
+  "profilesWithEngagementRate": 155085
+}

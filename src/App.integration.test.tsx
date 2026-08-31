@@ -5,6 +5,7 @@ import { App } from "./App";
 import { DemoDataProvider } from "./data/AppData";
 import { demoData } from "./lib/demoData";
 import { DemoWorkspaceDataProvider } from "./features/workspace/WorkspaceData";
+import { CONTACT_ACCESS_WINDOW_MS, CONTACT_UNLOCK_COST } from "../convex/lib/creditPolicy";
 
 function renderDemo() {
   return render(
@@ -51,6 +52,19 @@ describe("Creatorly M1 user journey", () => {
     expect(pageText.indexOf("Private creator CRM")).toBeLessThan(pageText.indexOf("Chrome extension"));
     expect(pageText.indexOf("Chrome extension")).toBeLessThan(pageText.indexOf("Campaign workspace"));
     expect(screen.getAllByText("Future add-on")).toHaveLength(4);
+  });
+
+  it("sends every homepage preview action to workspace signup", async () => {
+    const user = userEvent.setup();
+    for (const name of [/add creators/i, /open saved creator/i, /create campaign/i]) {
+      window.history.replaceState({}, "", "/");
+      const rendered = renderDemo();
+      await user.click(screen.getByRole("button", { name }));
+      expect(window.location.pathname).toBe("/signup");
+      expect(window.location.search).toBe("?reason=workspace");
+      expect(screen.getByText("Create a workspace to continue")).toBeInTheDocument();
+      rendered.unmount();
+    }
   });
 
   it("signs up, searches, unlocks once, and preserves access after remount", async () => {
@@ -165,9 +179,9 @@ describe("Creatorly M1 user journey", () => {
     const expiredAt = Date.now() - 24 * 60 * 60 * 1000;
     window.localStorage.setItem("creatorly.demo.unlocks.v1", JSON.stringify({
       "maya-creates": {
-        unlockedAt: expiredAt - 30 * 24 * 60 * 60 * 1000,
+        unlockedAt: expiredAt - CONTACT_ACCESS_WINDOW_MS,
         expiresAt: expiredAt,
-        creditsSpent: 5,
+        creditsSpent: CONTACT_UNLOCK_COST,
       },
     }));
 
@@ -266,6 +280,23 @@ describe("Creatorly M1 user journey", () => {
     const savedUser = JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}") as Record<string, unknown>;
     expect(savedUser.currentPlanTier).toBe("free");
     expect(savedUser.creditBalance).toBe(25);
+  });
+
+  it("keeps a pro annual choice in the signup URL and across a reload", async () => {
+    window.history.replaceState({}, "", "/pricing");
+    const user = userEvent.setup();
+    const firstRender = renderDemo();
+
+    await user.click(screen.getByRole("button", { name: /annual 2 months free/i }));
+    await user.click(screen.getByRole("button", { name: /start with pro/i }));
+
+    expect(window.location.pathname).toBe("/signup");
+    expect(window.location.search).toBe("?plan=pro&cycle=annual");
+    expect(screen.getByText("You’re signing up for Pro, billed annually.")).toBeInTheDocument();
+
+    firstRender.unmount();
+    renderDemo();
+    expect(screen.getByText("You’re signing up for Pro, billed annually.")).toBeInTheDocument();
   });
 
   it("returns to workspace onboarding step 3 after a hard-refresh-style remount", async () => {

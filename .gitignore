@@ -1,12 +1,16 @@
 node_modules
 .agents
 dist
+.env
+.env.*
+!.env.example
 .env.local
 data/private/
 .env.*.local
 .vercel
 .auth-keys.json
 coverage
+/artifacts/verification/
 *.log
 *.tsbuildinfo
 vite.config.js

@@ -53,7 +53,7 @@ export function App() {
 
   if (!data.authenticated) {
     if (route.name === "login") return <AuthScreen initialMode="signin" navigate={navigate}/>;
-    if (route.name === "signup") return <AuthScreen initialMode="signup" navigate={navigate} showVerificationAfterSignup/>;
+    if (route.name === "signup") return <AuthScreen initialMode="signup" navigate={navigate} showVerificationAfterSignup purchase={route.plan && route.cycle ? { tier: route.plan, billingCycle: route.cycle } : undefined} signupReason={route.reason}/>;
     if (route.name === "pricing") return <PricingView viewer={null} navigate={navigate} refresh={() => {}}/>;
     return <AuthScreen initialMode="signup" navigate={navigate}/>;
   }
@@ -62,7 +62,7 @@ export function App() {
   if (!viewer.onboardingCompleted && route.name !== "verification" && route.name !== "onboarding") {
     return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
   }
-  if (route.name === "verification") return <VerificationView navigate={navigate}/>;
+  if (route.name === "verification") return <VerificationView navigate={navigate} purchase={route.plan && route.cycle ? { tier: route.plan, billingCycle: route.cycle } : undefined}/>;
   if (route.name === "onboarding") return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
 
   return (

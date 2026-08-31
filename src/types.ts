@@ -10,6 +10,28 @@ export type SocialProfile = {
   isVerified?: boolean;
 };
 
+export type InstagramMetrics = {
+  followingCount?: number;
+  postCount?: number;
+  highlightReelCount?: number;
+  igtvVideoCount?: number;
+  averageLikes?: number;
+  averageComments?: number;
+  averageVideoViews?: number;
+  averageReelViews?: number;
+  engagementRatePercent?: number;
+  minLikes?: number;
+  minComments?: number;
+  minVideoViews?: number;
+  minReelViews?: number;
+  maxLikes?: number;
+  maxComments?: number;
+  maxVideoViews?: number;
+  maxReelViews?: number;
+  isBusinessAccount?: boolean;
+  businessCategoryName?: string;
+};
+
 export type Viewer = {
   id: string;
   name: string;
@@ -73,6 +95,12 @@ export type CreatorSearchResult = {
   profileType?: string;
   contentQuality?: string;
   managementType?: "self_managed" | "talent_managed";
+  profileImageUrl?: string;
+  biography?: string;
+  gender?: string;
+  age?: number;
+  instagramAccountId?: string;
+  instagramMetrics?: InstagramMetrics;
   contactCount: number;
   matchScore: number;
 };

@@ -2,9 +2,12 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { isRepositoryEligible } from "./lib/repositoryPolicy";
 
-function sameContact(existing: { email?: string; whatsapp?: string }, incoming: { email?: string; whatsapp?: string }) {
-  return (existing.email ?? "").trim().toLowerCase() === (incoming.email ?? "").trim().toLowerCase()
-    && (existing.whatsapp ?? "").replace(/\D/g, "") === (incoming.whatsapp ?? "").replace(/\D/g, "");
+function sameContact(existing: { email?: string; phone?: string; whatsapp?: string }, incoming: { email?: string; phone?: string; whatsapp?: string }) {
+  const existingEmail = (existing.email ?? "").trim().toLowerCase();
+  const incomingEmail = (incoming.email ?? "").trim().toLowerCase();
+  const existingPhone = (existing.phone ?? existing.whatsapp ?? "").replace(/\D/g, "");
+  const incomingPhone = (incoming.phone ?? incoming.whatsapp ?? "").replace(/\D/g, "");
+  return Boolean((incomingEmail && existingEmail === incomingEmail) || (incomingPhone && existingPhone === incomingPhone));
 }
 
 export const ingestBatch = internalMutation({
@@ -25,23 +28,47 @@ export const ingestBatch = internalMutation({
       }
       const candidates = await ctx.db.query("creators").withIndex("by_normalized_handle", q => q.eq("normalizedHandle", row.normalizedHandle)).collect();
       const existing = candidates.find(creator => creator.platform === "instagram" && creator.handle.toLowerCase() === row.handle.toLowerCase());
+      const profileFields = {
+        displayName: row.displayName,
+        followerCount: row.followerCount,
+        location: row.location,
+        categories: row.categories,
+        primaryCategory: row.categories[0]?.toLowerCase() ?? "",
+        categorySearch: row.categories.join(" ").toLowerCase(),
+        profileImageUrl: row.profileImageUrl,
+        biography: row.biography,
+        gender: row.gender,
+        age: row.age,
+        instagramAccountId: row.instagramAccountId,
+        contentLanguages: row.contentLanguages,
+        profileType: row.profileType,
+        instagramMetrics: row.instagramMetrics,
+        isVerified: row.isVerified,
+        isDemo: false,
+        lastUpdatedAt: now,
+      };
       let creatorId = existing?._id;
       if (existing) {
-        await ctx.db.patch(existing._id, { displayName: row.displayName, followerCount: row.followerCount, location: row.location, categories: row.categories, primaryCategory: row.categories[0]?.toLowerCase() ?? "", categorySearch: row.categories.join(" ").toLowerCase(), isVerified: row.isVerified, isDemo: false, lastUpdatedAt: now });
+        await ctx.db.patch(existing._id, profileFields);
         creatorsUpdated += 1;
       } else {
-        creatorId = await ctx.db.insert("creators", { platform: "instagram", handle: row.handle, normalizedHandle: row.normalizedHandle, displayName: row.displayName, followerCount: row.followerCount, location: row.location, categories: row.categories, primaryCategory: row.categories[0]?.toLowerCase() ?? "", categorySearch: row.categories.join(" ").toLowerCase(), isVerified: row.isVerified, isDemo: false, addedToRepositoryAt: now, lastUpdatedAt: now });
+        creatorId = await ctx.db.insert("creators", { platform: "instagram", handle: row.handle, normalizedHandle: row.normalizedHandle, ...profileFields, addedToRepositoryAt: now });
         creatorsInserted += 1;
       }
-      const existingContacts = await ctx.db.query("contacts").withIndex("by_creator", q => q.eq("creatorId", creatorId!)).collect();
-      const insertedThisRow: Array<{ email?: string; whatsapp?: string }> = [];
+      const existingContacts = row.contacts.length
+        ? await ctx.db.query("contacts").withIndex("by_creator", q => q.eq("creatorId", creatorId!)).collect()
+        : [];
+      const insertedThisRow: Array<{ email?: string; phone?: string; whatsapp?: string }> = [];
       for (const contact of row.contacts) {
         if (existingContacts.some(item => sameContact(item, contact)) || insertedThisRow.some(item => sameContact(item, contact))) continue;
+        const verificationStatus = row.contactVerificationStatus ?? "pending_verification";
         await ctx.db.insert("contacts", {
           creatorId: creatorId!, contactType: "creator_direct", name: row.displayName.startsWith("@") ? `${row.handle} contact` : row.displayName,
-          email: contact.email, whatsapp: contact.whatsapp,
-          contextualNotes: row.categories.length ? `Categories: ${row.categories.join(", ")}. Imported contact; verification pending.` : "Imported contact; verification pending.",
-          verificationStatus: "pending_verification", lastVerifiedAt: now, isActive: true, accessTier: "basic", isDemo: false,
+          email: contact.email, phone: contact.phone, whatsapp: contact.whatsapp,
+          contextualNotes: verificationStatus === "verified"
+            ? "Imported contact supplied as valid by the data owner."
+            : row.categories.length ? `Categories: ${row.categories.join(", ")}. Imported contact; verification pending.` : "Imported contact; verification pending.",
+          verificationStatus, lastVerifiedAt: now, isActive: true, accessTier: "basic", isDemo: false,
         });
         insertedThisRow.push(contact);
         contactsInserted += 1;

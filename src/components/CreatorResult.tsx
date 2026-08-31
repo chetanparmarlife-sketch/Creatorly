@@ -12,6 +12,11 @@ export function CreatorResult({
   bestMatch: boolean;
   onOpen(): void;
 }) {
+  const performance = [
+    creator.instagramMetrics?.averageComments !== undefined ? `${creator.instagramMetrics.averageComments.toLocaleString("en-IN", { maximumFractionDigits: 1 })} avg comments` : "",
+    creator.instagramMetrics?.engagementRatePercent !== undefined ? `${creator.instagramMetrics.engagementRatePercent.toLocaleString("en-IN", { maximumFractionDigits: 2 })}% engagement` : "",
+  ].filter(Boolean);
+
   return (
     <button className="creator-row" onClick={onOpen}>
       <CreatorPortrait name={creator.displayName} platform={creator.platform} />
@@ -27,6 +32,7 @@ export function CreatorResult({
           <span aria-hidden="true">·</span>
           {creator.handle}
         </span>
+        {performance.length ? <span className="creator-engagement">{performance.join(" · ")}</span> : null}
       </span>
       <span className="creator-metric">
         <strong>{creator.followerCount > 0 ? formatFollowers(creator.followerCount) : "—"}</strong>

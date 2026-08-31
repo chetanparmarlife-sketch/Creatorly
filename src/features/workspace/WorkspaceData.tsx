@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useConvex } from "convex/react";
-import { makeFunctionReference, type FunctionReference } from "convex/server";
+import { api } from "../../../convex/_generated/api";
+import type { Id, TableNames } from "../../../convex/_generated/dataModel";
 import { demoData } from "../../lib/demoData";
 import type { ApprovalDecision, Campaign, CampaignStage, CampaignTaskStatus, CreatorSearchResult, CreatorSource, GroupCollaborator, GroupCollaboratorRole, Platform, PrivateCreatorInput, SavedCreator, Viewer, WorkspaceActivity, WorkspaceGroup, WorkspaceOnboardingInput, WorkspaceSummary } from "../../types";
 import { creatorDuplicateKey } from "./creatorImport";
@@ -217,30 +218,33 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;
 }
 
-type Empty = Record<string, never>;
-const listWorkspacesRef = makeFunctionReference<"query">("workspaces:listMine") as FunctionReference<"query", "public", Empty, Array<{ id: string; name: string; kind: WorkspaceSummary["kind"]; role: WorkspaceSummary["role"] }>>;
-const createWorkspaceRef = makeFunctionReference<"mutation">("workspaces:create") as FunctionReference<"mutation", "public", { name: string; kind: WorkspaceSummary["kind"]; website?: string }, { workspaceId: string }>;
-const completeSetupRef = makeFunctionReference<"mutation">("workspaces:completeSetup") as FunctionReference<"mutation", "public", WorkspaceOnboardingInput, WorkspaceSummary>;
-const saveCreatorRef = makeFunctionReference<"mutation">("savedCreators:save") as FunctionReference<"mutation", "public", { workspaceId: string; creatorId: string }, { savedCreatorId: string; alreadySaved: boolean }>;
-const importPrivateRef = makeFunctionReference<"mutation">("savedCreators:importPrivate") as FunctionReference<"mutation", "public", { workspaceId: string; source: "csv_upload" | "manual"; rows: PrivateCreatorInput[] }, { imported: number; duplicates: number; errors: number }>;
-const listSavedRef = makeFunctionReference<"query">("savedCreators:list") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
-const updateSavedRef = makeFunctionReference<"mutation">("savedCreators:update") as FunctionReference<"mutation", "public", { workspaceId: string; savedCreatorId: string; relationshipStage?: CampaignStage; nextAction?: string; nextActionAt?: number; priority?: SavedCreator["priority"] }, unknown>;
-const listGroupsRef = makeFunctionReference<"query">("groupOperations:listGroups") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
-const createGroupRef = makeFunctionReference<"mutation">("groupOperations:createGroup") as FunctionReference<"mutation", "public", { workspaceId: string; name: string; website?: string; divisionType?: WorkspaceGroup["divisionType"]; parentDivisionId?: string }, { groupId: string }>;
-const listCollaboratorsRef = makeFunctionReference<"query">("groupOperations:listCollaborators") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
-const addCollaboratorRef = makeFunctionReference<"mutation">("groupOperations:addCollaborator") as FunctionReference<"mutation", "public", { workspaceId: string; clientId?: string; divisionId?: string; email: string; role: GroupCollaboratorRole }, unknown>;
-const createCampaignRef = makeFunctionReference<"mutation">("campaigns:create") as FunctionReference<"mutation", "public", { workspaceId: string; clientId?: string; divisionId?: string; name: string; goal: string; platforms: Campaign["platforms"]; currency: string; budget?: number }, { campaignId: string }>;
-const listCampaignsRef = makeFunctionReference<"query">("campaigns:list") as FunctionReference<"query", "public", { workspaceId: string }, Array<Record<string, unknown>>>;
-const addCampaignCreatorRef = makeFunctionReference<"mutation">("campaigns:addCreator") as FunctionReference<"mutation", "public", { workspaceId: string; campaignId: string; savedCreatorId: string }, unknown>;
-const moveCampaignCreatorRef = makeFunctionReference<"mutation">("campaigns:moveCreator") as FunctionReference<"mutation", "public", { workspaceId: string; campaignCreatorId: string; stage: CampaignStage }, unknown>;
-const getExecutionRef = makeFunctionReference<"query">("campaignExecution:getCampaign") as FunctionReference<"query", "public", { workspaceId: string; campaignId: string }, Record<string, unknown>>;
-const addDeliverableRef = makeFunctionReference<"mutation">("campaignExecution:addDeliverable") as FunctionReference<"mutation", "public", { workspaceId: string; campaignId: string; campaignCreatorId: string; title: string; channel: Platform; format: string; dueAt?: number }, unknown>;
-const submitDeliverableRef = makeFunctionReference<"mutation">("campaignExecution:submitContent") as FunctionReference<"mutation", "public", { workspaceId: string; deliverableId: string; submissionUrl: string }, unknown>;
-const decideDeliverableRef = makeFunctionReference<"mutation">("campaignExecution:decideApproval") as FunctionReference<"mutation", "public", { workspaceId: string; deliverableId: string; decision: Exclude<ApprovalDecision, "pending">; note?: string }, unknown>;
-const addTaskRef = makeFunctionReference<"mutation">("campaignExecution:addTask") as FunctionReference<"mutation", "public", { workspaceId: string; campaignId: string; campaignCreatorId?: string; title: string; dueAt?: number }, unknown>;
-const setTaskRef = makeFunctionReference<"mutation">("campaignExecution:setTaskStatus") as FunctionReference<"mutation", "public", { workspaceId: string; taskId: string; status: CampaignTaskStatus }, unknown>;
-const setFeeRef = makeFunctionReference<"mutation">("campaignExecution:setCreatorFee") as FunctionReference<"mutation", "public", { workspaceId: string; campaignCreatorId: string; agreedFee: number }, unknown>;
-const homeRef = makeFunctionReference<"query">("home:getSummary") as FunctionReference<"query", "public", { workspaceId: string }, { recentActivity: WorkspaceActivity[] }>;
+const listWorkspacesRef = api.workspaces.listMine;
+const createWorkspaceRef = api.workspaces.create;
+const completeSetupRef = api.workspaces.completeSetup;
+const saveCreatorRef = api.savedCreators.save;
+const importPrivateRef = api.savedCreators.importPrivate;
+const listSavedRef = api.savedCreators.list;
+const updateSavedRef = api.savedCreators.update;
+const listGroupsRef = api.groupOperations.listGroups;
+const createGroupRef = api.groupOperations.createGroup;
+const listCollaboratorsRef = api.groupOperations.listCollaborators;
+const addCollaboratorRef = api.groupOperations.addCollaborator;
+const createCampaignRef = api.campaigns.create;
+const listCampaignsRef = api.campaigns.list;
+const addCampaignCreatorRef = api.campaigns.addCreator;
+const moveCampaignCreatorRef = api.campaigns.moveCreator;
+const getExecutionRef = api.campaignExecution.getCampaign;
+const addDeliverableRef = api.campaignExecution.addDeliverable;
+const submitDeliverableRef = api.campaignExecution.submitContent;
+const decideDeliverableRef = api.campaignExecution.decideApproval;
+const addTaskRef = api.campaignExecution.addTask;
+const setTaskRef = api.campaignExecution.setTaskStatus;
+const setFeeRef = api.campaignExecution.setCreatorFee;
+const homeRef = api.home.getSummary;
+
+function toConvexId<TableName extends TableNames>(value: string) {
+  return value as Id<TableName>;
+}
 
 function mapCampaignRow(row: Record<string, unknown>): Campaign {
   return {
@@ -269,9 +273,9 @@ export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode 
     ensureWorkspace,
     completeWorkspaceOnboarding: (input) => convex.mutation(completeSetupRef, input),
     listWorkspaces: () => convex.query(listWorkspacesRef, {}),
-    saveCreator: (workspaceId, creator) => convex.mutation(saveCreatorRef, { workspaceId, creatorId: creator.id }),
-    importPrivateCreators: (workspaceId, source, rows) => convex.mutation(importPrivateRef, { workspaceId, source, rows }),
-    listSavedCreators: async (workspaceId) => (await convex.query(listSavedRef, { workspaceId })).flatMap(row => {
+    saveCreator: (workspaceId, creator) => convex.mutation(saveCreatorRef, { workspaceId: toConvexId<"workspaces">(workspaceId), creatorId: toConvexId<"creators">(creator.id) }),
+    importPrivateCreators: (workspaceId, source, rows) => convex.mutation(importPrivateRef, { workspaceId: toConvexId<"workspaces">(workspaceId), source, rows }),
+    listSavedCreators: async (workspaceId) => (await convex.query(listSavedRef, { workspaceId: toConvexId<"workspaces">(workspaceId) })).flatMap(row => {
       const creator = row.creator as (CreatorSearchResult & { _id?: string }) | null;
       const id = String(row._id);
       const profile = creator ? { ...creator, id: String(creator._id ?? creator.id), contactCount: creator.contactCount ?? 0 } : {
@@ -284,23 +288,31 @@ export function ConvexWorkspaceDataProvider({ children }: { children: ReactNode 
       };
       return [{ id, creator: profile, source: (row.source ?? (creator ? "creatorly" : "manual")) as CreatorSource, privateContact: creator ? undefined : { email: row.privateEmail as string | undefined, phone: row.privatePhone as string | undefined, whatsapp: row.privateWhatsapp as string | undefined }, relationshipStage: row.relationshipStage as CampaignStage, ownerName: "Unassigned", priority: row.priority as SavedCreator["priority"], tags: row.tags as string[], notes: row.notes as string | undefined, nextAction: row.nextAction as string | undefined, nextActionAt: row.nextActionAt as number | undefined, updatedAt: row.updatedAt as number }];
     }),
-    updateSavedCreator: async (workspaceId, savedCreatorId, patch) => { await convex.mutation(updateSavedRef, { workspaceId, savedCreatorId, ...patch }); },
-    listGroups: async (workspaceId) => (await convex.query(listGroupsRef, { workspaceId })).map(row => ({ id: String(row._id), kind: row.kind as WorkspaceGroup["kind"], name: String(row.name), website: row.website as string | undefined, divisionType: row.divisionType as WorkspaceGroup["divisionType"], parentDivisionId: row.parentDivisionId ? String(row.parentDivisionId) : undefined, status: row.status as WorkspaceGroup["status"] })),
-    createGroup: async (workspaceId, input) => (await convex.mutation(createGroupRef, { workspaceId, ...input })).groupId,
-    listGroupCollaborators: async (workspaceId) => (await convex.query(listCollaboratorsRef, { workspaceId })).map(row => ({ id: String(row._id), groupId: String(row.clientId ?? row.divisionId), email: String(row.email), role: row.role as GroupCollaboratorRole, status: row.status as GroupCollaborator["status"] })),
-    addGroupCollaborator: async (workspaceId, group, email, role) => { await convex.mutation(addCollaboratorRef, { workspaceId, clientId: group.kind === "client" ? group.id : undefined, divisionId: group.kind === "division" ? group.id : undefined, email, role }); },
-    createCampaign: async (workspaceId, input) => (await convex.mutation(createCampaignRef, { workspaceId, ...input })).campaignId,
-    listCampaigns: async (workspaceId) => (await convex.query(listCampaignsRef, { workspaceId })).map(mapCampaignRow),
-    addCampaignCreator: async (workspaceId, campaignId, savedCreatorId) => { await convex.mutation(addCampaignCreatorRef, { workspaceId, campaignId, savedCreatorId }); },
-    moveCampaignCreator: async (workspaceId, _campaignId, campaignCreatorId, stage) => { await convex.mutation(moveCampaignCreatorRef, { workspaceId, campaignCreatorId, stage }); },
-    getCampaignExecution: async (workspaceId, campaignId) => { const row = await convex.query(getExecutionRef, { workspaceId, campaignId }); return row ? mapCampaignRow(row) : null; },
-    addDeliverable: async (workspaceId, campaignId, campaignCreatorId, input) => { await convex.mutation(addDeliverableRef, { workspaceId, campaignId, campaignCreatorId, ...input }); },
-    submitDeliverable: async (workspaceId, _campaignId, deliverableId, submissionUrl) => { await convex.mutation(submitDeliverableRef, { workspaceId, deliverableId, submissionUrl }); },
-    decideDeliverable: async (workspaceId, _campaignId, deliverableId, decision, note) => { await convex.mutation(decideDeliverableRef, { workspaceId, deliverableId, decision, note }); },
-    addCampaignTask: async (workspaceId, campaignId, input) => { await convex.mutation(addTaskRef, { workspaceId, campaignId, ...input }); },
-    setCampaignTaskStatus: async (workspaceId, _campaignId, taskId, status) => { await convex.mutation(setTaskRef, { workspaceId, taskId, status }); },
-    setCampaignCreatorFee: async (workspaceId, _campaignId, campaignCreatorId, agreedFee) => { await convex.mutation(setFeeRef, { workspaceId, campaignCreatorId, agreedFee }); },
-    listActivity: async (workspaceId) => (await convex.query(homeRef, { workspaceId })).recentActivity,
+    updateSavedCreator: async (workspaceId, savedCreatorId, patch) => { await convex.mutation(updateSavedRef, { workspaceId: toConvexId<"workspaces">(workspaceId), savedCreatorId: toConvexId<"savedCreators">(savedCreatorId), ...patch }); },
+    listGroups: async (workspaceId) => (await convex.query(listGroupsRef, { workspaceId: toConvexId<"workspaces">(workspaceId) })).map(row => ({
+      id: String(row._id),
+      kind: row.kind,
+      name: row.name,
+      website: row.kind === "client" ? row.website : undefined,
+      divisionType: row.kind === "division" ? row.divisionType : undefined,
+      parentDivisionId: row.kind === "division" && row.parentDivisionId ? String(row.parentDivisionId) : undefined,
+      status: row.status,
+    })),
+    createGroup: async (workspaceId, input) => (await convex.mutation(createGroupRef, { workspaceId: toConvexId<"workspaces">(workspaceId), ...input, parentDivisionId: input.parentDivisionId ? toConvexId<"brandDivisions">(input.parentDivisionId) : undefined })).groupId,
+    listGroupCollaborators: async (workspaceId) => (await convex.query(listCollaboratorsRef, { workspaceId: toConvexId<"workspaces">(workspaceId) })).map(row => ({ id: String(row._id), groupId: String(row.clientId ?? row.divisionId), email: row.email, role: row.role, status: row.status })),
+    addGroupCollaborator: async (workspaceId, group, email, role) => { await convex.mutation(addCollaboratorRef, { workspaceId: toConvexId<"workspaces">(workspaceId), clientId: group.kind === "client" ? toConvexId<"clients">(group.id) : undefined, divisionId: group.kind === "division" ? toConvexId<"brandDivisions">(group.id) : undefined, email, role }); },
+    createCampaign: async (workspaceId, input) => (await convex.mutation(createCampaignRef, { ...input, workspaceId: toConvexId<"workspaces">(workspaceId), clientId: input.clientId ? toConvexId<"clients">(input.clientId) : undefined, divisionId: input.divisionId ? toConvexId<"brandDivisions">(input.divisionId) : undefined })).campaignId,
+    listCampaigns: async (workspaceId) => (await convex.query(listCampaignsRef, { workspaceId: toConvexId<"workspaces">(workspaceId) })).map(mapCampaignRow),
+    addCampaignCreator: async (workspaceId, campaignId, savedCreatorId) => { await convex.mutation(addCampaignCreatorRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId), savedCreatorId: toConvexId<"savedCreators">(savedCreatorId) }); },
+    moveCampaignCreator: async (workspaceId, _campaignId, campaignCreatorId, stage) => { await convex.mutation(moveCampaignCreatorRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignCreatorId: toConvexId<"campaignCreators">(campaignCreatorId), stage }); },
+    getCampaignExecution: async (workspaceId, campaignId) => { const row = await convex.query(getExecutionRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId) }); return row ? mapCampaignRow(row) : null; },
+    addDeliverable: async (workspaceId, campaignId, campaignCreatorId, input) => { await convex.mutation(addDeliverableRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId), campaignCreatorId: toConvexId<"campaignCreators">(campaignCreatorId), ...input }); },
+    submitDeliverable: async (workspaceId, _campaignId, deliverableId, submissionUrl) => { await convex.mutation(submitDeliverableRef, { workspaceId: toConvexId<"workspaces">(workspaceId), deliverableId: toConvexId<"deliverables">(deliverableId), submissionUrl }); },
+    decideDeliverable: async (workspaceId, _campaignId, deliverableId, decision, note) => { await convex.mutation(decideDeliverableRef, { workspaceId: toConvexId<"workspaces">(workspaceId), deliverableId: toConvexId<"deliverables">(deliverableId), decision, note }); },
+    addCampaignTask: async (workspaceId, campaignId, input) => { await convex.mutation(addTaskRef, { ...input, workspaceId: toConvexId<"workspaces">(workspaceId), campaignId: toConvexId<"campaigns">(campaignId), campaignCreatorId: input.campaignCreatorId ? toConvexId<"campaignCreators">(input.campaignCreatorId) : undefined }); },
+    setCampaignTaskStatus: async (workspaceId, _campaignId, taskId, status) => { await convex.mutation(setTaskRef, { workspaceId: toConvexId<"workspaces">(workspaceId), taskId: toConvexId<"tasks">(taskId), status }); },
+    setCampaignCreatorFee: async (workspaceId, _campaignId, campaignCreatorId, agreedFee) => { await convex.mutation(setFeeRef, { workspaceId: toConvexId<"workspaces">(workspaceId), campaignCreatorId: toConvexId<"campaignCreators">(campaignCreatorId), agreedFee }); },
+    listActivity: async (workspaceId) => (await convex.query(homeRef, { workspaceId: toConvexId<"workspaces">(workspaceId) })).recentActivity.map(item => ({ id: String(item._id), summary: item.summary, entityType: item.entityType, createdAt: item.createdAt })),
   }), [convex, ensureWorkspace]);
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;
 }

@@ -3,6 +3,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
+import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 import { normalize, score } from "./lib/matching";
 import { MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
 
@@ -22,7 +23,8 @@ const platformValidator = v.union(
 );
 
 function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number }) {
-  if (!creator.isDemo && creator.followerCount < MIN_REPOSITORY_FOLLOWERS) return false;
+  if (creator.isDemo) return false;
+  if (creator.followerCount < MIN_REPOSITORY_FOLLOWERS) return false;
   if (args.verifiedOnly && !creator.isVerified) return false;
   if (args.location && !creator.location?.toLowerCase().includes(args.location.trim().toLowerCase())) return false;
   if (args.category && !creator.categories?.some(category => category.toLowerCase() === args.category?.toLowerCase())) return false;
@@ -142,6 +144,12 @@ export const browsePage = query({
         profileType: creator.profileType,
         contentQuality: creator.contentQuality,
         managementType: creator.managementType,
+        profileImageUrl: creator.profileImageUrl,
+        biography: creator.biography,
+        gender: creator.gender,
+        age: creator.age,
+        instagramAccountId: creator.instagramAccountId,
+        instagramMetrics: creator.instagramMetrics,
         contactCount: contacts.filter((contact) => contact.isActive && contact.verificationStatus === "verified").length,
         matchScore: 0,
       };
@@ -226,7 +234,7 @@ export const search = query({
           ? q.gte("followerCount", min)
           : q.gte("followerCount", min).lt("followerCount", max)).order("desc").take(30);
       }
-      creators = creators.filter(creator => !creator.isDemo && (!args.platform || creator.platform === args.platform) && passesFilters(creator, args)).slice(0, 24);
+      creators = creators.filter(creator => (!args.platform || creator.platform === args.platform) && passesFilters(creator, args)).slice(0, 24);
     }
 
     const ranked = await Promise.all(
@@ -247,6 +255,14 @@ export const search = query({
           categories: creator.categories,
           isVerified: creator.isVerified,
           isDemo: creator.isDemo,
+          contentLanguages: creator.contentLanguages,
+          profileType: creator.profileType,
+          profileImageUrl: creator.profileImageUrl,
+          biography: creator.biography,
+          gender: creator.gender,
+          age: creator.age,
+          instagramAccountId: creator.instagramAccountId,
+          instagramMetrics: creator.instagramMetrics,
           contactCount: contacts.filter((contact) => contact.isActive && contact.verificationStatus === "verified").length,
           matchScore,
         };
@@ -331,10 +347,16 @@ export const getById = query({
         profileType: creator.profileType,
         contentQuality: creator.contentQuality,
         managementType: creator.managementType,
+        profileImageUrl: creator.profileImageUrl,
+        biography: creator.biography,
+        gender: creator.gender,
+        age: creator.age,
+        instagramAccountId: creator.instagramAccountId,
+        instagramMetrics: creator.instagramMetrics,
       },
       isUnlocked: Boolean(activeUnlock && hasOpenableContact),
       expiresAt: activeUnlock && hasOpenableContact ? activeUnlock.expiresAt : null,
-      creditBalance: user.creditBalance ?? 25,
+      creditBalance: user.creditBalance ?? STARTING_CREDIT_BALANCE,
       currentPlanTier: user.currentPlanTier ?? "free",
       availableContactCount: permitted.length,
       hiddenProContactCount: verifiedContacts.length - permitted.length,

@@ -7,7 +7,7 @@ import { CreatorResult } from "./CreatorResult";
 import { RequestContactModal } from "./RequestContactModal";
 
 const CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
-const REPOSITORY_SCOPE = "Current coverage: 6,973 India-focused Instagram creators with supplied follower counts from 1K to 9,996. YouTube coverage is not loaded yet.";
+const REPOSITORY_SCOPE = "Current coverage: India-focused Instagram creators with supplied audience and engagement metrics from 1K followers upward. YouTube coverage is not loaded yet.";
 const CATEGORY_SHORTCUTS = [
   { label: "Lifestyle", icon: Sparkles },
   { label: "Entertainment", icon: Clapperboard },

@@ -4,6 +4,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { isRepositoryEligible, MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { normalize } from "./lib/matching";
+import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 
 const platform = v.union(v.literal("instagram"), v.literal("youtube"));
 const contactType = v.union(
@@ -166,7 +167,7 @@ export const listUsers = query({
       companyName: user.companyName ?? "Agency",
       role: user.role ?? "user",
       currentPlanTier: user.currentPlanTier ?? "free",
-      creditBalance: user.creditBalance ?? 0,
+      creditBalance: user.creditBalance ?? STARTING_CREDIT_BALANCE,
       subscriptionStatus: user.subscriptionStatus ?? "active",
     }));
   },

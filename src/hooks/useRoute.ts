@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
+import type { BillingCycle, PaidPlanTier } from "../lib/billingCatalog";
+
+type PurchaseRouteContext = { plan?: PaidPlanTier; cycle?: BillingCycle };
+type SignupRouteContext = PurchaseRouteContext & { reason?: "workspace" };
+
 export type AppRoute =
   | { name: "landing" }
   | { name: "login" }
-  | { name: "signup" }
+  | ({ name: "signup" } & SignupRouteContext)
   | { name: "onboarding" }
-  | { name: "verification" }
+  | ({ name: "verification" } & PurchaseRouteContext)
   | { name: "pricing" }
   | { name: "settings" }
   | { name: "payment"; status: "success" | "failure" }
@@ -16,13 +21,34 @@ export type AppRoute =
   | { name: "campaign"; campaignId: string }
   | { name: "creator"; creatorId: string };
 
+function purchaseContext(searchParams: URLSearchParams): PurchaseRouteContext {
+  const plan = searchParams.get("plan");
+  const cycle = searchParams.get("cycle");
+  if ((plan === "basic" || plan === "pro") && (cycle === "monthly" || cycle === "annual")) {
+    return { plan, cycle };
+  }
+  return {};
+}
+
+function contextualRouteUrl(path: "/signup" | "/verify", context: SignupRouteContext) {
+  const searchParams = new URLSearchParams();
+  if (context.plan && context.cycle) {
+    searchParams.set("plan", context.plan);
+    searchParams.set("cycle", context.cycle);
+  }
+  if (path === "/signup" && context.reason) searchParams.set("reason", context.reason);
+  const query = searchParams.toString();
+  return query ? `${path}?${query}` : path;
+}
+
 function readRoute(): AppRoute {
   const path = window.location.pathname;
+  const searchParams = new URLSearchParams(window.location.search);
   if (path === "/") return { name: "landing" };
   if (path === "/login") return { name: "login" };
-  if (path === "/signup") return { name: "signup" };
+  if (path === "/signup") return { name: "signup", ...purchaseContext(searchParams), reason: searchParams.get("reason") === "workspace" ? "workspace" : undefined };
   if (path === "/onboarding") return { name: "onboarding" };
-  if (path === "/verify") return { name: "verification" };
+  if (path === "/verify") return { name: "verification", ...purchaseContext(searchParams) };
   if (path === "/pricing") return { name: "pricing" };
   if (path === "/settings") return { name: "settings" };
   if (path === "/payment/success") return { name: "payment", status: "success" };
@@ -66,9 +92,9 @@ export function useRoute() {
           ? "/admin"
         : next.name === "landing" ? "/"
         : next.name === "login" ? "/login"
-        : next.name === "signup" ? "/signup"
+        : next.name === "signup" ? contextualRouteUrl("/signup", next)
         : next.name === "onboarding" ? "/onboarding"
-        : next.name === "verification" ? "/verify"
+        : next.name === "verification" ? contextualRouteUrl("/verify", next)
         : next.name === "pricing" ? "/pricing"
         : next.name === "settings" ? "/settings"
         : next.name === "payment" ? `/payment/${next.status}`

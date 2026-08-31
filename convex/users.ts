@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
+import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 
 async function requireUser(ctx: MutationCtx) {
   const userId = await getAuthUserId(ctx);
@@ -30,7 +31,7 @@ export const viewer = query({
       phone: user.phone,
       role: user.role ?? "user",
       currentPlanTier: user.currentPlanTier ?? "free",
-      creditBalance: user.creditBalance ?? 25,
+      creditBalance: user.creditBalance ?? STARTING_CREDIT_BALANCE,
       subscriptionStatus: user.subscriptionStatus ?? "active",
       subscriptionRenewalDate: user.subscriptionRenewalDate,
       cancellationRequestedAt: user.cancellationRequestedAt,

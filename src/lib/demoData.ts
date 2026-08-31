@@ -1,4 +1,5 @@
 import { normalizeCreatorQuery, rankCreatorMatch } from "./creatorMatching";
+import { CONTACT_ACCESS_WINDOW_MS, CONTACT_UNLOCK_COST } from "../../convex/lib/creditPolicy";
 import type {
   AdminContactRequest,
   ContactRequestInput,
@@ -240,7 +241,7 @@ function getUnlocks(): Record<string, DemoUnlockRecord> {
   return Object.fromEntries(Object.entries(stored).map(([creatorId, value]) => [
     creatorId,
     typeof value === "number"
-      ? { unlockedAt: value - 30 * 24 * 60 * 60 * 1000, expiresAt: value, creditsSpent: 5 }
+      ? { unlockedAt: value - CONTACT_ACCESS_WINDOW_MS, expiresAt: value, creditsSpent: CONTACT_UNLOCK_COST }
       : value,
   ]));
 }
@@ -426,11 +427,11 @@ export const demoData = {
     if (!hasEligibleContact) throw new Error("This contact is unavailable while verification is in progress.");
     if (user.creditBalance < 5) throw new Error("You need 5 credits to unlock this contact.");
     const unlockedAt = Date.now();
-    user.creditBalance -= 5;
+    user.creditBalance -= CONTACT_UNLOCK_COST;
     unlocks[creatorId] = {
       unlockedAt,
-      expiresAt: unlockedAt + 30 * 24 * 60 * 60 * 1000,
-      creditsSpent: 5,
+      expiresAt: unlockedAt + CONTACT_ACCESS_WINDOW_MS,
+      creditsSpent: CONTACT_UNLOCK_COST,
     };
     saveUser(user);
     window.localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlocks));

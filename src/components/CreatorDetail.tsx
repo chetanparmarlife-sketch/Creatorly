@@ -10,6 +10,7 @@ import { daysRemaining, formatFollowers } from "../lib/format";
 import type { CreatorDetailData, CreatorSearchResult } from "../types";
 import { ContactCard } from "./ContactCard";
 import { CreatorPortrait } from "./CreatorPortrait";
+import { CONTACT_ACCESS_WINDOW_DAYS, CONTACT_UNLOCK_COST } from "../../convex/lib/creditPolicy";
 
 function rankSimilarCreators(current: CreatorDetailData["creator"], candidates: CreatorSearchResult[]) {
   const primaryCategory = current.categories?.[0];
@@ -21,6 +22,12 @@ function rankSimilarCreators(current: CreatorDetailData["creator"], candidates: 
       return rightMatches - leftMatches || right.followerCount - left.followerCount;
     })
     .slice(0, 4);
+}
+
+function formatPerformanceMetric(value: number) {
+  return value < 10_000
+    ? value.toLocaleString("en-IN", { maximumFractionDigits: 2 })
+    : formatFollowers(value);
 }
 
 export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
@@ -96,9 +103,21 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
   }
 
   const creator = detail.creator;
+  const instagramMetrics = creator.instagramMetrics;
+  const performanceMetrics = instagramMetrics ? [
+    { label: "Following", value: instagramMetrics.followingCount, suffix: "", context: "accounts followed" },
+    { label: "Posts", value: instagramMetrics.postCount, suffix: "", context: "published posts" },
+    { label: "Average likes", value: instagramMetrics.averageLikes, suffix: "", context: instagramMetrics.minLikes !== undefined && instagramMetrics.maxLikes !== undefined ? `${formatPerformanceMetric(instagramMetrics.minLikes)}–${formatPerformanceMetric(instagramMetrics.maxLikes)} observed range` : "per post" },
+    { label: "Average comments", value: instagramMetrics.averageComments, suffix: "", context: instagramMetrics.minComments !== undefined && instagramMetrics.maxComments !== undefined ? `${formatPerformanceMetric(instagramMetrics.minComments)}–${formatPerformanceMetric(instagramMetrics.maxComments)} observed range` : "per post" },
+    { label: "Engagement rate", value: instagramMetrics.engagementRatePercent, suffix: "%", context: "supplied engagement rate" },
+    { label: "Average reel views", value: instagramMetrics.averageReelViews, suffix: "", context: instagramMetrics.minReelViews !== undefined && instagramMetrics.maxReelViews !== undefined ? `${formatPerformanceMetric(instagramMetrics.minReelViews)}–${formatPerformanceMetric(instagramMetrics.maxReelViews)} observed range` : "per reel" },
+    { label: "Average video views", value: instagramMetrics.averageVideoViews, suffix: "", context: instagramMetrics.minVideoViews !== undefined && instagramMetrics.maxVideoViews !== undefined ? `${formatPerformanceMetric(instagramMetrics.minVideoViews)}–${formatPerformanceMetric(instagramMetrics.maxVideoViews)} observed range` : "per video" },
+    { label: "Highlights", value: instagramMetrics.highlightReelCount, suffix: "", context: "highlight reels" },
+    { label: "IGTV videos", value: instagramMetrics.igtvVideoCount, suffix: "", context: "published videos" },
+  ].filter((metric) => metric.value !== undefined) : [];
   const upgradeRequired = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount > 0;
   const verificationPending = !detail.isUnlocked && detail.availableContactCount === 0 && detail.hiddenProContactCount === 0 && detail.pendingContactCount > 0;
-  const insufficientCredits = detail.creditBalance < 5;
+  const insufficientCredits = detail.creditBalance < CONTACT_UNLOCK_COST;
   const unlockAction = upgradeRequired || insufficientCredits ? () => navigate({ name: "pricing" }) : handleUnlock;
   const primaryContact = detail.contacts[0];
   const socialProfiles = creator.socialProfiles?.length ? creator.socialProfiles : [{
@@ -161,6 +180,11 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
             </div>
           </section>
 
+          {performanceMetrics.length ? <section className="profile-section instagram-performance" aria-labelledby="performance-title">
+            <div className="profile-section-heading"><div><p className="eyebrow">Instagram performance</p><h2 id="performance-title">Audience and engagement</h2></div></div>
+            <div className="performance-metrics">{performanceMetrics.map(metric => <article key={metric.label}><small>{metric.label}</small><strong>{formatPerformanceMetric(metric.value!)}{metric.suffix}</strong><span>{metric.context}</span></article>)}</div>
+          </section> : null}
+
           <section className="profile-section profile-facts" aria-labelledby="profile-facts-title">
             <div className="profile-section-heading"><div><p className="eyebrow">About</p><h2 id="profile-facts-title">Creator profile</h2></div></div>
             <dl>
@@ -169,6 +193,9 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
               <div><dt><Tags size={20} /><span>Content categories</span></dt><dd>{creator.categories?.join(", ") || "Not supplied"}</dd></div>
               <div><dt><UserRound size={20} /><span>Profile type</span></dt><dd>{creator.profileType || "Creator"}</dd></div>
               <div><dt><ShieldCheck size={20} /><span>Content quality</span></dt><dd>{creator.contentQuality || "Not rated"}</dd></div>
+              {creator.biography ? <div><dt><AtSign size={20} /><span>Biography</span></dt><dd>{creator.biography}</dd></div> : null}
+              {creator.gender || creator.age !== undefined ? <div><dt><UserRound size={20} /><span>Profile demographics</span></dt><dd>{[creator.gender, creator.age !== undefined ? `Age ${creator.age}` : ""].filter(Boolean).join(" · ")}</dd></div> : null}
+              {instagramMetrics?.businessCategoryName ? <div><dt><Tags size={20} /><span>Business category</span></dt><dd>{instagramMetrics.businessCategoryName}{instagramMetrics.isBusinessAccount ? " · Business account" : ""}</dd></div> : null}
             </dl>
           </section>
 
@@ -190,11 +217,11 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
                 </> : <>
                 <p className="eyebrow">{upgradeRequired ? "Pro contact" : "One master unlock"}</p>
                 <h2 id="contact-access-title">{upgradeRequired ? "This creator is manager-led" : `Reveal ${detail.availableContactCount} ${detail.availableContactCount === 1 ? "contact" : "contacts"}`}</h2>
-                <p>{upgradeRequired ? "The available contact is a manager or representative. Upgrade to Pro to unlock it." : "Get the role, direct contact point, outreach note, and verification date for 30 days."}</p>
-                <div className="unlock-facts"><span><Coins size={18} /><strong>{upgradeRequired ? "Pro" : "5 credits"}</strong><small>{upgradeRequired ? "access needed" : "one-time unlock"}</small></span><span><Clock3 size={18} /><strong>30 days</strong><small>repeat access</small></span><span><ShieldCheck size={18} /><strong>Role-labelled</strong><small>contact context</small></span></div>
+                <p>{upgradeRequired ? "The available contact is a manager or representative. Upgrade to Pro to unlock it." : `Get the role, direct contact point, outreach note, and verification date for ${CONTACT_ACCESS_WINDOW_DAYS} days.`}</p>
+                <div className="unlock-facts"><span><Coins size={18} /><strong>{upgradeRequired ? "Pro" : `${CONTACT_UNLOCK_COST} credits`}</strong><small>{upgradeRequired ? "access needed" : "one-time unlock"}</small></span><span><Clock3 size={18} /><strong>{CONTACT_ACCESS_WINDOW_DAYS} days</strong><small>repeat access</small></span><span><ShieldCheck size={18} /><strong>Role-labelled</strong><small>contact context</small></span></div>
                 {error ? <p className="form-error" role="alert">{error}</p> : null}
-                <button className="button button-primary button-wide" onClick={unlockAction} disabled={busy}>{busy ? "Unlocking…" : upgradeRequired ? "Upgrade to Pro" : insufficientCredits ? "Get credits" : "Unlock for 5 credits"}</button>
-                <p className="balance-note">Your balance: <strong>{detail.creditBalance} credits</strong>{!upgradeRequired && !insufficientCredits ? ` → ${detail.creditBalance - 5} after unlock` : ""}</p>
+                <button className="button button-primary button-wide" onClick={unlockAction} disabled={busy}>{busy ? "Unlocking…" : upgradeRequired ? "Upgrade to Pro" : insufficientCredits ? "Get credits" : `Unlock for ${CONTACT_UNLOCK_COST} credits`}</button>
+                <p className="balance-note">Your balance: <strong>{detail.creditBalance} credits</strong>{!upgradeRequired && !insufficientCredits ? ` → ${detail.creditBalance - CONTACT_UNLOCK_COST} after unlock` : ""}</p>
                 </>}
               </div>
             )}
@@ -208,7 +235,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
       </div>
 
       <div className="mobile-profile-action">
-        <span><small>{detail.isUnlocked ? "Contact open" : "Contact access"}</small><strong>{detail.isUnlocked ? primaryContact?.name ?? creator.displayName : verificationPending ? "Unavailable" : upgradeRequired ? "Pro required" : "5 credits"}</strong></span>
+        <span><small>{detail.isUnlocked ? "Contact open" : "Contact access"}</small><strong>{detail.isUnlocked ? primaryContact?.name ?? creator.displayName : verificationPending ? "Unavailable" : upgradeRequired ? "Pro required" : `${CONTACT_UNLOCK_COST} credits`}</strong></span>
         <button className="button button-primary" onClick={detail.isUnlocked ? scrollToContact : verificationPending ? scrollToContact : unlockAction} disabled={busy || verificationPending}>{detail.isUnlocked ? "View contacts" : verificationPending ? "Verification pending" : busy ? "Unlocking…" : upgradeRequired ? "Upgrade" : "Unlock contact"}</button>
       </div>
     </main>

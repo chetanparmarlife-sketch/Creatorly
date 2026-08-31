@@ -3,8 +3,9 @@ import { ArrowRight, CheckCircle2, Search, ShieldCheck } from "lucide-react";
 import { useAppData } from "../data/AppData";
 import { Logo } from "./Logo";
 import type { AppRoute } from "../hooks/useRoute";
+import type { BillingCycle, PaidPlanTier } from "../lib/billingCatalog";
 
-export function AuthScreen({ initialMode = "signup", navigate, showVerificationAfterSignup = false }: { initialMode?: "signup" | "signin"; navigate?(route: AppRoute): void; showVerificationAfterSignup?: boolean }) {
+export function AuthScreen({ initialMode = "signup", navigate, showVerificationAfterSignup = false, purchase, signupReason }: { initialMode?: "signup" | "signin"; navigate?(route: AppRoute): void; showVerificationAfterSignup?: boolean; purchase?: { tier: PaidPlanTier; billingCycle: BillingCycle }; signupReason?: "workspace" }) {
   const data = useAppData();
   const [mode, setMode] = useState<"signup" | "signin">(initialMode);
   const [error, setError] = useState("");
@@ -23,7 +24,7 @@ export function AuthScreen({ initialMode = "signup", navigate, showVerificationA
           email: String(form.get("email") ?? ""),
           password: String(form.get("password") ?? ""),
         });
-        if (showVerificationAfterSignup) navigate?.({ name: "verification" });
+        if (showVerificationAfterSignup) navigate?.({ name: "verification", plan: purchase?.tier, cycle: purchase?.billingCycle });
       } else {
         await data.signIn(
           String(form.get("email") ?? ""),
@@ -73,6 +74,8 @@ export function AuthScreen({ initialMode = "signup", navigate, showVerificationA
               ? "Get 25 credits and find your first contact."
               : "Continue where your last creator search ended."}
           </p>
+          {mode === "signup" && purchase ? <div className="auth-context-note"><strong>Your plan</strong><span>You’re signing up for {purchase.tier === "pro" ? "Pro" : "Basic"}, billed {purchase.billingCycle === "annual" ? "annually" : "monthly"}.</span></div> : null}
+          {mode === "signup" && signupReason === "workspace" ? <div className="auth-context-note" role="status"><strong>Create a workspace to continue</strong><span>Your account keeps creator and campaign work private to your team.</span></div> : null}
 
           <form className="auth-form" onSubmit={handleSubmit}>
             {mode === "signup" ? (

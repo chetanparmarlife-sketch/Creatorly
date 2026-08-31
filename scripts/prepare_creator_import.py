@@ -18,6 +18,7 @@ HANDLE_IN_URL = re.compile(
 )
 HANDLE_IN_TEXT = re.compile(r"@([A-Za-z0-9._]{2,30})")
 RESERVED = {"accounts", "about", "direct", "explore", "https", "invites", "p", "reel", "reels", "stories", "web"}
+INSTAGRAM_PROFILE_COLUMNS = {"Username", "Followers", "Following", "Average Comments"}
 
 
 def extract_instagram_handle(value: str) -> str:
@@ -64,6 +65,36 @@ def parse_number(value: str) -> int:
         return 0
 
 
+def parse_optional_number(value: str) -> int | float | None:
+    text = (value or "").strip().replace(",", "").replace("%", "")
+    if not text:
+        return None
+    try:
+        number = float(text)
+    except ValueError:
+        return None
+    if number < 0:
+        return None
+    return int(number) if number.is_integer() else number
+
+
+def parse_optional_bool(value: str) -> bool | None:
+    text = (value or "").strip().casefold()
+    if text in {"1", "true", "yes", "y"}:
+        return True
+    if text in {"0", "false", "no", "n"}:
+        return False
+    return None
+
+
+def clean_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def clean_handle(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._]", "", (value or "").strip().lstrip("@")).strip(".")
+
+
 def split_categories(value: str) -> list[str]:
     result = []
     for item in (value or "").split(","):
@@ -90,7 +121,7 @@ def choose_display_name(row: dict[str, str], handle: str) -> str:
     return name
 
 
-def prepare_rows(source: Path) -> tuple[list[dict], dict]:
+def prepare_legacy_rows(source: Path, contacts_verified: bool = False) -> tuple[list[dict], dict]:
     with source.open(newline="", encoding="utf-8-sig") as handle:
         source_rows = list(csv.DictReader(handle))
 
@@ -164,6 +195,7 @@ def prepare_rows(source: Path) -> tuple[list[dict], dict]:
             "isVerified": any((item["row"].get("is_verified_instagram") or "").strip().casefold() == "true" for item in entries),
             "categories": categories,
             "contacts": contacts,
+            "contactVerificationStatus": "verified" if contacts_verified else "pending_verification",
         }
         location = next((normalize_location(item["row"].get("location") or "") for item in entries if normalize_location(item["row"].get("location") or "")), "")
         if location:
@@ -189,13 +221,175 @@ def prepare_rows(source: Path) -> tuple[list[dict], dict]:
     return output, report
 
 
+INSTAGRAM_METRIC_COLUMNS = {
+    "Following": "followingCount",
+    "Number of Posts": "postCount",
+    "Highlight Reel Count": "highlightReelCount",
+    "IGTV Video Count": "igtvVideoCount",
+    "Average Likes": "averageLikes",
+    "Average Comments": "averageComments",
+    "Average Video Views": "averageVideoViews",
+    "Average Reel Views": "averageReelViews",
+    "Engagement Rate (%)": "engagementRatePercent",
+    "Min Likes": "minLikes",
+    "Min Comments": "minComments",
+    "Min Video Views": "minVideoViews",
+    "Min Reel Views": "minReelViews",
+    "Max Likes": "maxLikes",
+    "Max Comments": "maxComments",
+    "Max Video Views": "maxVideoViews",
+    "Max Reel Views": "maxReelViews",
+}
+
+
+def prepare_instagram_profile_row(row: dict[str, str], contacts_verified: bool = False) -> dict | None:
+    handle = clean_handle(row.get("Username") or row.get("Scraped Username") or "")
+    follower_count = parse_number(row.get("Followers") or "")
+    if not handle or follower_count < 1000:
+        return None
+
+    categories = []
+    for column in ("Primary Content Niche", "Secondary Content Niche"):
+        for category in split_categories(row.get(column) or ""):
+            if category.casefold() not in {item.casefold() for item in categories}:
+                categories.append(category)
+
+    full_name = clean_text(row.get("Full Name") or row.get("Name") or "")
+    display_name = full_name if full_name and "http" not in full_name.casefold() else f"@{handle}"
+    metrics = {
+        target: value
+        for source, target in INSTAGRAM_METRIC_COLUMNS.items()
+        if (value := parse_optional_number(row.get(source) or "")) is not None
+    }
+    is_business = parse_optional_bool(row.get("Is Business Account") or "")
+    if is_business is not None:
+        metrics["isBusinessAccount"] = is_business
+    business_category = clean_text(row.get("Business Category Name") or "")
+    if business_category:
+        metrics["businessCategoryName"] = business_category
+
+    contact = {}
+    email = normalize_email(row.get("Email") or "")
+    phone = normalize_indian_phone(row.get("Contact Number") or "")
+    if email:
+        contact["email"] = email
+    if phone:
+        contact["phone"] = phone
+
+    profile = {
+        "sourceKey": hashlib.sha256(handle.casefold().encode()).hexdigest()[:24],
+        "handle": f"@{handle}",
+        "normalizedHandle": normalize_handle(handle),
+        "displayName": display_name,
+        "followerCount": follower_count,
+        "isVerified": parse_optional_bool(row.get("Verified") or "") is True,
+        "categories": categories,
+        "contacts": [contact] if contact else [],
+        "contactVerificationStatus": "verified" if contacts_verified else "pending_verification",
+        "instagramMetrics": metrics,
+    }
+
+    optional_text = {
+        "biography": clean_text(row.get("Biography") or ""),
+        "profileImageUrl": clean_text(row.get("Profile Pic URL") or ""),
+        "gender": clean_text(row.get("Gender") or ""),
+        "instagramAccountId": clean_text(row.get("Instagram ID") or ""),
+        "profileType": business_category,
+    }
+    profile.update({key: value for key, value in optional_text.items() if value})
+    age = parse_optional_number(row.get("Age") or "")
+    if age is not None:
+        profile["age"] = age
+    languages = split_categories(row.get("Language") or "")
+    if languages:
+        profile["contentLanguages"] = languages
+    location = normalize_location(", ".join(filter(None, [row.get("City") or "", row.get("State") or ""])))
+    if location:
+        profile["location"] = location
+    return profile
+
+
+def merge_instagram_profiles(existing: dict, incoming: dict) -> dict:
+    preferred, other = (incoming, existing) if len(json.dumps(incoming)) > len(json.dumps(existing)) else (existing, incoming)
+    merged = dict(preferred)
+    for key, value in other.items():
+        if key not in merged or merged[key] in (None, "", [], {}):
+            merged[key] = value
+    merged["followerCount"] = max(existing["followerCount"], incoming["followerCount"])
+    merged["isVerified"] = existing["isVerified"] or incoming["isVerified"]
+    merged["categories"] = list(dict.fromkeys(existing["categories"] + incoming["categories"]))
+    merged["contentLanguages"] = list(dict.fromkeys(existing.get("contentLanguages", []) + incoming.get("contentLanguages", [])))
+    metrics = dict(existing.get("instagramMetrics", {}))
+    metrics.update(incoming.get("instagramMetrics", {}))
+    merged["instagramMetrics"] = metrics
+    contacts = []
+    for contact in existing["contacts"] + incoming["contacts"]:
+        if contact and contact not in contacts:
+            contacts.append(contact)
+    merged["contacts"] = contacts
+    return merged
+
+
+def prepare_instagram_profile_rows(source: Path, contacts_verified: bool = False) -> tuple[list[dict], dict]:
+    profiles: dict[str, dict] = {}
+    rejected = defaultdict(int)
+    source_rows = 0
+    eligible_rows = 0
+    with source.open(newline="", encoding="utf-8-sig") as handle:
+        for row in csv.DictReader(handle):
+            source_rows += 1
+            raw_handle = clean_handle(row.get("Username") or row.get("Scraped Username") or "")
+            if not raw_handle:
+                rejected["invalid_instagram_handle"] += 1
+                continue
+            if parse_number(row.get("Followers") or "") < 1000:
+                rejected["below_1000_followers"] += 1
+                continue
+            prepared = prepare_instagram_profile_row(row, contacts_verified)
+            if not prepared:
+                rejected["invalid_profile"] += 1
+                continue
+            eligible_rows += 1
+            key = raw_handle.casefold()
+            profiles[key] = merge_instagram_profiles(profiles[key], prepared) if key in profiles else prepared
+
+    output = [profiles[key] for key in sorted(profiles)]
+    report = {
+        "sourceFile": source.name,
+        "sourceFormat": "detailed_instagram_profiles",
+        "sourceRows": source_rows,
+        "eligibleSourceRows": eligible_rows,
+        "creatorProfiles": len(output),
+        "contactRecords": sum(len(profile["contacts"]) for profile in output),
+        "exactDuplicateRowsMerged": eligible_rows - len(output),
+        "rejectedRows": sum(rejected.values()),
+        "rejectedByReason": dict(sorted(rejected.items())),
+        "minimumFollowerCount": 1000,
+        "contactVerificationStatus": "verified" if contacts_verified else "pending_verification",
+        "excludedOperationalColumns": ["Scraping Status", "Scraping In Progress", "Profile Picture Stored in Firebase"],
+        "profilesWithBiography": sum(bool(profile.get("biography")) for profile in output),
+        "profilesWithAverageComments": sum("averageComments" in profile["instagramMetrics"] for profile in output),
+        "profilesWithEngagementRate": sum("engagementRatePercent" in profile["instagramMetrics"] for profile in output),
+    }
+    return output, report
+
+
+def prepare_rows(source: Path, contacts_verified: bool = False) -> tuple[list[dict], dict]:
+    with source.open(newline="", encoding="utf-8-sig") as handle:
+        fieldnames = set(csv.DictReader(handle).fieldnames or [])
+    if INSTAGRAM_PROFILE_COLUMNS.issubset(fieldnames):
+        return prepare_instagram_profile_rows(source, contacts_verified)
+    return prepare_legacy_rows(source, contacts_verified)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
     parser.add_argument("--output", type=Path, default=Path("data/private/creator-import.jsonl"))
     parser.add_argument("--report", type=Path, default=Path("data/creator-import-report.json"))
+    parser.add_argument("--contacts-verified", action="store_true", help="Treat supplied contacts as verified by the data owner.")
     args = parser.parse_args()
-    rows, report = prepare_rows(args.source)
+    rows, report = prepare_rows(args.source, contacts_verified=args.contacts_verified)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as target:

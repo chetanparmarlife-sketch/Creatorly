@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
+import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 
 const paymentStatus = v.union(v.literal("processing"), v.literal("succeeded"), v.literal("failed"), v.literal("cancelled"));
 const purchaseKind = v.union(v.literal("core_plan"), v.literal("contact_credits"), v.literal("unknown"));
@@ -99,7 +100,7 @@ export const syncPayment = internalMutation({
       const priorCredit = (await ctx.db.query("creditTransactions").withIndex("by_user", (q) => q.eq("userId", userId)).collect())
         .some((transaction) => transaction.referenceId === args.paymentId && transaction.transactionType === "purchase");
       if (!priorCredit) {
-        await ctx.db.patch(userId, { creditBalance: (user.creditBalance ?? 0) + args.credits, updatedAt: now });
+        await ctx.db.patch(userId, { creditBalance: (user.creditBalance ?? STARTING_CREDIT_BALANCE) + args.credits, updatedAt: now });
         await ctx.db.insert("creditTransactions", {
           userId,
           amount: args.credits,
@@ -173,7 +174,7 @@ export const syncSubscription = internalMutation({
 
     if (args.status === "active") {
       const included = args.tier === "basic" ? 100 : 250;
-      let creditBalance = user.creditBalance ?? 0;
+      let creditBalance = user.creditBalance ?? STARTING_CREDIT_BALANCE;
       if (args.grantCredits) {
         const referenceId = `${args.subscriptionId}:${args.eventKey}`;
         const priorAllocation = (await ctx.db.query("creditTransactions").withIndex("by_user", (q) => q.eq("userId", userId)).collect())

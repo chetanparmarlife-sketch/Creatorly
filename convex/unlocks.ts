@@ -1,9 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-
-const UNLOCK_COST = 5;
-const ACCESS_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+import { CONTACT_ACCESS_WINDOW_MS, CONTACT_UNLOCK_COST, STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 
 export const listHistory = query({
   args: {},
@@ -90,30 +88,30 @@ export const unlock = mutation({
       return {
         status: "already_unlocked" as const,
         expiresAt: active.expiresAt,
-        creditBalance: user.creditBalance ?? 25,
+        creditBalance: user.creditBalance ?? STARTING_CREDIT_BALANCE,
       };
     }
 
-    const creditBalance = user.creditBalance ?? 25;
-    if (creditBalance < UNLOCK_COST) {
+    const creditBalance = user.creditBalance ?? STARTING_CREDIT_BALANCE;
+    if (creditBalance < CONTACT_UNLOCK_COST) {
       throw new ConvexError("You need 5 credits to unlock this contact.");
     }
 
-    const expiresAt = now + ACCESS_WINDOW_MS;
+    const expiresAt = now + CONTACT_ACCESS_WINDOW_MS;
     const unlockId = await ctx.db.insert("unlockRecords", {
       userId,
       creatorId: args.creatorId,
       unlockedAt: now,
       expiresAt,
-      creditsSpent: UNLOCK_COST,
+      creditsSpent: CONTACT_UNLOCK_COST,
       planTierAtUnlock: user.currentPlanTier ?? "free",
       status: unlocks.length > 0 ? "re_unlocked" : "active",
     });
-    const nextBalance = creditBalance - UNLOCK_COST;
+    const nextBalance = creditBalance - CONTACT_UNLOCK_COST;
     await ctx.db.patch(userId, { creditBalance: nextBalance });
     await ctx.db.insert("creditTransactions", {
       userId,
-      amount: -UNLOCK_COST,
+      amount: -CONTACT_UNLOCK_COST,
       transactionType: "unlock_usage",
       description: `Unlock: ${creator.displayName}`,
       referenceId: unlockId,
