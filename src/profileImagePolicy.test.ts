@@ -29,6 +29,7 @@ describe("profile image migration policy", () => {
     expect(isAllowedProfileImageSource("https://yt3.ggpht.com.evil.example/profile-image")).toBe(false);
     expect(isAllowedProfileImageSource("http://yt3.ggpht.com/profile-image")).toBe(false);
     expect(isAllowedProfileImageSource("https://scontent-bom1-1.xx.fbcdn.net/v/t39.30808-1/profile.jpg?x=1")).toBe(true);
+    expect(isAllowedProfileImageSource("https://scontent.fudr1-1.fna.fbcdn.net/v/t39.30808-1/profile.jpg?x=1")).toBe(true);
     expect(isAllowedProfileImageSource("https://example.fbcdn.net/v/t39.30808-1/profile.jpg")).toBe(false);
     expect(isAllowedProfileImageSource("https://scontent-bom1-1.xx.fbcdn.net.evil.example/profile.jpg")).toBe(false);
     expect(isAllowedProfileImageSource("http://scontent-bom1-1.xx.fbcdn.net/profile.jpg")).toBe(false);

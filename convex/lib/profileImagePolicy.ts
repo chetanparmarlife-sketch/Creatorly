@@ -14,7 +14,7 @@ export function isAllowedProfileImageSource(value: string) {
         && url.pathname.startsWith(INSTAGRAM_IMAGE_SOURCE_PREFIX))
       || (url.hostname === YOUTUBE_IMAGE_SOURCE_HOST
         && url.pathname.length > 1)
-      || (url.hostname.startsWith("scontent-")
+      || ((url.hostname.startsWith("scontent-") || url.hostname.startsWith("scontent."))
         && url.hostname.endsWith(FACEBOOK_IMAGE_SOURCE_SUFFIX)
         && url.pathname.length > 1);
   } catch {

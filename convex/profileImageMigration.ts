@@ -168,6 +168,25 @@ async function copyImage(ctx: ActionCtx, creator: MigrationCreator): Promise<Cop
   return { creatorId: creator.creatorId, storageId, profileImageUrl };
 }
 
+async function copyFacebookImage(ctx: ActionCtx, creator: MigrationCreator): Promise<CopySuccess> {
+  const response = await fetch(creator.sourceUrl, { redirect: "follow" });
+  if (!response.ok) throw new Error(`Source returned HTTP ${response.status}`);
+  if (!isAllowedProfileImageSource(response.url)) throw new Error("Facebook redirected to an unapproved image host");
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!isAllowedProfileImageType(contentType)) throw new Error(`Rejected content type ${contentType || "missing"}`);
+  const declaredSize = Number(response.headers.get("content-length") ?? 0);
+  if (declaredSize > MAX_PROFILE_IMAGE_BYTES) throw new Error("Image exceeds the one MiB limit");
+  const blob = await response.blob();
+  if (blob.size === 0 || blob.size > MAX_PROFILE_IMAGE_BYTES) throw new Error("Image size is invalid");
+  const storageId = await ctx.storage.store(blob);
+  const profileImageUrl = await ctx.storage.getUrl(storageId);
+  if (!profileImageUrl) {
+    await ctx.storage.delete(storageId);
+    throw new Error("Convex did not return a stored image URL");
+  }
+  return { creatorId: creator.creatorId, storageId, profileImageUrl };
+}
+
 export const loadYouTubePage = internalQuery({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args): Promise<YouTubeMigrationPage> => {
@@ -262,8 +281,9 @@ export const loadFacebookPage = internalQuery({
       creators: result.page
         .filter(creator => !creator.profileImageStorageId
           && Boolean(creator.profileImageUrl)
+          && Boolean(creator.facebookPageId)
           && isAllowedProfileImageSource(creator.profileImageUrl!))
-        .map(creator => ({ creatorId: creator._id, sourceUrl: creator.profileImageUrl! })),
+        .map(creator => ({ creatorId: creator._id, sourceUrl: `https://graph.facebook.com/${encodeURIComponent(creator.facebookPageId!)}/picture?type=large` })),
       scanned: result.page.length,
       continueCursor: result.continueCursor,
       isDone: result.isDone,
@@ -315,7 +335,7 @@ export const copyFacebookImages = internalAction({
         const group = page.creators.slice(index, index + 50);
         const results = await Promise.all(group.map(async creator => {
           try {
-            return await copyImage(ctx, creator);
+            return await copyFacebookImage(ctx, creator);
           } catch {
             failed += 1;
             return null;
