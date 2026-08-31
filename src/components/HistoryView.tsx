@@ -99,9 +99,9 @@ export function HistoryView({
     <main className="workspace history-workspace">
       <section className="history-intro">
         <div>
-          <p className="eyebrow">Contact access</p>
+          <p className="eyebrow">Contacts</p>
           <h1>Unlock history</h1>
-          <p>Return to open contacts or renew an expired 30-day window.</p>
+          <p>Open active contacts or renew expired access.</p>
         </div>
         <div className="history-tally" aria-label={`${counts.active} active unlocks`}>
           <strong>{counts.active}</strong>
