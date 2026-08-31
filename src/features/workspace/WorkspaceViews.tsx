@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUpDown, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, MapPin, MonitorSmartphone, Plus, RotateCcw, Search, Sparkles, Tags, UserPlus, Users, X } from "lucide-react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowDown, ArrowUpDown, BadgeCheck, Building2, Check, ChevronRight, CircleDollarSign, Download, FileDown, FolderKanban, MapPin, MonitorSmartphone, Plus, RotateCcw, Search, Sparkles, Tags, UserPlus, Users, X } from "lucide-react";
 import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
 import { CAMPAIGN_STAGES, type BrandDivisionType, type Campaign, type CampaignStage, type CreatorSearchResult, type GroupCollaborator, type GroupCollaboratorRole, type Platform, type SavedCreator, type WorkspaceGroup, type WorkspaceSummary } from "../../types";
@@ -8,22 +9,35 @@ import { CampaignExecution } from "./CampaignExecution";
 import { CreatorImportPanel } from "./CreatorImportPanel";
 import { RequestContactModal } from "../../components/RequestContactModal";
 import { CreatorPortrait } from "../../components/CreatorPortrait";
+import { AppSidebarTargetContext } from "../../components/AppShell";
 import { exportCreatorsCsv } from "./creatorImport";
 import { formatFollowers } from "../../lib/format";
 import "./workspace.css";
 
 const stageLabel = (stage: CampaignStage) => stage.replaceAll("_", " ").replace(/^./, value => value.toUpperCase());
 const platformLabel = (platform: Platform) => ({ instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", twitter: "X" })[platform];
-const freshnessLabel = (updatedAt?: number) => updatedAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(updatedAt) : "Date unavailable";
 const repositoryScope = "The current Creatorly database covers India-focused Instagram and YouTube creators.";
 const CREATOR_PAGE_SIZE = 24;
 const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainment", "Sports", "Beauty", "Luxury", "Decor", "Art", "Travel", "Food", "Fitness", "Gadgets & Tech", "Make-up", "Business", "Health", "Education", "Gaming"];
 type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" };
-type AudienceBand = "all" | "1k5k" | "5k10k";
+type AudienceBand = "all" | "nano" | "micro" | "mid" | "macro" | "mega";
+type PlatformFilter = "all" | Extract<Platform, "instagram" | "youtube">;
+
+const AUDIENCE_LABELS: Record<AudienceBand, string> = {
+  all: "Any audience",
+  nano: "Under 10K",
+  micro: "10K–100K",
+  mid: "100K–500K",
+  macro: "500K–1M",
+  mega: "1M+",
+};
 
 function audienceRange(band: AudienceBand) {
-  if (band === "1k5k") return { minFollowers: 1_000, maxFollowers: 5_000 };
-  if (band === "5k10k") return { minFollowers: 5_000, maxFollowers: 10_000 };
+  if (band === "nano") return { maxFollowers: 10_000 };
+  if (band === "micro") return { minFollowers: 10_000, maxFollowers: 100_000 };
+  if (band === "mid") return { minFollowers: 100_000, maxFollowers: 500_000 };
+  if (band === "macro") return { minFollowers: 500_000, maxFollowers: 1_000_000 };
+  if (band === "mega") return { minFollowers: 1_000_000 };
   return {};
 }
 
@@ -35,46 +49,52 @@ function Empty({ icon, title, copy, action, onAction }: { icon: React.ReactNode;
   return <div className="ops-empty"><span>{icon}</span><h3>{title}</h3><p>{copy}</p><button className="button button-secondary" onClick={onAction}>{action}</button></div>;
 }
 
+function WorkspaceSidebarPortal({ children }: { children: React.ReactNode }) {
+  const target = useContext(AppSidebarTargetContext);
+  return target ? createPortal(children, target) : null;
+}
+
 export function DiscoveryWorkspace({ workspace, navigate }: { workspace: WorkspaceSummary; navigate(route: AppRoute): void }) {
   const data = useAppData(); const store = useWorkspaceData();
-  const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<Platform>("instagram");
+  const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
-  const [location, setLocation] = useState(""); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
+  const [location, setLocation] = useState(""); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Map<string, string>>(new Map()); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [campaignTarget, setCampaignTarget] = useState(""); const [bulkMessage, setBulkMessage] = useState(""); const [bulkWorking, setBulkWorking] = useState(false); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
-  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience, nextSort = sort) => {
+  const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort) => {
     setLoading(true); setError("");
     try {
       const range = audienceRange(nextAudience);
       const sorting = { sortField: nextSort.field, sortDirection: nextSort.direction };
       if (nextQuery.trim()) {
-        setResults(await data.search(nextQuery, { platform: nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, ...range, ...sorting }));
+        setResults(await data.search(nextQuery, { platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting }));
         setCursor(null); setIsDone(true);
       } else {
-        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, ...range, ...sorting });
+        const result = await data.browseCreators({ cursor: null, numItems: CREATOR_PAGE_SIZE, platform: nextPlatform === "all" ? undefined : nextPlatform, category: nextCategory || undefined, location: nextLocation || undefined, verifiedOnly: nextVerifiedOnly || undefined, ...range, ...sorting });
         setResults(result.page); setCursor(result.continueCursor); setIsDone(result.isDone);
       }
     } catch {
       setResults([]); setCursor(null); setIsDone(true); setError("Creator search is unavailable right now. Try again.");
     } finally { setLoading(false); }
-  }, [audience, category, data, location, platform, query, sort]);
+  }, [audience, category, data, location, platform, query, sort, verifiedOnly]);
   async function loadMore() {
     if (loadingMore || isDone || query.trim()) return;
     setLoadingMore(true); setError("");
     try {
-      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform, category: category || undefined, location: location || undefined, ...audienceRange(audience), sortField: sort.field, sortDirection: sort.direction });
+      const result = await data.browseCreators({ cursor, numItems: CREATOR_PAGE_SIZE, platform: platform === "all" ? undefined : platform, category: category || undefined, location: location || undefined, verifiedOnly: verifiedOnly || undefined, ...audienceRange(audience), sortField: sort.field, sortDirection: sort.direction });
       setResults(current => [...new Map([...current, ...result.page].map(creator => [creator.id, creator])).values()]);
       setCursor(result.continueCursor); setIsDone(result.isDone);
     } catch { setError("More creators could not be loaded. Try again."); }
     finally { setLoadingMore(false); }
   }
   useEffect(() => { let active = true; void Promise.all([store.listSavedCreators(workspace.id), store.listCampaigns(workspace.id)]).then(([saved, nextCampaigns]) => { if (active) { setSavedIds(new Map(saved.map(item => [item.creator.id, item.id]))); setCampaigns(nextCampaigns); setCampaignTarget(current => current || nextCampaigns[0]?.id || ""); } }); return () => { active = false; }; }, [store, workspace.id]);
-  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location, audience, sort); }, 180); return () => window.clearTimeout(timer); }, [audience, category, location, platform, query, run, sort]);
+  useEffect(() => { const timer = window.setTimeout(() => { void run(query, platform, category, location, audience, verifiedOnly, sort); }, 180); return () => window.clearTimeout(timer); }, [audience, category, location, platform, query, run, sort, verifiedOnly]);
   const visibleResults = results;
   const categoryOptions = useMemo(() => [...new Set([...CREATOR_CATEGORIES, ...results.flatMap(creator => creator.categories ?? [])])].sort(), [results]);
   const locationOptions = useMemo(() => [...new Set(results.map(creator => creator.location).filter((item): item is string => Boolean(item)))].sort(), [results]);
-  const filtersActive = Boolean(platform !== "instagram" || category || location || audience !== "all" || sort.field !== "audience" || sort.direction !== "desc");
-  function clearTableFilters() { setPlatform("instagram"); setCategory(""); setAudience("all"); setLocation(""); setSort({ field: "audience", direction: "desc" }); }
-  function choosePlatform(nextPlatform: Platform) { setPlatform(nextPlatform); setCategory(""); setLocation(""); setSelectedIds(new Set()); setBulkMessage(""); }
+  const activeFilterCount = Number(platform !== "all") + Number(Boolean(category)) + Number(audience !== "all") + Number(Boolean(location)) + Number(verifiedOnly);
+  const filtersActive = activeFilterCount > 0;
+  function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setLocation(""); setVerifiedOnly(false); }
+  function choosePlatform(nextPlatform: PlatformFilter) { setPlatform(nextPlatform); setSelectedIds(new Set()); setBulkMessage(""); }
   function cycleSort(field: CreatorSort["field"]) {
     setSort(current => {
       const firstDirection = field === "audience" ? "desc" : "asc";
@@ -100,52 +120,41 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   return <main className="workspace ops-page discovery-page">
     <PageHeader eyebrow="India creator database" title="Discover creators across India" copy="Search verified source profiles from Instagram and YouTube by name, category, city, or country, then save them to your workspace." action={data.mode === "convex" ? <span className="data-source-chip">Instagram + YouTube repository</span> : undefined}/>
     <div className="discovery-layout">
-      <aside className="discovery-filter-panel" aria-label="Creator filters">
-        <header><h2>Filters</h2></header>
-        <p className="discovery-filter-kicker">Creators</p>
-        <details>
-          <summary><MonitorSmartphone size={20}/><span><strong>Platform</strong><small>{platformLabel(platform)}</small></span><Plus size={17}/></summary>
-          <div className="discovery-filter-body"><nav className="platform-filter" aria-label="Discovery platform"><button type="button" className={platform === "instagram" ? "is-active" : ""} aria-pressed={platform === "instagram"} onClick={() => choosePlatform("instagram")}>Instagram</button><button type="button" className={platform === "youtube" ? "is-active" : ""} aria-pressed={platform === "youtube"} onClick={() => choosePlatform("youtube")}>YouTube</button></nav></div>
-        </details>
-        <details>
-          <summary><Tags size={20}/><span><strong>Category</strong><small>{category || "Any category"}</small></span><Plus size={17}/></summary>
-          <div className="discovery-filter-body"><label><span>Creator category</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="Search category"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label></div>
-        </details>
-        <details>
-          <summary><Users size={20}/><span><strong>Audience size</strong><small>{audience === "all" ? "Any audience" : audience === "1k5k" ? "1K–5K" : "5K–10K"}</small></span><Plus size={17}/></summary>
-          <div className="discovery-filter-body"><label><span>Follower range</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as AudienceBand)}><option value="all">Any audience</option><option value="1k5k">1K–5K</option><option value="5k10k">5K–10K</option></select></label></div>
-        </details>
-        <details>
-          <summary><MapPin size={20}/><span><strong>Location</strong><small>{location || "Any location"}</small></span><Plus size={17}/></summary>
-          <div className="discovery-filter-body"><label><span>City or country</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Exact location"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></div>
-        </details>
+      <WorkspaceSidebarPortal><div className="discovery-filter-panel">
+        <header><div><p>Discovery controls</p><h2>Filters</h2></div><span>{activeFilterCount} active</span></header>
+        <div className="discovery-filter-stack">
+          <fieldset className="discovery-filter-group"><legend><MonitorSmartphone size={16}/> Platform</legend><div className="platform-filter" aria-label="Discovery platform"><button type="button" className={platform === "all" ? "is-active" : ""} aria-pressed={platform === "all"} onClick={() => choosePlatform("all")}>All</button><button type="button" className={platform === "instagram" ? "is-active" : ""} aria-pressed={platform === "instagram"} onClick={() => choosePlatform("instagram")}>Instagram</button><button type="button" className={platform === "youtube" ? "is-active" : ""} aria-pressed={platform === "youtube"} onClick={() => choosePlatform("youtube")}>YouTube</button></div></fieldset>
+          <label className="discovery-filter-field"><span><Tags size={16}/> Category</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="All categories"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label>
+          <label className="discovery-filter-field"><span><Users size={16}/> Audience size</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as AudienceBand)}>{Object.entries(AUDIENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="discovery-filter-field"><span><MapPin size={16}/> City or country</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="All locations"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label>
+          <label className="discovery-filter-toggle"><input type="checkbox" checked={verifiedOnly} onChange={event => setVerifiedOnly(event.target.checked)}/><span><BadgeCheck size={17}/><strong>Verified profiles only</strong><small>Exclude unverified imports</small></span></label>
+        </div>
         <button type="button" className="discovery-filter-clear" onClick={clearTableFilters} disabled={!filtersActive}><RotateCcw size={15}/> Clear filters</button>
-      </aside>
+      </div></WorkspaceSidebarPortal>
 
       <div className="discovery-results">
         <section className="discovery-command"><Search size={20}/><label className="sr-only" htmlFor="workspace-creator-search">Creator name or handle</label><input id="workspace-creator-search" aria-label="Creator name or handle" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void run(); }} placeholder="Search creator name or handle"/><button className="button button-primary" onClick={() => run()}><Sparkles size={15}/> Search</button></section>
-        <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> shown · {results.length} loaded</span><span>{query.trim() ? "Search results" : isDone ? "Full repository loaded" : "More creators available"}</span></div>
+        <div className="discovery-filter-summary"><span><strong>{visibleResults.length}</strong> creators shown · {activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied` : "All profiles"}</span><span>{query.trim() ? "Search results" : isDone ? "Full repository loaded" : "More creators available"}</span></div>
         {visibleResults.length ? <section className="discovery-selection" aria-label="Creator selection actions"><button type="button" className="button button-secondary" onClick={() => setSelectedIds(selectedIds.size === visibleResults.length ? new Set() : new Set(visibleResults.map(item => item.id)))}>{selectedIds.size === visibleResults.length ? "Clear page" : "Select page"}</button><span>{selectedIds.size} selected</span><select aria-label="Campaign for selected creators" value={campaignTarget} onChange={event => setCampaignTarget(event.target.value)}><option value="">{campaigns.length ? "Choose campaign" : "No campaigns yet"}</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select><button type="button" className="button button-secondary" disabled={!selectedIds.size || bulkWorking} onClick={() => void saveSelected()}>Save to CRM</button><button type="button" className="button button-primary" disabled={!selectedIds.size || bulkWorking} onClick={() => void addToCampaign([...selectedIds])}>Add to campaign</button>{!campaigns.length ? <button type="button" className="text-button" onClick={() => navigate({ name: "campaigns" })}>Create campaign</button> : null}{bulkMessage ? <p role="status">{bulkMessage}</p> : null}</section> : null}
-        <section className="ops-table-card"><div className="ops-table-head discovery-table-head" role="group" aria-label="Creator table sorting">
-          <span className="table-heading-cell"><button className="table-sort-button" type="button" onClick={() => cycleSort("name")} aria-label={`Sort creator name ${sort.field === "name" && sort.direction === "asc" ? "descending" : sort.field === "name" ? "by default" : "ascending"}`} aria-pressed={sort.field === "name"}>Creator <ArrowUpDown size={12}/></button></span>
-          <span className="table-heading-cell"><b>Category</b></span>
-          <span className="table-heading-cell"><b>Platform</b></span>
-          <span className="table-heading-cell"><button className="table-sort-button" type="button" onClick={() => cycleSort("audience")} aria-label={`Sort audience ${sort.field === "audience" && sort.direction === "desc" ? "low to high" : sort.field === "audience" ? "by default" : "high to low"}`} aria-pressed={sort.field === "audience"}>Audience <ArrowUpDown size={12}/></button></span>
-          <span className="table-heading-cell"><button className="table-sort-button" type="button" onClick={() => cycleSort("location")} aria-label={`Sort city and country ${sort.field === "location" && sort.direction === "asc" ? "descending" : sort.field === "location" ? "by default" : "ascending"}`} aria-pressed={sort.field === "location"}>City / Country <ArrowUpDown size={12}/></button></span>
-          <span className="table-heading-cell"><b>Contact</b></span>
-          <span className="table-heading-cell"><b>Actions</b></span>
-        </div>
-      {error && !results.length ? <div className="ops-loading state-error" role="alert">{error}</div> : loading ? <div className="ops-loading" role="status">Loading creators…</div> : visibleResults.length ? visibleResults.map(creator => <article className="ops-table-row discovery-row" key={creator.id}>
-        <div className="discovery-creator-select"><input type="checkbox" aria-label={`Select ${creator.displayName}`} checked={selectedIds.has(creator.id)} onChange={() => toggleSelected(creator.id)}/><button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><CreatorPortrait name={creator.displayName} platform={creator.platform} imageUrl={creator.profileImageUrl} size="small"/><span><strong>{creator.displayName}</strong><small>{creator.handle}</small><small>{creator.sourceLabel ?? "Creatorly database"} · {freshnessLabel(creator.lastUpdatedAt)}</small></span></button></div>
-        <span>{creator.categories?.[0] ?? "—"}</span><span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span><b className="numeric">{formatFollowers(creator.followerCount)}</b><span>{creator.location ?? "—"}</span><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span>
-        <div className="discovery-row-actions"><button className={savedIds.has(creator.id) ? "button button-saved" : "button button-secondary"} disabled={savedIds.has(creator.id)} onClick={() => void save(creator)}>{savedIds.has(creator.id) ? <><Check size={15}/> Saved</> : <><Plus size={15}/> Save</>}</button><button className="text-button" disabled={bulkWorking} onClick={() => void addToCampaign([creator.id])}>Add to campaign</button></div>
-      </article>) : query.trim().length >= 2 ? <Empty icon={<Search/>} title="No creator found" copy={repositoryScope} action="Request contact" onAction={() => setRequestOpen(true)}/> : <Empty icon={<Search/>} title="No creators match these filters" copy="Broaden one of the column filters or reset the table to see the full result set." action="Reset filters" onAction={clearTableFilters}/>}
+        <section className="ops-table-card discovery-table-card"><div className="discovery-table-scroll"><table className="discovery-data-table" aria-label="Creator discovery results"><colgroup><col className="creator-column"/><col className="category-column"/><col className="platform-column"/><col className="audience-column"/><col className="location-column"/><col className="contact-column"/><col className="actions-column"/></colgroup><thead><tr>
+          <th><button className="table-sort-button" type="button" onClick={() => cycleSort("name")} aria-label={`Sort creator name ${sort.field === "name" && sort.direction === "asc" ? "descending" : sort.field === "name" ? "by default" : "ascending"}`} aria-pressed={sort.field === "name"}>Creator <ArrowUpDown size={12}/></button></th>
+          <th>Category</th><th>Platform</th>
+          <th><button className="table-sort-button" type="button" onClick={() => cycleSort("audience")} aria-label={`Sort audience ${sort.field === "audience" && sort.direction === "desc" ? "low to high" : sort.field === "audience" ? "by default" : "high to low"}`} aria-pressed={sort.field === "audience"}>Audience <ArrowUpDown size={12}/></button></th>
+          <th><button className="table-sort-button" type="button" onClick={() => cycleSort("location")} aria-label={`Sort city and country ${sort.field === "location" && sort.direction === "asc" ? "descending" : sort.field === "location" ? "by default" : "ascending"}`} aria-pressed={sort.field === "location"}>City / Country <ArrowUpDown size={12}/></button></th>
+          <th>Contact</th><th>Actions</th>
+        </tr></thead><tbody>
+      {error && !results.length ? <tr><td colSpan={7}><div className="ops-loading state-error" role="alert">{error}</div></td></tr> : loading ? <tr><td colSpan={7}><div className="ops-loading" role="status">Loading creators…</div></td></tr> : visibleResults.length ? visibleResults.map(creator => <tr className="discovery-row" key={creator.id}>
+        <td><div className="discovery-creator-select"><input type="checkbox" aria-label={`Select ${creator.displayName}`} checked={selectedIds.has(creator.id)} onChange={() => toggleSelected(creator.id)}/><button className="creator-cell" onClick={() => navigate({ name: "creator", creatorId: creator.id })} aria-label={`View ${creator.displayName} profile`}><CreatorPortrait name={creator.displayName} platform={creator.platform} imageUrl={creator.profileImageUrl} size="small"/><span><strong>{creator.displayName}</strong><small>{creator.handle}</small></span></button></div></td>
+        <td>{creator.categories?.[0] ?? "—"}</td><td><span className="platform-name">{creator.platform === "twitter" ? "X" : creator.platform}</span></td><td><b className="numeric">{formatFollowers(creator.followerCount)}</b></td><td>{creator.location ?? "—"}</td><td><span className={creator.contactCount ? "contact-ready" : "contact-missing"}>{creator.contactCount ? `${creator.contactCount} available` : "Not available"}</span></td>
+        <td><div className="discovery-row-actions"><button className={savedIds.has(creator.id) ? "button button-saved" : "button button-secondary"} disabled={savedIds.has(creator.id)} onClick={() => void save(creator)}>{savedIds.has(creator.id) ? <><Check size={15}/> Saved</> : <><Plus size={15}/> Save</>}</button><button className="text-button" disabled={bulkWorking} onClick={() => void addToCampaign([creator.id])}>Add to campaign</button></div></td>
+      </tr>) : <tr><td colSpan={7}>{query.trim().length >= 2 ? <Empty icon={<Search/>} title="No creator found" copy={repositoryScope} action="Request contact" onAction={() => setRequestOpen(true)}/> : <Empty icon={<Search/>} title="No creators match these filters" copy="Broaden one of the filters or reset the search to see the full result set." action="Reset filters" onAction={clearTableFilters}/>}</td></tr>}
+        </tbody></table></div>
       {!loading && !query.trim() && results.length ? <footer className="creator-page-actions"><span><strong>{results.length}</strong> creators loaded{!isDone ? " · continue exploring the repository" : " · you reached the end"}</span>{isDone ? <span className="creator-page-complete"><Check size={15}/> All creators loaded</span> : <button type="button" className="button button-secondary" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading creators…" : <><ArrowDown size={15}/> Load more creators</>}</button>}</footer> : null}
       {error && results.length ? <p className="creator-page-error" role="alert">{error}</p> : null}
         </section>
       </div>
     </div>
-    {requestOpen ? <RequestContactModal initialHandle={query} initialPlatform={platform} onClose={() => setRequestOpen(false)}/> : null}
+    {requestOpen ? <RequestContactModal initialHandle={query} initialPlatform={platform === "all" ? "instagram" : platform} onClose={() => setRequestOpen(false)}/> : null}
   </main>;
 }
 

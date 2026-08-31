@@ -46,7 +46,7 @@ type AppData = {
   signOut(): Promise<void>;
   getViewer(): Promise<Viewer | null>;
   search(query: string, filters?: CreatorSearchFilters): Promise<CreatorSearchResult[]>;
-  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" }): Promise<CreatorSearchPage>;
+  browseCreators(input: { cursor: string | null; numItems: number; platform?: Platform; category?: string; location?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; sortField?: "name" | "audience" | "location"; sortDirection?: "asc" | "desc" }): Promise<CreatorSearchPage>;
   getDetail(creatorId: string): Promise<CreatorDetailData | null>;
   getHistory(): Promise<UnlockHistoryItem[]>;
   requestContact(input: ContactRequestInput): Promise<ContactRequestResult>;
@@ -102,8 +102,8 @@ export function DemoDataProvider({ children, authLoading = false }: { children: 
     },
     getViewer: demoData.viewer,
     search: demoData.search,
-    browseCreators: async ({ cursor, numItems, platform, category, location, minFollowers = 0, maxFollowers, sortField = "audience", sortDirection = "desc" }) => {
-      const creators = (await demoData.search("", { platform, category, location }))
+    browseCreators: async ({ cursor, numItems, platform, category, location, verifiedOnly, minFollowers = 0, maxFollowers, sortField = "audience", sortDirection = "desc" }) => {
+      const creators = (await demoData.search("", { platform, category, location, verifiedOnly }))
         .filter(creator => creator.followerCount >= minFollowers && (maxFollowers === undefined || creator.followerCount < maxFollowers))
         .sort((left, right) => {
           const comparison = sortField === "name" ? left.displayName.localeCompare(right.displayName) : sortField === "location" ? (left.location ?? "").localeCompare(right.location ?? "") : left.followerCount - right.followerCount;
