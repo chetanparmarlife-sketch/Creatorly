@@ -177,15 +177,22 @@ export function CampaignsWorkspace({ workspace, navigate }: { workspace: Workspa
 }
 
 export function CampaignDetailWorkspace({ workspace, campaignId, navigate }: { workspace: WorkspaceSummary; campaignId: string; navigate(route: AppRoute): void }) {
-  const store = useWorkspaceData(); const [campaign, setCampaign] = useState<Campaign | null>(null); const [saved, setSaved] = useState<SavedCreator[]>([]); const [selectedCreator, setSelectedCreator] = useState("");
-  const load = useCallback(async () => { const [nextCampaign, savedCreators] = await Promise.all([store.getCampaignExecution(workspace.id, campaignId), store.listSavedCreators(workspace.id)]); setCampaign(nextCampaign); setSaved(savedCreators); }, [campaignId, store, workspace.id]);
-  useEffect(() => { let active = true; void Promise.all([store.getCampaignExecution(workspace.id, campaignId), store.listSavedCreators(workspace.id)]).then(([nextCampaign, savedCreators]) => { if (active) { setCampaign(nextCampaign); setSaved(savedCreators); } }); return () => { active = false; }; }, [campaignId, store, workspace.id]);
-  if (!campaign) return <main className="workspace ops-page"><div className="ops-loading">Loading campaign…</div></main>;
+  const store = useWorkspaceData(); const [campaignState, setCampaignState] = useState<{ status: "loading" } | { status: "missing" } | { status: "error"; message: string } | { status: "ready"; campaign: Campaign }>({ status: "loading" }); const [saved, setSaved] = useState<SavedCreator[]>([]); const [selectedCreator, setSelectedCreator] = useState("");
+  const fetchCampaign = useCallback(() => Promise.all([store.getCampaignExecution(workspace.id, campaignId), store.listSavedCreators(workspace.id)]), [campaignId, store, workspace.id]);
+  const acceptCampaign = useCallback(([nextCampaign, savedCreators]: [Campaign | null, SavedCreator[]]) => { setSaved(savedCreators); setCampaignState(nextCampaign ? { status: "ready", campaign: nextCampaign } : { status: "missing" }); }, []);
+  const rejectCampaign = useCallback((error: unknown) => setCampaignState({ status: "error", message: error instanceof Error ? error.message : "The campaign could not be loaded." }), []);
+  const refresh = useCallback(async () => acceptCampaign(await fetchCampaign()), [acceptCampaign, fetchCampaign]);
+  useEffect(() => { void fetchCampaign().then(acceptCampaign, rejectCampaign); }, [acceptCampaign, fetchCampaign, rejectCampaign]);
+  function retryLoad() { setCampaignState({ status: "loading" }); void fetchCampaign().then(acceptCampaign, rejectCampaign); }
+  if (campaignState.status === "loading") return <main className="workspace ops-page"><div className="ops-loading" role="status">Loading campaign…</div></main>;
+  if (campaignState.status === "missing") return <main className="workspace ops-page"><section className="ops-load-state"><FolderKanban/><h1>Campaign not found</h1><p>It may have been removed, or you may not have access to it.</p><button className="button button-secondary" onClick={() => navigate({ name: "campaigns" })}>Back to campaigns</button></section></main>;
+  if (campaignState.status === "error") return <main className="workspace ops-page"><section className="ops-load-state" role="alert"><RotateCcw/><h1>Campaign could not load</h1><p>{campaignState.message}</p><button className="button button-primary" onClick={retryLoad}>Try again</button></section></main>;
+  const campaign = campaignState.campaign;
   const activeCampaign = campaign;
   const available = saved.filter(item => !activeCampaign.creators.some(creator => creator.savedCreatorId === item.id));
-  async function add() { if (!selectedCreator) return; await store.addCampaignCreator(workspace.id, activeCampaign.id, selectedCreator); setSelectedCreator(""); await load(); }
-  async function move(id: string, stage: CampaignStage) { await store.moveCampaignCreator(workspace.id, activeCampaign.id, id, stage); await load(); }
+  async function add() { if (!selectedCreator) return; await store.addCampaignCreator(workspace.id, activeCampaign.id, selectedCreator); setSelectedCreator(""); await refresh(); }
+  async function move(id: string, stage: CampaignStage) { await store.moveCampaignCreator(workspace.id, activeCampaign.id, id, stage); await refresh(); }
   return <main className="workspace ops-page"><button className="back-link" onClick={() => navigate({ name: "campaigns" })}>← All campaigns</button><PageHeader eyebrow="Active campaign" title={campaign.name} copy={campaign.goal} action={<div className="add-campaign-creator"><select aria-label="Saved creator" value={selectedCreator} onChange={event => setSelectedCreator(event.target.value)}><option value="">Add a saved creator…</option>{available.map(item => <option key={item.id} value={item.id}>{item.creator.displayName}</option>)}</select><button className="button button-primary" disabled={!selectedCreator} onClick={add}><Plus size={15}/> Add</button></div>}/>
-    <CampaignExecution workspace={workspace} campaign={campaign} savedCreators={saved} onRefresh={load} onMove={move}/>
+    <CampaignExecution workspace={workspace} campaign={campaign} savedCreators={saved} onRefresh={refresh} onMove={move}/>
   </main>;
 }

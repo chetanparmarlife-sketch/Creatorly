@@ -59,6 +59,7 @@ export function App() {
   }
 
   if (viewer === null) return <main className="workspace detail-skeleton"><span/><span/><span/></main>;
+  if (route.name === "payment") return <PaymentResultView status={route.status} onboardingCompleted={viewer.onboardingCompleted} navigate={navigate}/>;
   if (!viewer.onboardingCompleted && route.name !== "verification" && route.name !== "onboarding") {
     return <OnboardingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>;
   }
@@ -87,7 +88,6 @@ export function App() {
       : route.name === "campaign" ? workspace ? <CampaignDetailWorkspace workspace={workspace} campaignId={route.campaignId} navigate={navigate}/> : <main className="workspace detail-skeleton"><span/><span/><span/></main>
       : route.name === "pricing" ? <PricingView viewer={viewer} navigate={navigate} refresh={loadViewer}/>
       : route.name === "settings" ? <SettingsView viewer={viewer} navigate={navigate} refresh={loadViewer}/>
-      : route.name === "payment" ? <PaymentResultView status={route.status} navigate={navigate}/>
       : route.name === "creator" ? (
         <CreatorDetail creatorId={route.creatorId} navigate={navigate} onBalanceChange={loadViewer} />
       ) : route.name === "history" ? (

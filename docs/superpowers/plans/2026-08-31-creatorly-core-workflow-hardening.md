@@ -91,11 +91,11 @@
 **Interfaces:**
 - Produces: payment-result routes that render before onboarding, plus explicit `loading | ready | missing | error` campaign states.
 
-- [ ] Add tests for a new paid user returning to success/failure and for missing/failed campaign loads.
-- [ ] Let authenticated payment-result routes render before the onboarding guard.
-- [ ] On success, offer `Continue workspace setup`; on failure, offer `Return to pricing`.
-- [ ] Separate campaign loading from null and rejected results with retry actions.
-- [ ] Verify all states and commit item 4.
+- [x] Add tests for a new paid user returning to success/failure and for missing/failed campaign loads.
+- [x] Let authenticated payment-result routes render before the onboarding guard.
+- [x] On success, offer `Continue workspace setup`; on failure, offer `Return to pricing`.
+- [x] Separate campaign loading from null and rejected results with retry actions.
+- [x] Verify all states and commit item 4.
 
 ### Task 5: Add direct and bulk campaign actions
 

@@ -75,7 +75,7 @@ function creatorDetail(unlocked: boolean, creditBalance: number): CreatorDetailD
   };
 }
 
-function renderConnected(options: { onUnlock?: () => void } = {}) {
+function renderConnected(options: { onUnlock?: () => void; authenticated?: boolean; campaignLoad?: "missing" | "error" } = {}) {
   const client = new ConvexReactClient("https://example.convex.cloud");
   let creditBalance = 25;
   let unlocked = false;
@@ -86,6 +86,11 @@ function renderConnected(options: { onUnlock?: () => void } = {}) {
     if (functionName === "notifications:listMine" || functionName === "billing:listTransactions") return [];
     if (functionName === "creators:getById") return creatorDetail(unlocked, creditBalance);
     if (functionName === "creators:search") return [];
+    if (functionName === "savedCreators:list") return [];
+    if (functionName === "campaignExecution:getCampaign") {
+      if (options.campaignLoad === "error") throw new Error("Connection interrupted.");
+      if (options.campaignLoad === "missing") return null;
+    }
     throw new Error(`Unexpected query: ${functionName}`);
   }) as typeof client.query);
   const mutationMock = vi.spyOn(client, "mutation").mockImplementation((async (reference: FunctionReference<"mutation">) => {
@@ -167,5 +172,20 @@ describe("Creatorly connected Convex provider journeys", () => {
     const checkoutCall = connected.actionMock.mock.calls.find(([reference]) => getFunctionName(reference) === "billing:createCheckout");
     expect(checkoutCall?.[1]).toEqual({ purchase: { kind: "core_plan", tier: "pro", billingCycle: "annual" } });
     connected.close();
+  });
+
+  it("distinguishes a missing campaign from a failed campaign load", async () => {
+    window.history.replaceState({}, "", "/app/campaigns/campaign-1");
+    const missing = renderConnected({ campaignLoad: "missing" });
+    expect(await screen.findByRole("heading", { name: "Campaign not found" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading campaign…")).not.toBeInTheDocument();
+    missing.unmount();
+    missing.close();
+
+    const failed = renderConnected({ campaignLoad: "error" });
+    expect(await screen.findByRole("heading", { name: "Campaign could not load" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Connection interrupted.");
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    failed.close();
   });
 });

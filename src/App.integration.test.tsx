@@ -42,6 +42,26 @@ describe("Creatorly M1 user journey", () => {
     expect(screen.queryByRole("heading", { name: /go from shortlist/i })).not.toBeInTheDocument();
   });
 
+  it("keeps payment return results visible before onboarding", async () => {
+    const user = userEvent.setup();
+    await demoData.signUp({ name: "Aisha Shah", companyName: "Northstar Agency", email: "aisha@northstar.test", password: "creatorly123" });
+    const savedUser = JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}");
+    window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({ ...savedUser, onboardingCompleted: false }));
+
+    window.history.replaceState({}, "", "/payment/success");
+    const success = renderDemo();
+    expect(await screen.findByRole("heading", { name: "Payment submitted" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue workspace setup" }));
+    expect(window.location.pathname).toBe("/onboarding");
+    success.unmount();
+
+    window.history.replaceState({}, "", "/payment/failure");
+    renderDemo();
+    expect(await screen.findByRole("heading", { name: "Checkout was not completed" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Return to pricing" }));
+    expect(window.location.pathname).toBe("/pricing");
+  });
+
   it("positions live products before clearly labelled future add-ons", () => {
     window.history.replaceState({}, "", "/");
     renderDemo();
