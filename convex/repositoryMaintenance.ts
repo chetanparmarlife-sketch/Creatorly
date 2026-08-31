@@ -1,9 +1,13 @@
-import { makeFunctionReference, type FunctionReference } from "convex/server";
+import { makeFunctionReference, paginationOptsValidator, type FunctionReference } from "convex/server";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
 
 type CleanupBatchResult = { creatorsDeleted: number; contactsDeleted: number; unlocksDeleted: number; savedSnapshotsPreserved: number; hasMore: boolean };
 const removeBatchRef = makeFunctionReference<"mutation">("repositoryMaintenance:removeBelowMinimumBatch") as unknown as FunctionReference<"mutation", "internal", Record<string, never>, CleanupBatchResult>;
+type CreatorStatsPage = { continueCursor: string; isDone: boolean; creatorCount: number; minimumStoredFollowerCount: number | null; maximumStoredFollowerCount: number | null };
+type ContactStatsPage = { continueCursor: string; isDone: boolean; contactCount: number };
+const creatorStatsPageRef = makeFunctionReference<"query">("repositoryMaintenance:auditCreatorStatsPage") as unknown as FunctionReference<"query", "internal", { paginationOpts: { cursor: string | null; numItems: number } }, CreatorStatsPage>;
+const contactStatsPageRef = makeFunctionReference<"query">("repositoryMaintenance:auditContactStatsPage") as unknown as FunctionReference<"query", "internal", { paginationOpts: { cursor: string | null; numItems: number } }, ContactStatsPage>;
 
 export const auditBelowMinimum = internalQuery({
   args: {},
@@ -21,23 +25,56 @@ export const auditBelowMinimum = internalQuery({
   },
 });
 
-export const auditRepositoryStats = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const [creators, contacts] = await Promise.all([
-      ctx.db.query("creators").collect(),
-      ctx.db.query("contacts").collect(),
-    ]);
-    const repositoryCreators = creators.filter(creator => !creator.isDemo);
-    const repositoryContacts = contacts.filter(contact => !contact.isDemo);
+export const auditCreatorStatsPage = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("creators").paginate(args.paginationOpts);
+    const repositoryCreators = page.page.filter(creator => !creator.isDemo);
     const followerCounts = repositoryCreators.map(creator => creator.followerCount);
     return {
-      minimumFollowers: MIN_REPOSITORY_FOLLOWERS,
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
       creatorCount: repositoryCreators.length,
-      contactCount: repositoryContacts.length,
       minimumStoredFollowerCount: followerCounts.length ? Math.min(...followerCounts) : null,
       maximumStoredFollowerCount: followerCounts.length ? Math.max(...followerCounts) : null,
     };
+  },
+});
+
+export const auditContactStatsPage = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("contacts").paginate(args.paginationOpts);
+    return {
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+      contactCount: page.page.filter(contact => !contact.isDemo).length,
+    };
+  },
+});
+
+export const auditRepositoryStats = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    let creatorCursor: string | null = null;
+    let contactCursor: string | null = null;
+    let creatorCount = 0;
+    let contactCount = 0;
+    let minimumStoredFollowerCount: number | null = null;
+    let maximumStoredFollowerCount: number | null = null;
+    do {
+      const page: CreatorStatsPage = await ctx.runQuery(creatorStatsPageRef, { paginationOpts: { cursor: creatorCursor, numItems: 1000 } });
+      creatorCount += page.creatorCount;
+      if (page.minimumStoredFollowerCount !== null) minimumStoredFollowerCount = minimumStoredFollowerCount === null ? page.minimumStoredFollowerCount : Math.min(minimumStoredFollowerCount, page.minimumStoredFollowerCount);
+      if (page.maximumStoredFollowerCount !== null) maximumStoredFollowerCount = maximumStoredFollowerCount === null ? page.maximumStoredFollowerCount : Math.max(maximumStoredFollowerCount, page.maximumStoredFollowerCount);
+      creatorCursor = page.isDone ? null : page.continueCursor;
+    } while (creatorCursor);
+    do {
+      const page: ContactStatsPage = await ctx.runQuery(contactStatsPageRef, { paginationOpts: { cursor: contactCursor, numItems: 1000 } });
+      contactCount += page.contactCount;
+      contactCursor = page.isDone ? null : page.continueCursor;
+    } while (contactCursor);
+    return { minimumFollowers: MIN_REPOSITORY_FOLLOWERS, creatorCount, contactCount, minimumStoredFollowerCount, maximumStoredFollowerCount };
   },
 });
 
