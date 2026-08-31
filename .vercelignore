@@ -1,0 +1,11 @@
+node_modules/
+data/private/
+dist/
+artifacts/
+.agents/
+.git/
+coverage/
+docs/
+*.log
+*.tsbuildinfo
+.DS_Store
