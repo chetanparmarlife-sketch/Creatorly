@@ -66,7 +66,8 @@ export default defineSchema({
     subscriptionRenewalDate: v.optional(v.number()),
     cancellationRequestedAt: v.optional(v.number()),
     onboardingCompleted: v.optional(v.boolean()),
-    onboardingStep: v.optional(v.union(v.literal(1), v.literal(2), v.literal(3))),
+    // Keep legacy 4/5 values readable while all new onboarding writes use 1–3.
+    onboardingStep: v.optional(v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4), v.literal(5))),
     onboardingPlanTier: v.optional(planTier),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
