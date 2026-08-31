@@ -97,6 +97,7 @@ export default defineSchema({
     primaryCategory: v.optional(v.string()),
     categorySearch: v.optional(v.string()),
     profileImageUrl: v.optional(v.string()),
+    profileImageStorageId: v.optional(v.id("_storage")),
     biography: v.optional(v.string()),
     gender: v.optional(v.string()),
     age: v.optional(v.number()),
@@ -132,6 +133,23 @@ export default defineSchema({
     .searchIndex("search_display_name", { searchField: "displayName", filterFields: ["platform"] })
     .searchIndex("search_location", { searchField: "location", filterFields: ["platform", "isVerified"] })
     .searchIndex("search_category", { searchField: "categorySearch", filterFields: ["platform", "isVerified"] }),
+  profileImageMigrationState: defineTable({
+    jobKey: v.string(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+    cursor: v.optional(v.string()),
+    processed: v.number(),
+    migrated: v.number(),
+    failed: v.number(),
+    skipped: v.number(),
+    pass: v.number(),
+    pageSize: v.number(),
+    maxMigrations: v.optional(v.number()),
+    sampleCreatorIds: v.optional(v.array(v.id("creators"))),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+  }).index("by_job_key", ["jobKey"]),
   creatorSocialProfiles: defineTable({
     creatorId: v.id("creators"),
     platform: socialPlatform,
