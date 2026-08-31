@@ -1,6 +1,6 @@
 importScripts("profile-url.js");
 
-const API_URL = "https://quirky-partridge-485.convex.site";
+const API_URL = "https://effervescent-toucan-379.convex.site";
 const { detectCreatorProfile } = CreatorlyProfileUrl;
 
 async function enableSidePanel() {

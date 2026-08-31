@@ -1,5 +1,5 @@
 const DEFAULT_DASHBOARD_URL = "https://my-build-week-project.vercel.app";
-const DEFAULT_API_URL = "https://quirky-partridge-485.convex.site";
+const DEFAULT_API_URL = "https://effervescent-toucan-379.convex.site";
 const content = document.querySelector("#content");
 const urlInput = document.querySelector("#dashboard-url");
 const keyInput = document.querySelector("#connection-key");

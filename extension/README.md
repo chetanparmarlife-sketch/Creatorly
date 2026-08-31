@@ -10,7 +10,7 @@
 8. Paste the key under **Connection settings** in the side panel.
 9. Move between supported profiles. The panel updates automatically so you can check social links, availability, unlock, copy contacts, or request a missing contact.
 
-The extension requires Chrome 114 or newer for the Side Panel API. It defaults to the public production URL, `https://my-build-week-project.vercel.app`. Expand **Connection settings** in the panel to switch it to `http://localhost:5173` during local development or to save a future custom domain.
+The extension requires Chrome 114 or newer for the Side Panel API. It defaults to the public production app, `https://my-build-week-project.vercel.app`, and production API, `https://effervescent-toucan-379.convex.site`. Expand **Connection settings** in the panel to switch the dashboard to `http://localhost:5173` during local development or to save a future custom domain.
 
 The connection key is revocable and scoped to Creatorly extension endpoints. Creating a new key revokes the old one. The extension points to the production Convex endpoint; local backend testing requires changing `DEFAULT_API_URL` in `popup.js` and `API_URL` in `background.js`.
 
