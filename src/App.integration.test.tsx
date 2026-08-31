@@ -448,8 +448,11 @@ describe("Creatorly M1 user journey", () => {
     const creatorFilters = screen.getByRole("complementary", { name: /creator filters/i });
     expect(within(creatorFilters).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByLabelText("Filter platform column")).not.toBeInTheDocument();
+    await user.click(within(creatorFilters).getByRole("button", { name: /^Audience size/i }));
     expect(screen.getByLabelText("Filter audience column")).toBeInTheDocument();
+    await user.click(within(creatorFilters).getByRole("button", { name: /^Category/i }));
     expect(screen.getByLabelText("Filter category column")).toBeInTheDocument();
+    await user.click(within(creatorFilters).getByRole("button", { name: /^City or country/i }));
     expect(screen.getByLabelText("Filter city or country column")).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter contact column")).not.toBeInTheDocument();
     const discoveryTable = screen.getByRole("table", { name: /creator discovery results/i });

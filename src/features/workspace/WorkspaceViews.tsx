@@ -22,6 +22,7 @@ const CREATOR_CATEGORIES = ["Fashion", "Lifestyle", "Photography", "Entertainmen
 type CreatorSort = { field: "name" | "audience" | "location"; direction: "asc" | "desc" };
 type AudienceBand = "all" | "nano" | "micro" | "mid" | "macro" | "mega";
 type PlatformFilter = "all" | Extract<Platform, "instagram" | "youtube">;
+type DiscoveryFilterSection = "platform" | "category" | "audience" | "location";
 
 const AUDIENCE_LABELS: Record<AudienceBand, string> = {
   all: "Any audience",
@@ -54,11 +55,21 @@ function WorkspaceSidebarPortal({ children }: { children: React.ReactNode }) {
   return target ? createPortal(children, target) : null;
 }
 
+function DiscoveryFilterDisclosure({ id, label, value, icon, open, onToggle, children }: { id: DiscoveryFilterSection; label: string; value: string; icon: React.ReactNode; open: boolean; onToggle(): void; children: React.ReactNode }) {
+  return <section className={`discovery-filter-section ${open ? "is-open" : ""}`}>
+    <button type="button" className="discovery-filter-section-trigger" aria-expanded={open} aria-controls={`discovery-filter-${id}`} onClick={onToggle}>
+      <span className="discovery-filter-section-icon">{icon}</span><span><strong>{label}</strong><small>{value}</small></span><ChevronRight size={16} aria-hidden="true"/>
+    </button>
+    {open ? <div className="discovery-filter-section-content" id={`discovery-filter-${id}`}>{children}</div> : null}
+  </section>;
+}
+
 export function DiscoveryWorkspace({ workspace, navigate }: { workspace: WorkspaceSummary; navigate(route: AppRoute): void }) {
   const data = useAppData(); const store = useWorkspaceData();
   const [query, setQuery] = useState(""); const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [category, setCategory] = useState(""); const [audience, setAudience] = useState<AudienceBand>("all");
   const [location, setLocation] = useState(""); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
+  const [openFilters, setOpenFilters] = useState<Set<DiscoveryFilterSection>>(() => new Set(["platform"]));
   const [results, setResults] = useState<CreatorSearchResult[]>([]); const [savedIds, setSavedIds] = useState<Map<string, string>>(new Map()); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [campaignTarget, setCampaignTarget] = useState(""); const [bulkMessage, setBulkMessage] = useState(""); const [bulkWorking, setBulkWorking] = useState(false); const [loading, setLoading] = useState(false); const [loadingMore, setLoadingMore] = useState(false); const [cursor, setCursor] = useState<string | null>(null); const [isDone, setIsDone] = useState(false); const [error, setError] = useState(""); const [requestOpen, setRequestOpen] = useState(false);
   const run = useCallback(async (nextQuery = query, nextPlatform = platform, nextCategory = category, nextLocation = location, nextAudience = audience, nextVerifiedOnly = verifiedOnly, nextSort = sort) => {
     setLoading(true); setError("");
@@ -94,6 +105,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const activeFilterCount = Number(platform !== "all") + Number(Boolean(category)) + Number(audience !== "all") + Number(Boolean(location)) + Number(verifiedOnly);
   const filtersActive = activeFilterCount > 0;
   function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setLocation(""); setVerifiedOnly(false); }
+  function toggleFilter(section: DiscoveryFilterSection) { setOpenFilters(current => { const next = new Set(current); if (next.has(section)) next.delete(section); else next.add(section); return next; }); }
   function choosePlatform(nextPlatform: PlatformFilter) { setPlatform(nextPlatform); setSelectedIds(new Set()); setBulkMessage(""); }
   function cycleSort(field: CreatorSort["field"]) {
     setSort(current => {
@@ -121,15 +133,14 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     <PageHeader eyebrow="India creator database" title="Discover creators across India" copy="Search verified source profiles from Instagram and YouTube by name, category, city, or country, then save them to your workspace." action={data.mode === "convex" ? <span className="data-source-chip">Instagram + YouTube repository</span> : undefined}/>
     <div className="discovery-layout">
       <WorkspaceSidebarPortal><div className="discovery-filter-panel">
-        <header><div><p>Discovery controls</p><h2>Filters</h2></div><span>{activeFilterCount} active</span></header>
+        <header><div><p>Discovery</p><h2>Filters</h2></div><div><span>{activeFilterCount} active</span><button type="button" onClick={clearTableFilters} disabled={!filtersActive}>Clear</button></div></header>
         <div className="discovery-filter-stack">
-          <fieldset className="discovery-filter-group"><legend><MonitorSmartphone size={16}/> Platform</legend><div className="platform-filter" aria-label="Discovery platform"><button type="button" className={platform === "all" ? "is-active" : ""} aria-pressed={platform === "all"} onClick={() => choosePlatform("all")}>All</button><button type="button" className={platform === "instagram" ? "is-active" : ""} aria-pressed={platform === "instagram"} onClick={() => choosePlatform("instagram")}>Instagram</button><button type="button" className={platform === "youtube" ? "is-active" : ""} aria-pressed={platform === "youtube"} onClick={() => choosePlatform("youtube")}>YouTube</button></div></fieldset>
-          <label className="discovery-filter-field"><span><Tags size={16}/> Category</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="All categories"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label>
-          <label className="discovery-filter-field"><span><Users size={16}/> Audience size</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as AudienceBand)}>{Object.entries(AUDIENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label className="discovery-filter-field"><span><MapPin size={16}/> City or country</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="All locations"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label>
-          <label className="discovery-filter-toggle"><input type="checkbox" checked={verifiedOnly} onChange={event => setVerifiedOnly(event.target.checked)}/><span><BadgeCheck size={17}/><strong>Verified profiles only</strong><small>Exclude unverified imports</small></span></label>
+          <DiscoveryFilterDisclosure id="platform" label="Platform" value={platform === "all" ? "All platforms" : platformLabel(platform)} icon={<MonitorSmartphone size={17}/>} open={openFilters.has("platform")} onToggle={() => toggleFilter("platform")}><div className="platform-filter" aria-label="Discovery platform"><button type="button" className={platform === "all" ? "is-active" : ""} aria-pressed={platform === "all"} onClick={() => choosePlatform("all")}>All</button><button type="button" className={platform === "instagram" ? "is-active" : ""} aria-pressed={platform === "instagram"} onClick={() => choosePlatform("instagram")}>Instagram</button><button type="button" className={platform === "youtube" ? "is-active" : ""} aria-pressed={platform === "youtube"} onClick={() => choosePlatform("youtube")}>YouTube</button></div></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="category" label="Category" value={category || "All categories"} icon={<Tags size={17}/>} open={openFilters.has("category")} onToggle={() => toggleFilter("category")}><label className="discovery-filter-field"><span className="sr-only">Category</span><input list="creator-category-options" aria-label="Filter category column" value={category} onChange={event => setCategory(event.target.value)} placeholder="Search categories"/><datalist id="creator-category-options">{categoryOptions.map(item => <option key={item} value={item}/>)}</datalist></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="audience" label="Audience size" value={AUDIENCE_LABELS[audience]} icon={<Users size={17}/>} open={openFilters.has("audience")} onToggle={() => toggleFilter("audience")}><label className="discovery-filter-field"><span className="sr-only">Audience size</span><select aria-label="Filter audience column" value={audience} onChange={event => setAudience(event.target.value as AudienceBand)}>{Object.entries(AUDIENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="location" label="City or country" value={location || "All locations"} icon={<MapPin size={17}/>} open={openFilters.has("location")} onToggle={() => toggleFilter("location")}><label className="discovery-filter-field"><span className="sr-only">City or country</span><input list="creator-location-options" aria-label="Filter city or country column" value={location} onChange={event => setLocation(event.target.value)} placeholder="Search locations"/><datalist id="creator-location-options">{locationOptions.map(item => <option key={item} value={item}/>)}</datalist></label></DiscoveryFilterDisclosure>
+          <button type="button" className={`discovery-filter-toggle ${verifiedOnly ? "is-active" : ""}`} aria-pressed={verifiedOnly} onClick={() => setVerifiedOnly(value => !value)}><span className="discovery-filter-section-icon"><BadgeCheck size={17}/></span><span><strong>Verified profiles only</strong><small>{verifiedOnly ? "Enabled" : "Exclude unverified imports"}</small></span><span className="discovery-filter-check" aria-hidden="true">{verifiedOnly ? <Check size={13}/> : null}</span></button>
         </div>
-        <button type="button" className="discovery-filter-clear" onClick={clearTableFilters} disabled={!filtersActive}><RotateCcw size={15}/> Clear filters</button>
       </div></WorkspaceSidebarPortal>
 
       <div className="discovery-results">

@@ -29,7 +29,7 @@ The product signature expands the **contact signal rail** into a campaign execut
 
 ## Shell and hierarchy
 
-- Desktop application shell: fixed 256px black sidebar with white navigation text
+- Desktop application shell: fixed 72px black primary rail plus a 280px white contextual sidebar; the contextual panel changes with the selected primary destination
 - Desktop utility bar: 68px sticky/fixed white surface with a bottom hairline
 - Content canvas: `#FAFAFA`, 24–32px gutters, up to 1440px working width
 - Below 980px, the shell becomes a 64px black top bar with an accessible two-column menu
@@ -48,6 +48,7 @@ The product signature expands the **contact signal rail** into a campaign execut
 - Selected filter or row — action-blue text with `#EAF0FF` background
 - Success, warning, and danger states use both words and semantic color; color is never the only signal
 - Discovery command — one natural-language search bar, precise platform/category/location/follower filters, and a dense creator result table
+- Discovery filter sidebar — 64px header · 56px disclosure rows · selected value shown as 9px muted metadata · one useful section open by default · controls expand inline on demand · blue only for open or active state
 - Creator CRM row — creator identity, platform, audience, relationship stage, owner, next action, and an explicit written verification state
 - Similar creators — an explainable profile-fit list, never a generic “recommended” carousel. Rank shared niche first, then comparable audience, platform, market, language, profile type, management style, production quality, and engagement. Show the strongest two reasons as written blue-soft chips; do not expose an unexplained score.
 - Similar creator row — 92px minimum height · 48px portrait · creator name at 12px semibold · audience and platform at 10px muted · up to two 20px reason chips · native button with visible hover and focus states. Use a 330px sticky sidebar on desktop and a full-width section after the main profile content below 760px.
