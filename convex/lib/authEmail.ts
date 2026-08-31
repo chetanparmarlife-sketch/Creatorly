@@ -8,6 +8,7 @@ type AuthEmailEnvironment = {
   AUTH_EMAIL_FROM?: string;
   CREATORLY_ENVIRONMENT?: string;
   AUTH_EMAIL_ALLOW_UNCONFIGURED_DEVELOPMENT?: string;
+  AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL?: string;
 };
 
 export function isEmailVerificationConfigured(
@@ -18,7 +19,13 @@ export function isEmailVerificationConfigured(
 
 export function resolveEmailVerificationMode(
   environment: AuthEmailEnvironment = process.env,
-): "enabled" | "development_skipped" {
+  now = Date.now(),
+): "enabled" | "development_skipped" | "temporary_bypass" {
+  const temporaryBypassUntil = Date.parse(environment.AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL?.trim() ?? "");
+  const temporaryBypassAllowed = environment.CREATORLY_ENVIRONMENT?.trim().toLowerCase() === "production"
+    && Number.isFinite(temporaryBypassUntil)
+    && now < temporaryBypassUntil;
+  if (temporaryBypassAllowed) return "temporary_bypass";
   if (isEmailVerificationConfigured(environment)) return "enabled";
   const developmentSkipAllowed = environment.CREATORLY_ENVIRONMENT?.trim().toLowerCase() === "development"
     && environment.AUTH_EMAIL_ALLOW_UNCONFIGURED_DEVELOPMENT?.trim().toLowerCase() === "true";

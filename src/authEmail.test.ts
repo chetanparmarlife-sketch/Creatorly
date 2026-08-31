@@ -31,4 +31,15 @@ describe("Creatorly email verification", () => {
       AUTH_EMAIL_ALLOW_UNCONFIGURED_DEVELOPMENT: "true",
     })).toThrow("Creatorly email verification is not configured");
   });
+
+  it("allows an explicitly dated production bypass only before it expires", () => {
+    const environment = {
+      CREATORLY_ENVIRONMENT: "production",
+      AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL: "2026-09-02T18:29:59.000Z",
+      RESEND_API_KEY: "re_test",
+      AUTH_EMAIL_FROM: "Creatorly <onboarding@resend.dev>",
+    };
+    expect(resolveEmailVerificationMode(environment, Date.parse("2026-08-31T18:30:00.000Z"))).toBe("temporary_bypass");
+    expect(resolveEmailVerificationMode(environment, Date.parse("2026-09-02T18:30:00.000Z"))).toBe("enabled");
+  });
 });
