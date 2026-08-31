@@ -35,6 +35,13 @@ type CopySuccess = {
   profileImageUrl: string;
 };
 
+type YouTubeMigrationPage = {
+  creators: MigrationCreator[];
+  scanned: number;
+  continueCursor: string;
+  isDone: boolean;
+};
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message.slice(0, 300) : "Unknown profile image migration error";
 }
@@ -160,6 +167,89 @@ async function copyImage(ctx: ActionCtx, creator: MigrationCreator): Promise<Cop
   }
   return { creatorId: creator.creatorId, storageId, profileImageUrl };
 }
+
+export const loadYouTubePage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args): Promise<YouTubeMigrationPage> => {
+    const result = await ctx.db
+      .query("creators")
+      .withIndex("by_platform_followers", q => q.eq("platform", "youtube"))
+      .paginate({ cursor: args.cursor, numItems: 100 });
+    return {
+      creators: result.page
+        .filter(creator => !creator.profileImageStorageId
+          && Boolean(creator.profileImageUrl)
+          && isAllowedProfileImageSource(creator.profileImageUrl!))
+        .map(creator => ({ creatorId: creator._id, sourceUrl: creator.profileImageUrl! })),
+      scanned: result.page.length,
+      continueCursor: result.continueCursor,
+      isDone: result.isDone,
+    };
+  },
+});
+
+export const commitYouTubeBatch = internalMutation({
+  args: {
+    successful: v.array(v.object({
+      creatorId: v.id("creators"),
+      storageId: v.id("_storage"),
+      profileImageUrl: v.string(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    let committed = 0;
+    for (const item of args.successful) {
+      const creator = await ctx.db.get(item.creatorId);
+      if (creator?.platform === "youtube"
+        && !creator.profileImageStorageId
+        && creator.profileImageUrl
+        && isAllowedProfileImageSource(creator.profileImageUrl)) {
+        await ctx.db.patch(item.creatorId, {
+          profileImageStorageId: item.storageId,
+          profileImageUrl: item.profileImageUrl,
+        });
+        committed += 1;
+      } else {
+        await ctx.storage.delete(item.storageId);
+      }
+    }
+    return { committed };
+  },
+});
+
+export const copyYouTubeImages = internalAction({
+  args: {},
+  handler: async (ctx): Promise<{ scanned: number; migrated: number; failed: number }> => {
+    let cursor: string | null = null;
+    let scanned = 0;
+    let migrated = 0;
+    let failed = 0;
+    for (;;) {
+      const page: YouTubeMigrationPage = await ctx.runQuery(internal.profileImageMigration.loadYouTubePage, { cursor });
+      scanned += page.scanned;
+      const successful: CopySuccess[] = [];
+      for (let index = 0; index < page.creators.length; index += 50) {
+        const group = page.creators.slice(index, index + 50);
+        const results = await Promise.all(group.map(async creator => {
+          try {
+            return await copyImage(ctx, creator);
+          } catch {
+            failed += 1;
+            return null;
+          }
+        }));
+        successful.push(...results.filter((item): item is CopySuccess => item !== null));
+      }
+      if (successful.length) {
+        const result = await ctx.runMutation(internal.profileImageMigration.commitYouTubeBatch, { successful });
+        migrated += result.committed;
+      }
+      if (page.isDone) break;
+      cursor = page.continueCursor;
+    }
+    return { scanned, migrated, failed };
+  },
+});
 
 export const runBatch = internalAction({
   args: {},
