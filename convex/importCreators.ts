@@ -1,9 +1,10 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { buildImportedCreatorFields, facebookPageUrl, importedPlatform, youtubeChannelUrl } from "./lib/creatorImportMapping";
 import { isRepositoryEligible } from "./lib/repositoryPolicy";
+import { creatorEngagementRatePercent } from "./lib/engagement";
 
 function sameContact(existing: { email?: string; phone?: string; whatsapp?: string }, incoming: { email?: string; phone?: string; whatsapp?: string }) {
   const existingEmail = (existing.email ?? "").trim().toLowerCase();
@@ -268,6 +269,31 @@ export const backfillPrimaryCategories = internalMutation({
     const creators = await ctx.db.query("creators").withIndex("by_primary_category", q => q.eq("primaryCategory", undefined)).take(Math.min(args.limit ?? 200, 500));
     await Promise.all(creators.map(creator => ctx.db.patch(creator._id, { primaryCategory: creator.categories?.[0]?.toLowerCase() ?? "" })));
     return { updated: creators.length };
+  },
+});
+
+export const backfillEngagementRateBatch = internalMutation({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const creators = await ctx.db.query("creators").withIndex("by_engagement_backfilled", q => q.eq("engagementRateBackfilled", undefined)).take(Math.min(args.limit ?? 200, 500));
+    await Promise.all(creators.map(creator => ctx.db.patch(creator._id, {
+      engagementRatePercent: creatorEngagementRatePercent(creator),
+      engagementRateBackfilled: true,
+    })));
+    return { updated: creators.length };
+  },
+});
+
+export const backfillEngagementRates = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    let updated = 0;
+    for (let batch = 0; batch < 2_000; batch += 1) {
+      const result = await ctx.runMutation(internal.importCreators.backfillEngagementRateBatch, { limit: 200 });
+      updated += result.updated;
+      if (result.updated === 0) return { updated, complete: true };
+    }
+    return { updated, complete: false };
   },
 });
 

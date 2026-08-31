@@ -6,6 +6,7 @@ import { query } from "./_generated/server";
 import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
 import { normalize, score } from "./lib/matching";
 import { MIN_REPOSITORY_FOLLOWERS } from "./lib/repositoryPolicy";
+import { creatorEngagementRatePercent } from "./lib/engagement";
 
 function canonicalProfileUrl(platform: string, handle: string, youtubeChannelId?: string, facebookPageId?: string) {
   const clean = handle.replace(/^@/, "");
@@ -35,8 +36,9 @@ function creatorLocationParts(creator: Pick<Doc<"creators">, "location" | "count
   };
 }
 
-function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number }) {
+function passesFilters(creator: Doc<"creators">, args: { category?: string; location?: string; country?: string; city?: string; postalCode?: string; verifiedOnly?: boolean; minFollowers?: number; maxFollowers?: number; minEngagementRate?: number; maxEngagementRate?: number }) {
   const locationParts = creatorLocationParts(creator);
+  const engagementRate = creatorEngagementRatePercent(creator);
   if (creator.isDemo) return false;
   if (creator.followerCount < MIN_REPOSITORY_FOLLOWERS) return false;
   if (args.verifiedOnly && !creator.isVerified) return false;
@@ -47,6 +49,9 @@ function passesFilters(creator: Doc<"creators">, args: { category?: string; loca
   if (args.category && !creator.categories?.some(category => category.toLowerCase() === args.category?.toLowerCase())) return false;
   if (args.minFollowers !== undefined && creator.followerCount < args.minFollowers) return false;
   if (args.maxFollowers !== undefined && creator.followerCount >= args.maxFollowers) return false;
+  if ((args.minEngagementRate !== undefined || args.maxEngagementRate !== undefined) && engagementRate === undefined) return false;
+  if (args.minEngagementRate !== undefined && engagementRate! < args.minEngagementRate) return false;
+  if (args.maxEngagementRate !== undefined && engagementRate! >= args.maxEngagementRate) return false;
   return true;
 }
 
@@ -85,6 +90,8 @@ export const countPage = query({
     verifiedOnly: v.optional(v.boolean()),
     minFollowers: v.optional(v.number()),
     maxFollowers: v.optional(v.number()),
+    minEngagementRate: v.optional(v.number()),
+    maxEngagementRate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -93,6 +100,7 @@ export const countPage = query({
     const category = args.category?.trim().toLowerCase();
     const minFollowers = Math.max(MIN_REPOSITORY_FOLLOWERS, args.minFollowers ?? MIN_REPOSITORY_FOLLOWERS);
     const maxFollowers = args.maxFollowers;
+    const engagementActive = args.minEngagementRate !== undefined || args.maxEngagementRate !== undefined;
     const paginationOpts = { cursor: args.paginationOpts.cursor, numItems: Math.min(args.paginationOpts.numItems, 100) };
     const locationSearch = args.postalCode?.trim() || args.city?.trim() || args.country?.trim() || args.location?.trim();
     const result = locationSearch
@@ -102,6 +110,32 @@ export const countPage = query({
           if (args.verifiedOnly) return q.search("location", locationSearch).eq("isVerified", true);
           return q.search("location", locationSearch);
         }).paginate(paginationOpts)
+      : engagementActive && args.platform
+        ? await ctx.db.query("creators").withIndex("by_platform_engagement", q => args.minEngagementRate !== undefined
+            ? args.maxEngagementRate !== undefined
+              ? q.eq("platform", args.platform!).gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
+              : q.eq("platform", args.platform!).gte("engagementRatePercent", args.minEngagementRate)
+            : q.eq("platform", args.platform!).lt("engagementRatePercent", args.maxEngagementRate!))
+          .filter(q => q.and(
+            q.eq(q.field("isDemo"), false),
+            ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+            ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+            q.gte(q.field("followerCount"), minFollowers),
+            ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
+          )).paginate(paginationOpts)
+        : engagementActive
+          ? await ctx.db.query("creators").withIndex("by_engagement", q => args.minEngagementRate !== undefined
+              ? args.maxEngagementRate !== undefined
+                ? q.gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
+                : q.gte("engagementRatePercent", args.minEngagementRate)
+              : q.lt("engagementRatePercent", args.maxEngagementRate!))
+            .filter(q => q.and(
+              q.eq(q.field("isDemo"), false),
+              ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+              ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+              q.gte(q.field("followerCount"), minFollowers),
+              ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
+            )).paginate(paginationOpts)
       : category && args.platform && args.verifiedOnly
       ? await ctx.db.query("creators").withIndex("by_platform_category_verified_followers", q => maxFollowers === undefined
           ? q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
@@ -162,6 +196,8 @@ export const browsePage = query({
     verifiedOnly: v.optional(v.boolean()),
     minFollowers: v.optional(v.number()),
     maxFollowers: v.optional(v.number()),
+    minEngagementRate: v.optional(v.number()),
+    maxEngagementRate: v.optional(v.number()),
     sortField: v.optional(sortFieldValidator),
     sortDirection: v.optional(sortDirectionValidator),
   },
@@ -180,13 +216,14 @@ export const browsePage = query({
     const location = args.location?.trim();
     const minFollowers = Math.max(MIN_REPOSITORY_FOLLOWERS, args.minFollowers ?? MIN_REPOSITORY_FOLLOWERS);
     const maxFollowers = args.maxFollowers;
+    const engagementActive = args.minEngagementRate !== undefined || args.maxEngagementRate !== undefined;
     const sortField = args.sortField ?? "audience";
     const sortDirection = args.sortDirection ?? (sortField === "audience" ? "desc" : "asc");
     const paginationOpts = {
       cursor: args.paginationOpts.cursor,
       numItems: Math.min(args.paginationOpts.numItems, 24),
     };
-    if (args.country?.trim() || args.city?.trim() || args.postalCode?.trim()) {
+    if (args.country?.trim() || args.city?.trim() || args.postalCode?.trim() || engagementActive) {
       const locationSearch = args.postalCode?.trim() || args.city?.trim() || args.country?.trim();
       let scanCursor = args.paginationOpts.cursor;
       let isDone = false;
@@ -199,7 +236,34 @@ export const browsePage = query({
               if (args.verifiedOnly) return q.search("location", locationSearch).eq("isVerified", true);
               return q.search("location", locationSearch);
             }).paginate({ cursor: scanCursor, numItems: paginationOpts.numItems })
-          : await ctx.db
+          : engagementActive && args.platform
+            ? await ctx.db.query("creators").withIndex("by_platform_engagement", q => args.minEngagementRate !== undefined
+                ? args.maxEngagementRate !== undefined
+                  ? q.eq("platform", args.platform!).gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
+                  : q.eq("platform", args.platform!).gte("engagementRatePercent", args.minEngagementRate)
+                : q.eq("platform", args.platform!).lt("engagementRatePercent", args.maxEngagementRate!))
+              .filter(q => q.and(
+                q.eq(q.field("isDemo"), false),
+                ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+                ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+                q.gte(q.field("followerCount"), minFollowers),
+                ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
+              )).paginate({ cursor: scanCursor, numItems: paginationOpts.numItems })
+            : engagementActive
+              ? await ctx.db.query("creators").withIndex("by_engagement", q => args.minEngagementRate !== undefined
+                  ? args.maxEngagementRate !== undefined
+                    ? q.gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
+                    : q.gte("engagementRatePercent", args.minEngagementRate)
+                  : q.lt("engagementRatePercent", args.maxEngagementRate!))
+                .filter(q => q.and(
+                  q.eq(q.field("isDemo"), false),
+                  ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+                  ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+                  ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+                  q.gte(q.field("followerCount"), minFollowers),
+                  ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
+                )).paginate({ cursor: scanCursor, numItems: paginationOpts.numItems })
+              : await ctx.db
               .query("creators")
               .withIndex("by_followers", q => maxFollowers === undefined
                 ? q.gte("followerCount", minFollowers)
@@ -229,7 +293,7 @@ export const browsePage = query({
         const locationParts = creatorLocationParts(creator);
         return {
           id: creator._id, platform: creator.platform, handle: creator.handle, displayName: creator.displayName,
-          followerCount: creator.followerCount, location: creator.location, ...locationParts, categories: creator.categories,
+          followerCount: creator.followerCount, engagementRatePercent: creatorEngagementRatePercent(creator), location: creator.location, ...locationParts, categories: creator.categories,
           isVerified: creator.isVerified, isDemo: creator.isDemo, contentLanguages: creator.contentLanguages,
           profileType: creator.profileType, contentQuality: creator.contentQuality, managementType: creator.managementType,
           profileImageUrl: creator.profileImageUrl, biography: creator.biography, gender: creator.gender, age: creator.age,
@@ -380,6 +444,7 @@ export const browsePage = query({
         handle: creator.handle,
         displayName: creator.displayName,
         followerCount: creator.followerCount,
+        engagementRatePercent: creatorEngagementRatePercent(creator),
         location: creator.location,
         ...creatorLocationParts(creator),
         categories: creator.categories,
@@ -427,6 +492,8 @@ export const search = query({
     verifiedOnly: v.optional(v.boolean()),
     minFollowers: v.optional(v.number()),
     maxFollowers: v.optional(v.number()),
+    minEngagementRate: v.optional(v.number()),
+    maxEngagementRate: v.optional(v.number()),
     sortField: v.optional(sortFieldValidator),
     sortDirection: v.optional(sortDirectionValidator),
   },
@@ -510,6 +577,7 @@ export const search = query({
           handle: creator.handle,
           displayName: creator.displayName,
           followerCount: creator.followerCount,
+          engagementRatePercent: creatorEngagementRatePercent(creator),
           location: creator.location,
           ...creatorLocationParts(creator),
           categories: creator.categories,
@@ -595,6 +663,7 @@ export const getById = query({
         handle: creator.handle,
         displayName: creator.displayName,
         followerCount: creator.followerCount,
+        engagementRatePercent: creatorEngagementRatePercent(creator),
         location: creator.location,
         ...creatorLocationParts(creator),
         categories: creator.categories,

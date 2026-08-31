@@ -1,3 +1,5 @@
+import { creatorEngagementRatePercent } from "./engagement";
+
 export type ImportedPlatform = "instagram" | "youtube" | "facebook";
 
 export type ImportedCreatorRow = {
@@ -42,9 +44,12 @@ export function facebookPageUrl(pageId: string, handle?: string) {
 export function buildImportedCreatorFields<T extends ImportedCreatorRow>(row: T, now: number) {
   const categories = row.categories ?? [];
   const locationParts = row.location?.split(",").map(part => part.trim()).filter(Boolean) ?? [];
+  const engagementRatePercent = creatorEngagementRatePercent(row);
   return {
     displayName: row.displayName ?? "Creator",
     followerCount: row.followerCount ?? 0,
+    engagementRatePercent,
+    engagementRateBackfilled: true,
     location: row.location,
     country: row.country ?? (locationParts.length > 1 ? locationParts.at(-1) : undefined),
     city: row.city ?? (locationParts.length > 1 ? locationParts[0] : undefined),
