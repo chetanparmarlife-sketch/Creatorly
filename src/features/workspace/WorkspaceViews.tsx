@@ -218,7 +218,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
     finally { setBulkWorking(false); }
   }
   return <main className="workspace ops-page discovery-page">
-    <PageHeader eyebrow="India-first · Global reach" title="Discover creators" copy="Search Instagram, YouTube, and Facebook profiles across India and worldwide." action={<span className="data-source-chip" aria-live="polite">{totalCount === null ? <strong>Counting total…</strong> : <><strong>{totalCount.toLocaleString()}</strong> {filtersActive || query.trim() ? "matching profiles" : "profiles available"}</>}</span>}/>
+    <PageHeader eyebrow="India-first · Global reach" title="Discover creators" copy="Search Instagram, YouTube, and Facebook profiles across India and worldwide." action={<span className="data-source-chip" aria-live="polite">{totalCount === null ? <strong>Counting total…</strong> : <><strong>{totalCount.toLocaleString()}</strong> {filtersActive || query.trim() ? `matching ${totalCount === 1 ? "profile" : "profiles"}` : `${totalCount === 1 ? "profile" : "profiles"} available`}</>}</span>}/>
     <div className="discovery-layout">
       <WorkspaceSidebarPortal><div className="discovery-filter-panel">
         <header><div><p>Discovery</p><h2>Filters</h2></div><div><span>{activeFilterCount} active</span><button type="button" onClick={clearTableFilters} disabled={!filtersActive}>Clear</button></div></header>
