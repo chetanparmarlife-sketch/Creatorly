@@ -75,3 +75,7 @@ export function mapApifyClaimProfile(payload: unknown, expectedHandle: string): 
     isBusinessAccount: typeof profile.isBusinessAccount === "boolean" ? profile.isBusinessAccount : undefined,
   };
 }
+
+export function biographyContainsVerificationCode(biography: string | undefined, verificationCode: string) {
+  return Boolean(biography?.toLocaleUpperCase().includes(verificationCode.trim().toLocaleUpperCase()));
+}

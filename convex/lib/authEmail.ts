@@ -2,6 +2,7 @@ import { Email } from "@convex-dev/auth/providers/Email";
 
 const VERIFICATION_CODE_MAX = 1_000_000;
 const VERIFICATION_CODE_TTL_SECONDS = 15 * 60;
+const TEMPORARY_BYPASS_MAX_MS = 72 * 60 * 60 * 1000;
 
 type AuthEmailEnvironment = {
   RESEND_API_KEY?: string;
@@ -22,11 +23,14 @@ export function resolveEmailVerificationMode(
   now = Date.now(),
 ): "enabled" | "development_skipped" | "temporary_bypass" {
   const temporaryBypassUntil = Date.parse(environment.AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL?.trim() ?? "");
+  if (isEmailVerificationConfigured(environment)) return "enabled";
+  if (Number.isFinite(temporaryBypassUntil) && temporaryBypassUntil - now > TEMPORARY_BYPASS_MAX_MS) {
+    throw new Error("AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL cannot be more than 72 hours in the future.");
+  }
   const temporaryBypassAllowed = environment.CREATORLY_ENVIRONMENT?.trim().toLowerCase() === "production"
     && Number.isFinite(temporaryBypassUntil)
     && now < temporaryBypassUntil;
   if (temporaryBypassAllowed) return "temporary_bypass";
-  if (isEmailVerificationConfigured(environment)) return "enabled";
   const developmentSkipAllowed = environment.CREATORLY_ENVIRONMENT?.trim().toLowerCase() === "development"
     && environment.AUTH_EMAIL_ALLOW_UNCONFIGURED_DEVELOPMENT?.trim().toLowerCase() === "true";
   if (developmentSkipAllowed) return "development_skipped";
@@ -36,6 +40,14 @@ export function resolveEmailVerificationMode(
     !environment.AUTH_EMAIL_FROM?.trim() ? "AUTH_EMAIL_FROM" : null,
   ].filter((value): value is string => value !== null);
   throw new Error(`Creatorly email verification is not configured. Add ${missing.join(" and ")} to Convex.`);
+}
+
+export function warnTemporaryBypassSignup(
+  environment: AuthEmailEnvironment = process.env,
+  warn: (message: string) => void = console.warn,
+) {
+  const expiry = environment.AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL?.trim();
+  warn(`Creatorly email verification temporary bypass is active for this signup until ${expiry}.`);
 }
 
 export function generateEmailVerificationCode() {

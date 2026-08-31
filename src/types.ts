@@ -241,7 +241,7 @@ export type SignUpInput = {
   password: string;
 };
 
-export type CreatorClaimStatus = "draft" | "enrichment_pending" | "ready_for_verification" | "verification_pending" | "verified" | "review_required" | "published" | "rejected" | "suspended";
+export type CreatorClaimStatus = "draft" | "enrichment_pending" | "ready_for_verification" | "ownership_claimed_by_user" | "verified" | "review_required" | "published" | "rejected" | "suspended";
 export type CreatorContactPreference = "direct" | "manager_only" | "not_contactable";
 export type CreatorVerificationMethod = "instagram_bio" | "business_email" | "website_backlink";
 
@@ -301,6 +301,8 @@ export type CreatorClaim = {
   verificationMethod?: CreatorVerificationMethod;
   verificationCode?: string;
   verificationExpiresAt?: number;
+  verificationSubmittedAt?: number;
+  verifiedAt?: number;
   reviewNote?: string;
   termsAcceptedAt?: number;
   updatedAt: number;

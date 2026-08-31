@@ -4,6 +4,7 @@ import { action, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { checkout, customerPortal } from "./dodo";
 import { getCheckoutProduct, requireCreatorlyAppUrl } from "./lib/dodoCatalog";
+import { requireVerifiedEmail } from "./lib/emailVerification";
 
 const purchase = v.union(
   v.object({
@@ -22,6 +23,9 @@ export const createCheckout = action({
   handler: async (ctx, args): Promise<{ checkoutUrl: string }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("Sign in to start checkout.");
+    const user = await ctx.runQuery(internal.billingCustomers.getCheckoutUser, { userId });
+    if (!user) throw new ConvexError("Account not found.");
+    requireVerifiedEmail(user, "start checkout");
     if (!process.env.DODO_PAYMENTS_API_KEY) throw new ConvexError("Dodo Payments is not configured yet.");
     const environment = process.env.DODO_PAYMENTS_ENVIRONMENT ?? "test_mode";
     if (environment !== "test_mode" && environment !== "live_mode") {
@@ -30,7 +34,6 @@ export const createCheckout = action({
     if (environment === "live_mode" && process.env.DODO_PAYMENTS_LIVE_ENABLED !== "true") {
       throw new ConvexError("Live Dodo checkout is locked while Creatorly billing is being verified.");
     }
-    const user = await ctx.runQuery(internal.billingCustomers.getCheckoutUser, { userId });
     if (!user?.email) throw new ConvexError("Add an email address before starting checkout.");
     const item = getCheckoutProduct(args.purchase);
     const appUrl = requireCreatorlyAppUrl();

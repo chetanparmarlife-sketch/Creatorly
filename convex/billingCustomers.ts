@@ -23,6 +23,8 @@ export const getCheckoutUser = internalQuery({
       name: user.name ?? "Creatorly customer",
       companyName: user.companyName,
       dodoCustomerId: customer?.dodoCustomerId,
+      emailVerificationTime: user.emailVerificationTime,
+      isEmailVerified: user.isEmailVerified,
     };
   },
 });

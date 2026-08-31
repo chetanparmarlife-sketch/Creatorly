@@ -66,17 +66,17 @@ describe("Creatorly M1 user journey", () => {
     window.history.replaceState({}, "", "/");
     renderDemo();
 
-    expect(screen.getByRole("heading", { name: /find creators in india. run campaigns everywhere/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /find creators. run better campaigns/i })).toBeInTheDocument();
     const pageText = document.body.textContent ?? "";
-    expect(pageText.indexOf("Creatorly Discovery")).toBeLessThan(pageText.indexOf("Private creator CRM"));
-    expect(pageText.indexOf("Private creator CRM")).toBeLessThan(pageText.indexOf("Chrome extension"));
-    expect(pageText.indexOf("Chrome extension")).toBeLessThan(pageText.indexOf("Campaign workspace"));
-    expect(screen.getAllByText("Planned")).toHaveLength(4);
+    expect(pageText.indexOf("Creator search")).toBeLessThan(pageText.indexOf("Your creator list"));
+    expect(pageText.indexOf("Your creator list")).toBeLessThan(pageText.indexOf("Browser extension"));
+    expect(pageText.indexOf("Browser extension")).toBeLessThan(pageText.indexOf("Campaign manager"));
+    expect(screen.getAllByText("Coming later")).toHaveLength(4);
   });
 
   it("sends every homepage preview action to workspace signup", async () => {
     const user = userEvent.setup();
-    for (const name of [/add creators/i, /open saved creator/i, /create campaign/i]) {
+    for (const name of [/add creators/i, /open creator/i, /create campaign/i]) {
       window.history.replaceState({}, "", "/");
       const rendered = renderDemo();
       await user.click(screen.getByRole("button", { name }));

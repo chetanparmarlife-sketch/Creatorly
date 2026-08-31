@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { generateEmailVerificationCode, isEmailVerificationConfigured, resolveEmailVerificationMode } from "../convex/lib/authEmail";
+import { generateEmailVerificationCode, isEmailVerificationConfigured, resolveEmailVerificationMode, warnTemporaryBypassSignup } from "../convex/lib/authEmail";
 
 describe("Creatorly email verification", () => {
   it("creates six-digit numeric codes", () => {
@@ -32,14 +33,37 @@ describe("Creatorly email verification", () => {
     })).toThrow("Creatorly email verification is not configured");
   });
 
-  it("allows an explicitly dated production bypass only before it expires", () => {
-    const environment = {
+  it("allows a 24-hour production bypass only when Resend is unconfigured", () => {
+    const bypassEnvironment = {
       CREATORLY_ENVIRONMENT: "production",
-      AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL: "2026-09-02T18:29:59.000Z",
+      AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL: "2026-09-01T18:30:00.000Z",
+    };
+    expect(resolveEmailVerificationMode(bypassEnvironment, Date.parse("2026-08-31T18:30:00.000Z"))).toBe("temporary_bypass");
+    expect(resolveEmailVerificationMode({
+      ...bypassEnvironment,
       RESEND_API_KEY: "re_test",
       AUTH_EMAIL_FROM: "Creatorly <onboarding@resend.dev>",
-    };
-    expect(resolveEmailVerificationMode(environment, Date.parse("2026-08-31T18:30:00.000Z"))).toBe("temporary_bypass");
-    expect(resolveEmailVerificationMode(environment, Date.parse("2026-09-02T18:30:00.000Z"))).toBe("enabled");
+    }, Date.parse("2026-08-31T18:30:00.000Z"))).toBe("enabled");
+  });
+
+  it("rejects a temporary bypass more than 72 hours in the future", () => {
+    expect(() => resolveEmailVerificationMode({
+      CREATORLY_ENVIRONMENT: "production",
+      AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL: "2030-01-01T00:00:00.000Z",
+    }, Date.parse("2026-08-31T18:30:00.000Z"))).toThrow("cannot be more than 72 hours in the future");
+  });
+
+  it("keeps invalid bypass dates on the existing missing-configuration path", () => {
+    expect(() => resolveEmailVerificationMode({
+      CREATORLY_ENVIRONMENT: "production",
+      AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL: "not-a-date",
+    })).toThrow("Creatorly email verification is not configured");
+  });
+
+  it("warns on a bypass signup with the exact expiry", () => {
+    const warnings: string[] = [];
+    warnTemporaryBypassSignup({ AUTH_EMAIL_TEMPORARY_BYPASS_UNTIL: "2026-09-01T18:30:00.000Z" }, message => warnings.push(message));
+    expect(warnings).toEqual(["Creatorly email verification temporary bypass is active for this signup until 2026-09-01T18:30:00.000Z."]);
+    expect(readFileSync("convex/auth.ts", "utf8")).toContain('params.flow === "signUp" && emailVerificationMode === "temporary_bypass"');
   });
 });

@@ -243,7 +243,7 @@ const claimUploadUrlRef = makeFunctionReference<"mutation">("creatorClaims:gener
 const saveClaimAssetRef = makeFunctionReference<"mutation">("creatorClaims:saveAsset") as FunctionReference<"mutation", "public", { claimId: string; storageId: string; kind: "media_kit" | "audience_screenshot"; fileName: string; contentType: string; byteSize: number; label?: string }, unknown>;
 const removeClaimAssetRef = makeFunctionReference<"mutation">("creatorClaims:removeAsset") as FunctionReference<"mutation", "public", { assetId: string }, unknown>;
 const issueClaimVerificationRef = makeFunctionReference<"mutation">("creatorClaims:issueVerification") as FunctionReference<"mutation", "public", { claimId: string; method: CreatorVerificationMethod }, { code: string; expiresAt: number }>;
-const submitClaimVerificationRef = makeFunctionReference<"mutation">("creatorClaims:submitVerification") as FunctionReference<"mutation", "public", { claimId: string }, unknown>;
+const submitClaimVerificationRef = makeFunctionReference<"action">("creatorClaims:submitVerification") as FunctionReference<"action", "public", { claimId: string }, unknown>;
 const submitClaimRef = makeFunctionReference<"mutation">("creatorClaims:submitForReview") as FunctionReference<"mutation", "public", { claimId: string; acceptTerms: boolean }, unknown>;
 const adminClaimsRef = makeFunctionReference<"query">("creatorClaims:listForAdmin") as FunctionReference<"query", "public", EmptyArgs, AdminCreatorClaim[]>;
 const reviewClaimRef = makeFunctionReference<"mutation">("creatorClaims:review") as FunctionReference<"mutation", "public", { claimId: string; decision: "approve" | "reject" | "request_changes"; note?: string }, unknown>;
@@ -371,7 +371,7 @@ export function ConvexDataProvider({
     },
     removeCreatorClaimAsset: async (assetId) => { await convex.mutation(removeClaimAssetRef, { assetId }); },
     issueCreatorVerification: (claimId, method) => convex.mutation(issueClaimVerificationRef, { claimId, method }),
-    submitCreatorVerification: async (claimId) => { await convex.mutation(submitClaimVerificationRef, { claimId }); },
+    submitCreatorVerification: async (claimId) => { await convex.action(submitClaimVerificationRef, { claimId }); },
     submitCreatorClaim: async (claimId, acceptTerms) => { await convex.mutation(submitClaimRef, { claimId, acceptTerms }); },
     listCreatorClaimsForAdmin: () => convex.query(adminClaimsRef, {}),
     reviewCreatorClaim: async (claimId, decision, note) => { await convex.mutation(reviewClaimRef, { claimId, decision, note }); },

@@ -3,15 +3,18 @@ import { ConvexError, v } from "convex/values";
 import { makeFunctionReference, type FunctionReference } from "convex/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { internalAction, internalMutation, mutation, query } from "./_generated/server";
-import { mapApifyClaimProfile, type ClaimEnrichmentResult } from "./lib/apifyClaim";
+import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { biographyContainsVerificationCode, mapApifyClaimProfile, type ClaimEnrichmentResult } from "./lib/apifyClaim";
+import { requireVerifiedEmail } from "./lib/emailVerification";
 
 const enrichRef = makeFunctionReference<"action">("creatorClaims:enrich") as unknown as FunctionReference<"action", "internal", { claimId: Id<"creatorClaims">; instagramHandle: string; instagramUrl: string }, void>;
 const markEnrichmentRunningRef = makeFunctionReference<"mutation">("creatorClaims:markEnrichmentRunning") as unknown as FunctionReference<"mutation", "internal", { claimId: Id<"creatorClaims">; actorId: string }, void>;
 const applyEnrichmentRef = makeFunctionReference<"mutation">("creatorClaims:applyEnrichment") as unknown as FunctionReference<"mutation", "internal", { claimId: Id<"creatorClaims">; actorId: string; result?: ClaimEnrichmentResult; error?: string }, void>;
+const getVerificationClaimRef = makeFunctionReference<"query">("creatorClaims:getVerificationClaim") as unknown as FunctionReference<"query", "internal", { claimId: Id<"creatorClaims">; userId: Id<"users"> }, Doc<"creatorClaims">>;
+const recordOwnershipAssertionRef = makeFunctionReference<"mutation">("creatorClaims:recordOwnershipAssertion") as unknown as FunctionReference<"mutation", "internal", { claimId: Id<"creatorClaims">; userId: Id<"users">; verificationMethod: "instagram_bio" | "business_email" | "website_backlink"; verificationCode: string; instagramBioVerified: boolean }, { status: "ownership_claimed_by_user" }>;
 
 const activeStatuses = new Set<Doc<"creatorClaims">["status"]>([
-  "draft", "enrichment_pending", "ready_for_verification", "verification_pending", "verified", "review_required", "published",
+  "draft", "enrichment_pending", "ready_for_verification", "ownership_claimed_by_user", "verified", "review_required", "published",
 ]);
 
 const contactPreference = v.union(v.literal("direct"), v.literal("manager_only"), v.literal("not_contactable"));
@@ -90,6 +93,20 @@ async function claimResult(ctx: QueryCtx, claim: Doc<"creatorClaims">) {
   };
 }
 
+async function runApifyInstagramProfile(instagramHandle: string) {
+  const token = process.env.APIFY_API_TOKEN?.trim();
+  const actorId = (process.env.APIFY_CREATOR_CLAIM_ACTOR_ID?.trim() || "apify~instagram-profile-scraper").replace("/", "~");
+  if (!token) throw new ConvexError("Instagram ownership checking is not configured. Try another method or contact Creatorly support.");
+  const endpoint = `https://api.apify.com/v2/actors/${encodeURIComponent(actorId)}/run-sync-get-dataset-items?timeout=180&clean=true`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ usernames: [instagramHandle.replace(/^@/, "")], includeAboutSection: process.env.APIFY_CREATOR_CLAIM_INCLUDE_ABOUT === "true" }),
+  });
+  if (!response.ok) throw new Error(`Apify returned ${response.status}.`);
+  return mapApifyClaimProfile(await response.json(), instagramHandle);
+}
+
 export const lookupInstagram = query({
   args: { input: v.string() },
   handler: async (ctx, args) => {
@@ -131,6 +148,7 @@ export const start = mutation({
   args: { input: v.string() },
   handler: async (ctx, args) => {
     const { userId, user } = await requireUser(ctx);
+    requireVerifiedEmail(user, "start an ownership claim");
     const identity = normalizeInstagramInput(args.input);
     const existingClaims = await ctx.db.query("creatorClaims").withIndex("by_handle", q => q.eq("normalizedInstagramHandle", identity.normalizedHandle)).collect();
     const owned = existingClaims.find(item => item.userId === userId && activeStatuses.has(item.status));
@@ -177,22 +195,14 @@ export const start = mutation({
 export const enrich = internalAction({
   args: { claimId: v.id("creatorClaims"), instagramHandle: v.string(), instagramUrl: v.string() },
   handler: async (ctx, args) => {
-    const token = process.env.APIFY_API_TOKEN?.trim();
     const actorId = (process.env.APIFY_CREATOR_CLAIM_ACTOR_ID?.trim() || "apify~instagram-profile-scraper").replace("/", "~");
-    if (!token) {
+    if (!process.env.APIFY_API_TOKEN?.trim()) {
       await ctx.runMutation(applyEnrichmentRef, { claimId: args.claimId, actorId, error: "Apify creator-claim enrichment is not configured." });
       return;
     }
     await ctx.runMutation(markEnrichmentRunningRef, { claimId: args.claimId, actorId });
     try {
-      const endpoint = `https://api.apify.com/v2/actors/${encodeURIComponent(actorId)}/run-sync-get-dataset-items?timeout=180&clean=true`;
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ usernames: [args.instagramHandle.replace(/^@/, "")], includeAboutSection: process.env.APIFY_CREATOR_CLAIM_INCLUDE_ABOUT === "true" }),
-      });
-      if (!response.ok) throw new Error(`Apify returned ${response.status}.`);
-      const result = mapApifyClaimProfile(await response.json(), args.instagramHandle);
+      const result = await runApifyInstagramProfile(args.instagramHandle);
       await ctx.runMutation(applyEnrichmentRef, { claimId: args.claimId, actorId, result });
     } catch (error) {
       await ctx.runMutation(applyEnrichmentRef, { claimId: args.claimId, actorId, error: error instanceof Error ? error.message : "Apify profile enrichment failed." });
@@ -247,13 +257,6 @@ export const applyEnrichment = internalMutation({
       enrichedIsPrivate: result.isPrivate,
       enrichedIsBusinessAccount: result.isBusinessAccount,
       updatedAt: now,
-    });
-    if (claim.creatorId) await ctx.db.patch(claim.creatorId, {
-      ...(result.followerCount === undefined ? {} : { followerCount: Math.max(0, Math.round(result.followerCount)) }),
-      ...(result.engagementRatePercent === undefined ? {} : { engagementRatePercent: result.engagementRatePercent }),
-      ...(result.profileImageUrl ? { profileImageUrl: result.profileImageUrl } : {}),
-      ...(result.isVerified === undefined ? {} : { isVerified: result.isVerified }),
-      lastUpdatedAt: now,
     });
     await ctx.db.insert("creatorClaimAuditEvents", { claimId: claim._id, eventType: "enrichment_complete", createdAt: now });
   },
@@ -312,7 +315,7 @@ export const saveProfile = mutation({
       rates,
     };
     const nextStatus = profileComplete(fields) ? "ready_for_verification" as const : "draft" as const;
-    const status = ["verification_pending", "verified", "review_required"].includes(claim.status) ? claim.status : nextStatus;
+    const status = ["ownership_claimed_by_user", "verified", "review_required"].includes(claim.status) ? claim.status : nextStatus;
     const now = Date.now();
     await ctx.db.patch(claim._id, { ...fields, status, updatedAt: now });
     await ctx.db.insert("creatorClaimAuditEvents", { claimId: claim._id, actorUserId: userId, eventType: "profile_saved", createdAt: now });
@@ -397,6 +400,7 @@ export const issueVerification = mutation({
       verificationCode: code,
       verificationExpiresAt: now + 24 * 60 * 60 * 1000,
       verificationSubmittedAt: undefined,
+      verifiedAt: undefined,
       status: "ready_for_verification",
       updatedAt: now,
     });
@@ -405,16 +409,80 @@ export const issueVerification = mutation({
   },
 });
 
-export const submitVerification = mutation({
+export const getVerificationClaim = internalQuery({
+  args: { claimId: v.id("creatorClaims"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const claim = await ctx.db.get(args.claimId);
+    if (!claim || claim.userId !== args.userId) throw new ConvexError("Claim not found.");
+    return claim;
+  },
+});
+
+export const recordOwnershipAssertion = internalMutation({
+  args: {
+    claimId: v.id("creatorClaims"),
+    userId: v.id("users"),
+    verificationMethod,
+    verificationCode: v.string(),
+    instagramBioVerified: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const claim = await ctx.db.get(args.claimId);
+    if (!claim || claim.userId !== args.userId) throw new ConvexError("Claim not found.");
+    if (claim.verificationMethod !== args.verificationMethod || claim.verificationCode !== args.verificationCode || !claim.verificationExpiresAt) {
+      throw new ConvexError("This ownership challenge changed. Submit the latest challenge instead.");
+    }
+    if (claim.verificationExpiresAt <= Date.now()) throw new ConvexError("This ownership challenge expired. Create a new one.");
+    if (claim.verificationMethod === "instagram_bio" && !args.instagramBioVerified) {
+      throw new ConvexError("Creatorly could not verify the Instagram bio code.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(claim._id, {
+      verificationSubmittedAt: now,
+      verifiedAt: args.instagramBioVerified ? now : undefined,
+      status: "ownership_claimed_by_user",
+      updatedAt: now,
+    });
+    await ctx.db.insert("creatorClaimAuditEvents", {
+      claimId: claim._id,
+      actorUserId: args.userId,
+      eventType: args.instagramBioVerified ? "ownership_verified_instagram_bio" : "ownership_asserted_by_claimant",
+      detail: claim.verificationMethod,
+      createdAt: now,
+    });
+    return { status: "ownership_claimed_by_user" as const };
+  },
+});
+
+export const submitVerification = action({
   args: { claimId: v.id("creatorClaims") },
   handler: async (ctx, args) => {
-    const { userId, claim } = await requireOwner(ctx, args.claimId);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Sign in to claim a creator profile.");
+    const claim = await ctx.runQuery(getVerificationClaimRef, { claimId: args.claimId, userId });
     if (!claim.verificationMethod || !claim.verificationCode || !claim.verificationExpiresAt) throw new ConvexError("Choose a verification method first.");
     if (claim.verificationExpiresAt <= Date.now()) throw new ConvexError("This verification challenge expired. Create a new one.");
-    const now = Date.now();
-    await ctx.db.patch(claim._id, { verificationSubmittedAt: now, status: "verification_pending", updatedAt: now });
-    await ctx.db.insert("creatorClaimAuditEvents", { claimId: claim._id, actorUserId: userId, eventType: "verification_submitted", detail: claim.verificationMethod, createdAt: now });
-    return { status: "verification_pending" as const };
+    let instagramBioVerified = false;
+    if (claim.verificationMethod === "instagram_bio") {
+      let result: ClaimEnrichmentResult;
+      try {
+        result = await runApifyInstagramProfile(claim.instagramHandle);
+      } catch (error) {
+        if (error instanceof ConvexError) throw error;
+        throw new ConvexError(error instanceof Error ? `Instagram ownership check failed: ${error.message}` : "Instagram ownership check failed. Try again.");
+      }
+      if (!biographyContainsVerificationCode(result.biography, claim.verificationCode)) {
+        throw new ConvexError("Creatorly could not find the verification code in this Instagram bio. Add the code, wait for the public bio to update, then try again.");
+      }
+      instagramBioVerified = true;
+    }
+    return ctx.runMutation(recordOwnershipAssertionRef, {
+      claimId: claim._id,
+      userId,
+      verificationMethod: claim.verificationMethod,
+      verificationCode: claim.verificationCode,
+      instagramBioVerified,
+    });
   },
 });
 
@@ -423,7 +491,7 @@ export const submitForReview = mutation({
   handler: async (ctx, args) => {
     const { userId, claim } = await requireOwner(ctx, args.claimId);
     if (!args.acceptTerms) throw new ConvexError("Accept the profile declaration before submitting.");
-    if (!profileComplete(claim) || claim.status !== "verification_pending") throw new ConvexError("Complete the profile and submit ownership verification first.");
+    if (!profileComplete(claim) || claim.status !== "ownership_claimed_by_user") throw new ConvexError("Complete the profile and assert ownership first.");
     const now = Date.now();
     await ctx.db.patch(claim._id, { termsAcceptedAt: now, submittedAt: now, status: "review_required", updatedAt: now });
     await ctx.db.insert("creatorClaimAuditEvents", { claimId: claim._id, actorUserId: userId, eventType: "claim_submitted", createdAt: now });

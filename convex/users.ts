@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
+import { isEmailVerified } from "./lib/emailVerification";
 
 async function requireUser(ctx: MutationCtx) {
   const userId = await getAuthUserId(ctx);
@@ -40,7 +41,7 @@ export const viewer = query({
       onboardingCompleted: user.onboardingCompleted ?? false,
       onboardingStep: user.onboardingStep ?? 1,
       onboardingPlanTier: user.onboardingPlanTier ?? user.currentPlanTier ?? "free",
-      isEmailVerified: Boolean(user.emailVerificationTime ?? user.isEmailVerified),
+      isEmailVerified: isEmailVerified(user),
       notificationPreferences: user.notificationPreferences ?? {
         requestFulfilled: true,
         lowBalance: true,

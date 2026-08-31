@@ -273,7 +273,7 @@ export default defineSchema({
       v.literal("draft"),
       v.literal("enrichment_pending"),
       v.literal("ready_for_verification"),
-      v.literal("verification_pending"),
+      v.literal("ownership_claimed_by_user"),
       v.literal("verified"),
       v.literal("review_required"),
       v.literal("published"),

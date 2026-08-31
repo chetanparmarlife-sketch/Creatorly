@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 
 const creators = [
   {
@@ -78,7 +78,7 @@ const creators = [
   },
 ];
 
-export const run = mutation({
+export const run = internalMutation({
   args: {},
   handler: async (ctx) => {
     const existing = await ctx.db.query("creators").first();

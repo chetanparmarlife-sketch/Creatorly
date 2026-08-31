@@ -6,6 +6,7 @@ import { useAppData } from "../data/AppData";
 import type { BillingPurchase, PaidPlanTier } from "../lib/billingCatalog";
 import { CONTACT_ACCESS_WINDOW_DAYS, CONTACT_UNLOCK_COST } from "../../convex/lib/creditPolicy";
 import { Logo } from "./Logo";
+import { EmailVerificationPrompt } from "./EmailVerificationPrompt";
 
 const plans: Array<{ tier: PlanTier; monthlyPrice: number; credits: number; audience: string; description: string; features: string[] }> = [
   { tier: "free", monthlyPrice: 0, credits: 25, audience: "Explore Creatorly", description: "Search the database and unlock your first direct creator contacts.", features: ["Basic creator search", "Creator direct contacts", "Private creator workspace"] },
@@ -83,7 +84,7 @@ export function PricingView({ viewer, navigate }: { viewer?: Viewer | null; navi
       <div><p className="eyebrow">Creatorly pricing</p><h1>Choose the access your team needs.</h1><p>Start free, use Basic for the full campaign workflow, or choose Pro when you need managers and agents.</p></div>
       <div className="billing-toggle" aria-label="Billing cycle"><button className={!annual ? "is-active" : ""} aria-pressed={!annual} onClick={() => setAnnual(false)}>Monthly</button><button className={annual ? "is-active" : ""} aria-pressed={annual} onClick={() => setAnnual(true)}>Annual <small>2 months free</small></button></div>
     </header>
-    {error ? <div className="form-error" role="alert">{error}</div> : null}
+    {error ? <EmailVerificationPrompt error={error} navigate={navigate} returnTo="/pricing"/> : null}
     {viewer ? <section className="current-plan"><div><span>Current plan</span><strong>{viewer.currentPlanTier}</strong></div><div><span>Available balance</span><strong>{viewer.creditBalance} credits</strong></div><div><span>Status</span><strong>{viewer.subscriptionStatus}</strong></div></section> : null}
     <section className="plan-grid">{plans.map((plan) => {
       const annualTotal = plan.monthlyPrice * 10;

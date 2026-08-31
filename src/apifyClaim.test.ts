@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapApifyClaimProfile } from "../convex/lib/apifyClaim";
+import { biographyContainsVerificationCode, mapApifyClaimProfile } from "../convex/lib/apifyClaim";
 
 describe("Apify creator-claim mapping", () => {
   it("maps the matching profile and derives recent-post engagement", () => {
@@ -35,5 +35,10 @@ describe("Apify creator-claim mapping", () => {
   it("rejects empty and mismatched results", () => {
     expect(() => mapApifyClaimProfile([], "maya")).toThrow(/no Instagram profile/i);
     expect(() => mapApifyClaimProfile([{ username: "someone_else" }], "maya")).toThrow(/different Instagram profile/i);
+  });
+
+  it("passes only when the Instagram biography contains the issued code", () => {
+    expect(biographyContainsVerificationCode("Beauty creator · CRLY-A1B2C3D4", "crly-a1b2c3d4")).toBe(true);
+    expect(biographyContainsVerificationCode("Beauty creator · collabs by email", "CRLY-A1B2C3D4")).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { CONTACT_ACCESS_WINDOW_MS, CONTACT_UNLOCK_COST, STARTING_CREDIT_BALANCE } from "./lib/creditPolicy";
+import { requireVerifiedEmail } from "./lib/emailVerification";
 
 export const listHistory = query({
   args: {},
@@ -62,6 +63,7 @@ export const unlock = mutation({
       ctx.db.get(args.creatorId),
     ]);
     if (!user || !creator) throw new ConvexError("Creator not found.");
+    requireVerifiedEmail(user, "unlock creator contacts");
 
     const contacts = await ctx.db
       .query("contacts")

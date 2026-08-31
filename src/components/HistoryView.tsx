@@ -13,6 +13,7 @@ import { useAppData } from "../data/AppData";
 import type { AppRoute } from "../hooks/useRoute";
 import { daysRemaining, formatDate, initials } from "../lib/format";
 import type { UnlockHistoryItem } from "../types";
+import { EmailVerificationPrompt, isEmailVerificationRequired } from "./EmailVerificationPrompt";
 
 type HistoryFilter = "active" | "expired" | "all";
 
@@ -133,7 +134,7 @@ export function HistoryView({
         <select aria-label="Sort history" value={sort} onChange={e => setSort(e.target.value as typeof sort)}><option value="newest">Newest first</option><option value="name">Creator name</option></select>
       </section>
 
-      {error ? <div className="state-card state-error history-error" role="alert">{error}</div> : null}
+      {error ? isEmailVerificationRequired(error) ? <EmailVerificationPrompt error={error} navigate={navigate} returnTo="/history"/> : <div className="state-card state-error history-error" role="alert">{error}</div> : null}
       {loading ? (
         <div className="history-list" aria-label="Loading unlock history">
           <div className="history-skeleton" /><div className="history-skeleton" />

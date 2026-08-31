@@ -61,7 +61,7 @@ export const demoClaimData = {
   async submitVerification(claimId: string) {
     const claim = readClaim();
     if (!claim || claim._id !== claimId || !claim.verificationCode) throw new Error("Choose a verification method first.");
-    writeClaim({ ...claim, status: "verification_pending", updatedAt: Date.now() });
+    writeClaim({ ...claim, status: "ownership_claimed_by_user", verificationSubmittedAt: Date.now(), updatedAt: Date.now() });
   },
   async submitForReview(claimId: string, acceptTerms: boolean) {
     const claim = readClaim();

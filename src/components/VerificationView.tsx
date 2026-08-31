@@ -4,6 +4,15 @@ import type { AppRoute } from "../hooks/useRoute";
 import { useAppData } from "../data/AppData";
 import type { BillingCycle, PaidPlanTier } from "../lib/billingCatalog";
 
+function verifiedReturnRoute(path: string | null): AppRoute {
+  if (path === "/claim/profile") return { name: "claimProfile" };
+  if (path === "/pricing") return { name: "pricing" };
+  if (path === "/history") return { name: "history" };
+  const creatorMatch = path?.match(/^\/creator\/([^/]+)$/);
+  if (creatorMatch) return { name: "creator", creatorId: decodeURIComponent(creatorMatch[1]) };
+  return { name: "onboarding" };
+}
+
 export function VerificationView({ navigate, purchase }: { navigate(route: AppRoute): void; purchase?: { tier: PaidPlanTier; billingCycle: BillingCycle } }) {
   const data = useAppData();
   const email = window.sessionStorage.getItem("creatorly.pendingVerificationEmail") ?? "";
@@ -43,7 +52,7 @@ export function VerificationView({ navigate, purchase }: { navigate(route: AppRo
       else {
         const returnTo = window.sessionStorage.getItem("creatorly.authReturnTo");
         window.sessionStorage.removeItem("creatorly.authReturnTo");
-        navigate(returnTo === "/claim/profile" ? { name: "claimProfile" } : { name: "onboarding" });
+        navigate(verifiedReturnRoute(returnTo));
       }
     } catch (verificationError) {
       setError(verificationError instanceof Error ? verificationError.message : "The code is invalid or expired.");

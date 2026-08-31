@@ -11,6 +11,7 @@ import { rankSimilarCreators, type SimilarCreatorMatch } from "../lib/similarCre
 import type { CreatorDetailData } from "../types";
 import { ContactCard } from "./ContactCard";
 import { CreatorPortrait } from "./CreatorPortrait";
+import { EmailVerificationPrompt } from "./EmailVerificationPrompt";
 import { CONTACT_ACCESS_WINDOW_DAYS, CONTACT_UNLOCK_COST } from "../../convex/lib/creditPolicy";
 
 function formatPerformanceMetric(value: number) {
@@ -260,7 +261,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
                 <h2 id="contact-access-title">{upgradeRequired ? "This creator is manager-led" : `Reveal ${detail.availableContactCount} ${detail.availableContactCount === 1 ? "contact" : "contacts"}`}</h2>
                 <p>{upgradeRequired ? "The available contact is a manager or representative. Upgrade to Pro to unlock it." : `Get the role, direct contact point, outreach note, and verification date for ${CONTACT_ACCESS_WINDOW_DAYS} days.`}</p>
                 <div className="unlock-facts"><span><Coins size={18} /><strong>{upgradeRequired ? "Pro" : `${CONTACT_UNLOCK_COST} credits`}</strong><small>{upgradeRequired ? "access needed" : "one-time unlock"}</small></span><span><Clock3 size={18} /><strong>{CONTACT_ACCESS_WINDOW_DAYS} days</strong><small>repeat access</small></span><span><ShieldCheck size={18} /><strong>Role-labelled</strong><small>contact context</small></span></div>
-                {error ? <p className="form-error" role="alert">{error}</p> : null}
+                {error ? <EmailVerificationPrompt error={error} navigate={navigate} returnTo={`/creator/${creatorId}`}/> : null}
                 <button className="button button-primary button-wide" onClick={unlockAction} disabled={busy}>{busy ? "Unlocking…" : upgradeRequired ? "Upgrade to Pro" : insufficientCredits ? "Get credits" : `Unlock for ${CONTACT_UNLOCK_COST} credits`}</button>
                 <p className="balance-note">Your balance: <strong>{detail.creditBalance} credits</strong>{!upgradeRequired && !insufficientCredits ? ` → ${detail.creditBalance - CONTACT_UNLOCK_COST} after unlock` : ""}</p>
                 </>}
