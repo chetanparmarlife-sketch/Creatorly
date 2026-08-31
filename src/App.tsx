@@ -71,6 +71,7 @@ export function App() {
     <AppShell
       viewer={viewer}
       activePage={route.name === "creators" ? "creators" : route.name === "campaigns" || route.name === "campaign" ? "campaigns" : route.name === "history" ? "history" : route.name === "pricing" || route.name === "settings" ? "settings" : route.name === "admin" ? "admin" : "search"}
+      contextView={route.name === "creator" ? "creator-profile" : undefined}
       navigate={navigate}
       onHistory={() => navigate({ name: "history" })}
       onAdmin={() => navigate({ name: "admin" })}

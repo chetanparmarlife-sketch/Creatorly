@@ -1,4 +1,4 @@
-import { Bot, ChevronDown, FileBarChart, History, Inbox, LogOut, Megaphone, Menu, Plug, Search, Settings, ShieldCheck, UserRound, Users, Workflow, X } from "lucide-react";
+import { ArrowLeft, Bot, ChevronDown, FileBarChart, History, Inbox, LogOut, Megaphone, Menu, Plug, Search, Settings, ShieldCheck, UserRound, Users, Workflow, X } from "lucide-react";
 import { createContext, useState, type ReactNode } from "react";
 import type { Viewer } from "../types";
 import { Logo } from "./Logo";
@@ -22,11 +22,20 @@ const CONTEXT_NAV = {
   admin: { title: "Admin", items: [{ label: "Admin queue", icon: ShieldCheck, route: { name: "admin" } as AppRoute }, { label: "Contact history", icon: History, route: { name: "history" } as AppRoute }] },
 } as const;
 
+const CREATOR_PROFILE_CONTEXT = {
+  eyebrow: "Discovery",
+  title: "Creator profile",
+  items: [
+    { label: "Back to discovery", icon: ArrowLeft, route: { name: "discover" } as AppRoute },
+    { label: "Creator CRM", icon: Users, route: { name: "creators" } as AppRoute },
+  ],
+} as const;
+
 export const AppSidebarTargetContext = createContext<HTMLDivElement | null>(null);
 
 export function AppShell({
   viewer,
-  activePage, navigate,
+  activePage, contextView, navigate,
   onHistory,
   onAdmin,
   showAdmin,
@@ -35,6 +44,7 @@ export function AppShell({
 }: {
   viewer: Viewer | null;
   activePage: "search" | "creators" | "campaigns" | "history" | "settings" | "admin";
+  contextView?: "creator-profile";
   navigate(route: AppRoute): void;
   onHistory(): void;
   onAdmin(): void;
@@ -46,6 +56,11 @@ export function AppShell({
   const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarTarget, setSidebarTarget] = useState<HTMLDivElement | null>(null);
   const go = (route: AppRoute) => { setMobileOpen(false); navigate(route); };
+  const contextNav = contextView === "creator-profile"
+    ? CREATOR_PROFILE_CONTEXT
+    : activePage === "search"
+      ? null
+      : { eyebrow: "Workspace", ...CONTEXT_NAV[activePage] };
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -80,9 +95,9 @@ export function AppShell({
         <button className="icon-button mobile-menu-button" aria-label="Toggle navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(v => !v)}>{mobileOpen ? <X size={18}/> : <Menu size={18}/>}</button>
       </header>
       <AppSidebarTargetContext.Provider value={sidebarTarget}>
-        <aside className="context-sidebar" aria-label={activePage === "search" ? "Creator filters" : `${CONTEXT_NAV[activePage].title} tools`}>
+        <aside className="context-sidebar" aria-label={contextNav ? `${contextNav.title} tools` : "Creator filters"}>
           <div id="app-context-sidebar-content" ref={setSidebarTarget}>
-            {activePage === "search" ? null : <><header><p>Workspace</p><h2>{CONTEXT_NAV[activePage].title}</h2></header><nav aria-label={`${CONTEXT_NAV[activePage].title} navigation`}>{CONTEXT_NAV[activePage].items.map(({ label, icon: Icon, route }) => <button type="button" key={label} className={route.name === (activePage === "creators" ? "creators" : activePage === "campaigns" ? "campaigns" : activePage) ? "is-active" : ""} onClick={() => go(route)}><Icon size={17}/><span>{label}</span></button>)}</nav></>}
+            {contextNav ? <><header><p>{contextNav.eyebrow}</p><h2>{contextNav.title}</h2></header><nav aria-label={`${contextNav.title} navigation`}>{contextNav.items.map(({ label, icon: Icon, route }) => <button type="button" key={label} className={contextView !== "creator-profile" && route.name === (activePage === "creators" ? "creators" : activePage === "campaigns" ? "campaigns" : activePage) ? "is-active" : ""} onClick={() => go(route)}><Icon size={17}/><span>{label}</span></button>)}</nav></> : null}
           </div>
         </aside>
         <div className="app-content">{children}</div>
