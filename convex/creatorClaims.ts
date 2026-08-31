@@ -223,7 +223,7 @@ export const applyEnrichment = internalMutation({
   args: {
     claimId: v.id("creatorClaims"),
     actorId: v.string(),
-    result: v.optional(v.object({ displayName: v.optional(v.string()), biography: v.optional(v.string()), categories: v.optional(v.array(v.string())), country: v.optional(v.string()), city: v.optional(v.string()), websiteUrl: v.optional(v.string()), businessEmail: v.optional(v.string()), followerCount: v.optional(v.number()), followingCount: v.optional(v.number()), postCount: v.optional(v.number()), engagementRatePercent: v.optional(v.number()), profileImageUrl: v.optional(v.string()), isVerified: v.optional(v.boolean()), isPrivate: v.optional(v.boolean()), isBusinessAccount: v.optional(v.boolean()) })),
+    result: v.optional(v.object({ displayName: v.optional(v.string()), biography: v.optional(v.string()), businessCategoryName: v.optional(v.string()), categories: v.optional(v.array(v.string())), country: v.optional(v.string()), city: v.optional(v.string()), websiteUrl: v.optional(v.string()), businessEmail: v.optional(v.string()), followerCount: v.optional(v.number()), followingCount: v.optional(v.number()), postCount: v.optional(v.number()), engagementRatePercent: v.optional(v.number()), profileImageUrl: v.optional(v.string()), isVerified: v.optional(v.boolean()), isPrivate: v.optional(v.boolean()), isBusinessAccount: v.optional(v.boolean()) })),
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -253,6 +253,7 @@ export const applyEnrichment = internalMutation({
       enrichedPostCount: result.postCount,
       enrichedEngagementRatePercent: result.engagementRatePercent,
       enrichedProfileImageUrl: result.profileImageUrl,
+      enrichedBusinessCategoryName: result.businessCategoryName,
       enrichedIsVerified: result.isVerified,
       enrichedIsPrivate: result.isPrivate,
       enrichedIsBusinessAccount: result.isBusinessAccount,
@@ -512,7 +513,7 @@ export const listForAdmin = query({
 });
 
 export const review = mutation({
-  args: { claimId: v.id("creatorClaims"), decision: v.union(v.literal("approve"), v.literal("reject"), v.literal("request_changes")), note: v.optional(v.string()) },
+  args: { claimId: v.id("creatorClaims"), decision: v.union(v.literal("approve"), v.literal("reject"), v.literal("request_changes")), note: v.optional(v.string()), contactVerified: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const { userId } = await requireAdmin(ctx);
     const claim = await ctx.db.get(args.claimId);
@@ -523,6 +524,9 @@ export const review = mutation({
       await ctx.db.patch(claim._id, { status, reviewNote: clean(args.note), updatedAt: now });
       await ctx.db.insert("creatorClaimAuditEvents", { claimId: claim._id, actorUserId: userId, eventType: `claim_${args.decision}`, detail: clean(args.note), createdAt: now });
       return { status };
+    }
+    if (claim.contactPreference !== "not_contactable" && !args.contactVerified) {
+      throw new ConvexError("Confirm that you verified the submitted contact details before publishing.");
     }
     const creator = claim.creatorId ? await ctx.db.get(claim.creatorId) : null;
     const platformVerified = claim.enrichedIsVerified ?? creator?.isVerified ?? false;
@@ -539,6 +543,7 @@ export const review = mutation({
       postalCode: claim.postalCode,
       websiteUrl: claim.websiteUrl,
       managementType: claim.managementType,
+      metricProvenance: "apify" as const,
       followerCount: claim.enrichedFollowerCount ?? creator?.followerCount ?? 0,
       engagementRatePercent: claim.enrichedEngagementRatePercent ?? creator?.engagementRatePercent,
       engagementRateBasis: claim.enrichedEngagementRatePercent === undefined ? creator?.engagementRateBasis : "followers" as const,
@@ -550,7 +555,7 @@ export const review = mutation({
         postCount: claim.enrichedPostCount ?? creator?.instagramMetrics?.postCount,
         engagementRatePercent: claim.enrichedEngagementRatePercent ?? creator?.instagramMetrics?.engagementRatePercent,
         isBusinessAccount: claim.enrichedIsBusinessAccount ?? creator?.instagramMetrics?.isBusinessAccount,
-        businessCategoryName: claim.categories[0] ?? creator?.instagramMetrics?.businessCategoryName,
+        businessCategoryName: claim.enrichedBusinessCategoryName ?? creator?.instagramMetrics?.businessCategoryName,
       },
       lastUpdatedAt: now,
     };
@@ -576,7 +581,7 @@ export const review = mutation({
         name,
         email,
         whatsapp,
-        verificationStatus: "pending_verification",
+        verificationStatus: "verified",
         lastVerifiedAt: now,
         isActive: true,
         accessTier: "basic",
@@ -588,5 +593,59 @@ export const review = mutation({
     await ctx.db.patch(claim._id, { creatorId, status: "published", verifiedAt: now, publishedAt: now, reviewNote: clean(args.note), updatedAt: now });
     await ctx.db.insert("creatorClaimAuditEvents", { claimId: claim._id, actorUserId: userId, eventType: "claim_published", detail: clean(args.note), createdAt: now });
     return { status: "published" as const, creatorId };
+  },
+});
+
+export const republishFromEnrichment = internalMutation({
+  args: { claimId: v.id("creatorClaims"), verifyContacts: v.boolean() },
+  handler: async (ctx, args) => {
+    const claim = await ctx.db.get(args.claimId);
+    if (!claim || claim.status !== "published" || !claim.creatorId) {
+      throw new ConvexError("Published creator claim not found.");
+    }
+    const creator = await ctx.db.get(claim.creatorId);
+    if (!creator) throw new ConvexError("Published creator profile not found.");
+    const now = Date.now();
+    await ctx.db.patch(creator._id, {
+      displayName: claim.displayName ?? claim.instagramHandle,
+      biography: claim.biography,
+      websiteUrl: claim.websiteUrl,
+      followerCount: claim.enrichedFollowerCount ?? creator.followerCount,
+      engagementRatePercent: claim.enrichedEngagementRatePercent ?? creator.engagementRatePercent,
+      engagementRateBasis: claim.enrichedEngagementRatePercent === undefined ? creator.engagementRateBasis : "followers",
+      profileImageUrl: claim.enrichedProfileImageUrl ?? creator.profileImageUrl,
+      isVerified: claim.enrichedIsVerified ?? false,
+      metricProvenance: "apify",
+      instagramMetrics: {
+        ...creator.instagramMetrics,
+        followingCount: claim.enrichedFollowingCount ?? creator.instagramMetrics?.followingCount,
+        postCount: claim.enrichedPostCount ?? creator.instagramMetrics?.postCount,
+        engagementRatePercent: claim.enrichedEngagementRatePercent ?? creator.instagramMetrics?.engagementRatePercent,
+        isBusinessAccount: claim.enrichedIsBusinessAccount ?? creator.instagramMetrics?.isBusinessAccount,
+        businessCategoryName: claim.enrichedBusinessCategoryName ?? creator.instagramMetrics?.businessCategoryName,
+      },
+      lastUpdatedAt: now,
+    });
+    const social = await ctx.db.query("creatorSocialProfiles")
+      .withIndex("by_platform_handle", q => q.eq("platform", "instagram").eq("normalizedHandle", claim.normalizedInstagramHandle))
+      .first();
+    if (social) await ctx.db.patch(social._id, {
+      followerCount: claim.enrichedFollowerCount,
+      isVerified: claim.enrichedIsVerified ?? false,
+    });
+    if (args.verifyContacts) {
+      const contacts = await ctx.db.query("contacts").withIndex("by_creator", q => q.eq("creatorId", creator._id)).collect();
+      await Promise.all(contacts.filter(contact => contact.isActive).map(contact => ctx.db.patch(contact._id, {
+        verificationStatus: "verified",
+        lastVerifiedAt: now,
+      })));
+    }
+    await ctx.db.insert("creatorClaimAuditEvents", {
+      claimId: claim._id,
+      eventType: "published_profile_refreshed_from_apify",
+      detail: args.verifyContacts ? "active contacts verified" : undefined,
+      createdAt: now,
+    });
+    return { creatorId: creator._id, contactsVerified: args.verifyContacts };
   },
 });

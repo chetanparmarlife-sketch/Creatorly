@@ -15,6 +15,7 @@ export function AdminView() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [claims, setClaims] = useState<AdminCreatorClaim[]>([]);
   const [claimNote, setClaimNote] = useState("");
+  const [verifiedContacts, setVerifiedContacts] = useState<Set<string>>(() => new Set());
 
   const selected = useMemo(
     () => requests.find((request) => request.id === selectedId) ?? requests[0] ?? null,
@@ -83,9 +84,10 @@ export function AdminView() {
   async function reviewClaim(claimId: string, decision: "approve" | "reject" | "request_changes") {
     setBusy(true); setError(""); setSuccess("");
     try {
-      await data.reviewCreatorClaim(claimId, decision, claimNote);
+      await data.reviewCreatorClaim(claimId, decision, claimNote, verifiedContacts.has(claimId));
       setClaims(await data.listCreatorClaimsForAdmin());
       setClaimNote("");
+      setVerifiedContacts(current => { const next = new Set(current); next.delete(claimId); return next; });
       setSuccess(decision === "approve" ? "Creator profile verified and published." : decision === "reject" ? "Ownership claim rejected." : "Claim returned to the creator with requested changes.");
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "Could not review this claim."); }
     finally { setBusy(false); }
@@ -124,9 +126,10 @@ export function AdminView() {
         <div><p className="eyebrow">Creator ownership</p><h2>Profile claim reviews</h2><p>{claims.length} awaiting ownership review</p></div>
         {claims.length === 0 ? <p className="admin-claim-empty">No creator claims are awaiting review.</p> : <div className="admin-claim-list">{claims.map(claim => <article key={claim._id}>
           <header><span><strong>{claim.displayName || claim.instagramHandle}</strong><small>{claim.instagramHandle} · {claim.claimant.name} · {claim.claimant.email}</small></span><b>{claim.verifiedAt && claim.verificationMethod === "instagram_bio" ? "Instagram bio verified automatically" : claim.verificationMethod ? `${claim.verificationMethod.replaceAll("_", " ")} · asserted by claimant, not checked` : "No ownership method"}</b></header>
-          <dl><div><dt>Categories</dt><dd>{claim.categories.join(", ")}</dd></div><div><dt>Location</dt><dd>{[claim.city, claim.country].filter(Boolean).join(", ")}</dd></div><div><dt>Contact</dt><dd>{claim.contactPreference.replaceAll("_", " ")}</dd></div><div><dt>Proof code</dt><dd>{claim.verificationCode ?? "—"}</dd></div></dl>
+          <dl><div><dt>Categories</dt><dd>{claim.categories.join(", ")}</dd></div><div><dt>Location</dt><dd>{[claim.city, claim.country].filter(Boolean).join(", ")}</dd></div><div><dt>Contact to verify</dt><dd>{claim.contactPreference === "manager_only" ? [claim.managerName, claim.managerEmail, claim.managerWhatsapp].filter(Boolean).join(" · ") : claim.contactPreference === "direct" ? [claim.businessEmail, claim.whatsapp].filter(Boolean).join(" · ") : "Not contactable"}</dd></div><div><dt>Proof code</dt><dd>{claim.verificationCode ?? "—"}</dd></div></dl>
           <textarea aria-label={`Review note for ${claim.instagramHandle}`} rows={2} placeholder="Reviewer note or requested change" value={claimNote} onChange={event => setClaimNote(event.target.value)}/>
-          <footer><button className="button button-secondary" disabled={busy} onClick={() => void reviewClaim(claim._id, "reject")}>Reject</button><button className="button button-secondary" disabled={busy} onClick={() => void reviewClaim(claim._id, "request_changes")}>Request changes</button><button className="button button-primary" disabled={busy} onClick={() => void reviewClaim(claim._id, "approve")}><ShieldCheck size={16}/>Approve & publish</button></footer>
+          {claim.contactPreference !== "not_contactable" ? <label className="admin-contact-check"><input type="checkbox" checked={verifiedContacts.has(claim._id)} onChange={event => setVerifiedContacts(current => { const next = new Set(current); if (event.target.checked) next.add(claim._id); else next.delete(claim._id); return next; })}/><span>I checked the submitted contact details and they are ready for brands.</span></label> : null}
+          <footer><button className="button button-secondary" disabled={busy} onClick={() => void reviewClaim(claim._id, "reject")}>Reject</button><button className="button button-secondary" disabled={busy} onClick={() => void reviewClaim(claim._id, "request_changes")}>Request changes</button><button className="button button-primary" disabled={busy || claim.contactPreference !== "not_contactable" && !verifiedContacts.has(claim._id)} onClick={() => void reviewClaim(claim._id, "approve")}><ShieldCheck size={16}/>Approve & publish</button></footer>
         </article>)}</div>}
       </section>
       <section className="admin-users"><div><p className="eyebrow">User management</p><h2>Workspace accounts</h2></div><div className="admin-user-list">{users.map(user => <article key={user.id}><span><strong>{user.name}</strong><small>{user.email} · {user.companyName}</small></span><b>{user.currentPlanTier}</b><em>{user.creditBalance} credits</em><i>{user.subscriptionStatus}</i></article>)}</div></section>

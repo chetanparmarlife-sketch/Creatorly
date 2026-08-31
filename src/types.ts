@@ -164,7 +164,7 @@ export type CreatorSearchResult = {
   facebookMetrics?: FacebookMetrics;
   sourceLabel?: string;
   lastUpdatedAt?: number;
-  metricProvenance?: "supplied" | "live";
+  metricProvenance?: "supplied" | "live" | "apify";
   contactCount: number;
   matchScore: number;
 };
@@ -295,6 +295,7 @@ export type CreatorClaim = {
   enrichedPostCount?: number;
   enrichedEngagementRatePercent?: number;
   enrichedProfileImageUrl?: string;
+  enrichedBusinessCategoryName?: string;
   enrichedIsVerified?: boolean;
   enrichedIsPrivate?: boolean;
   enrichedIsBusinessAccount?: boolean;
@@ -465,7 +466,7 @@ export type CrmCreatorProfile = {
   contactCount?: number;
   sourceLabel?: string;
   lastUpdatedAt?: number;
-  metricProvenance?: "supplied" | "live";
+  metricProvenance?: "supplied" | "live" | "apify";
 };
 export type SavedCreator = {
   id: string;

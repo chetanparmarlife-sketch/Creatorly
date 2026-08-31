@@ -772,6 +772,7 @@ select:focus-visible, textarea:focus-visible {
 .admin-user-list article { min-height: 52px; }
 .admin-user-list b, .admin-user-list i { border-radius: 9999px; }
 .admin-claims>div:first-child>p:last-child,.admin-claim-empty{color:var(--ink-muted);font-size:12px}.admin-claim-list{display:grid;gap:12px;margin-top:18px}.admin-claim-list article{border:1px solid var(--line);border-radius:10px;padding:18px}.admin-claim-list header{display:flex;align-items:center;justify-content:space-between;gap:16px}.admin-claim-list header span{display:grid;gap:4px}.admin-claim-list header small{color:var(--ink-muted)}.admin-claim-list header b{padding:6px 9px;border-radius:999px;background:var(--signal-wash);color:var(--signal-deep);font-size:10px;text-transform:capitalize}.admin-claim-list dl{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0}.admin-claim-list dt{color:var(--ink-muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em}.admin-claim-list dd{margin:5px 0 0;font-size:12px;font-weight:650}.admin-claim-list textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical}.admin-claim-list footer{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.admin-contact-check{min-height:44px;margin-top:10px;display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:12px;font-weight:650}.admin-contact-check input{width:18px;height:18px}
 
 /* Brand and public screens */
 .auth-story { background: var(--canvas); }

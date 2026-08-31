@@ -26,6 +26,7 @@ describe("Apify creator-claim mapping", () => {
       postCount: 80,
       engagementRatePercent: 5,
       businessEmail: "hello@maya.example",
+      businessCategoryName: "Digital creator",
       country: "India",
       categories: ["Digital creator"],
       isVerified: true,

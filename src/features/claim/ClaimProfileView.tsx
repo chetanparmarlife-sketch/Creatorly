@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, AtSign, BadgeCheck, BriefcaseBusiness, Check, ExternalLink, FileImage, FileText, LoaderCircle, ShieldCheck, Trash2, UserRound, WalletCards } from "lucide-react";
 import { useAppData } from "../../data/AppData";
 import type { AppRoute } from "../../hooks/useRoute";
-import type { CreatorClaim, CreatorClaimProfileInput, CreatorClaimRate, CreatorVerificationMethod } from "../../types";
+import type { CreatorClaim, CreatorClaimProfileInput, CreatorClaimRate, CreatorContactPreference, CreatorVerificationMethod } from "../../types";
 import { Logo } from "../../components/Logo";
 import { EmailVerificationPrompt } from "../../components/EmailVerificationPrompt";
+import { claimFormFromClaim, mergeUntouchedClaimForm, type ClaimFormState } from "./claimForm";
 import "./claim.css";
 
 const steps = ["Instagram", "Profile", "Business", "Assets & rates", "Verify", "Review"];
@@ -40,6 +41,8 @@ export function ClaimProfileView({ authenticated, navigate }: { authenticated: b
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState(0);
+  const claimId = claim?._id;
+  const enrichmentStatus = claim?.enrichmentStatus;
 
   async function refresh() {
     if (!authenticated) return;
@@ -58,6 +61,17 @@ export function ClaimProfileView({ authenticated, navigate }: { authenticated: b
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [authenticated, data]);
+
+  useEffect(() => {
+    if (!authenticated || !claimId || !["queued", "running"].includes(enrichmentStatus ?? "")) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void data.getMyCreatorClaim().then(nextClaim => {
+        if (active) setClaim(nextClaim);
+      }).catch(() => undefined);
+    }, 1_200);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [authenticated, claimId, data, enrichmentStatus]);
 
   async function begin(event: FormEvent) {
     event.preventDefault();
@@ -100,13 +114,19 @@ function ClaimWizard({ claim, step, setStep, refresh, navigate, error, setError 
   const data = useAppData();
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(Boolean(claim.termsAcceptedAt));
-  const [form, setForm] = useState({
-    displayName: claim.displayName ?? "", biography: claim.biography ?? "", categories: claim.categories.join(", "), languages: claim.languages.join(", "), country: claim.country ?? "", city: claim.city ?? "", postalCode: claim.postalCode ?? "", websiteUrl: claim.websiteUrl ?? "", businessEmail: claim.businessEmail ?? "", whatsapp: claim.whatsapp ?? "", managementType: claim.managementType ?? "self_managed", managerName: claim.managerName ?? "", managerEmail: claim.managerEmail ?? "", managerWhatsapp: claim.managerWhatsapp ?? "", contactPreference: claim.contactPreference,
-  });
+  const touchedFields = useRef(new Set<keyof ClaimFormState>());
+  const [form, setForm] = useState(() => claimFormFromClaim(claim));
   const [rates, setRates] = useState<CreatorClaimRate[]>(claim.rates.length ? claim.rates : ["Instagram Reel", "Instagram Post", "Instagram Story"].map(deliverableType => ({ deliverableType, currency: "INR", negotiable: true })));
   const completedThrough = useMemo(() => claim.status === "published" ? 5 : claim.status === "review_required" ? 5 : claim.status === "ownership_claimed_by_user" ? 4 : claim.status === "ready_for_verification" ? 3 : claim.categories.length && claim.languages.length ? 2 : 0, [claim]);
 
-  function field(name: keyof typeof form, value: string) { setForm(current => ({ ...current, [name]: value })); }
+  useEffect(() => {
+    setForm(current => mergeUntouchedClaimForm(current, claim, touchedFields.current));
+  }, [claim]);
+
+  function field<K extends keyof ClaimFormState>(name: K, value: ClaimFormState[K]) {
+    touchedFields.current.add(name);
+    setForm(current => ({ ...current, [name]: value }));
+  }
   function payload(): CreatorClaimProfileInput { return { claimId: claim._id, displayName: form.displayName, biography: form.biography || undefined, categories: splitList(form.categories), languages: splitList(form.languages), country: form.country || undefined, city: form.city || undefined, postalCode: form.postalCode || undefined, websiteUrl: form.websiteUrl || undefined, businessEmail: form.businessEmail || undefined, whatsapp: form.whatsapp || undefined, managementType: form.managementType as "self_managed" | "talent_managed", managerName: form.managerName || undefined, managerEmail: form.managerEmail || undefined, managerWhatsapp: form.managerWhatsapp || undefined, contactPreference: form.contactPreference, rates }; }
 
   async function saveAndGo(next: number) {
@@ -137,7 +157,7 @@ function ClaimWizard({ claim, step, setStep, refresh, navigate, error, setError 
         {claim.reviewNote ? <div className="claim-review-note"><strong>Reviewer note</strong><p>{claim.reviewNote}</p></div> : null}
         {step === 0 ? <StepShell icon={<AtSign/>} kicker="Step 1 of 6" title="Your Instagram identity" description="We use this public URL to find the existing Creatorly record and queue a claim-only Apify refresh."><ProfilePreview claim={claim}/><div className="claim-data-note">{claim.enrichmentStatus === "complete" ? <Check size={18}/> : <LoaderCircle className={claim.enrichmentStatus === "running" ? "spin" : ""} size={18}/>}<div><strong>{claim.enrichmentStatus === "complete" ? "Instagram data refreshed by Apify" : claim.enrichmentStatus === "failed" ? "Add your details manually" : claim.enrichmentStatus === "running" ? "Apify is reading the public profile" : "Apify refresh queued"}</strong><p>{claim.enrichmentStatus === "failed" ? "Apify could not collect this public profile right now. You can still complete and submit it manually." : "Only this claim profile is sent to Apify. No Instagram login, password, or Meta connection is used."}</p></div></div><Footer busy={busy} onNext={() => setStep(1)}/></StepShell> : null}
         {step === 1 ? <StepShell icon={<UserRound/>} kicker="Step 2 of 6" title="Shape your public profile" description="Add details brands use to understand fit. Use commas between categories and languages."><div className="claim-form-grid"><Field label="Creator or channel name" value={form.displayName} onChange={value => field("displayName", value)} required/><Field label="Categories" hint="Example: Beauty, Lifestyle" value={form.categories} onChange={value => field("categories", value)} required/><Field label="Languages" hint="Example: Hindi, English" value={form.languages} onChange={value => field("languages", value)} required/><label className="wide"><span>Bio</span><textarea value={form.biography} onChange={event => field("biography", event.target.value)} rows={4} placeholder="What do you create, and who is your audience?"/></label><Field label="Country" value={form.country} onChange={value => field("country", value)} required/><Field label="City" value={form.city} onChange={value => field("city", value)}/><Field label="PIN / postal code" value={form.postalCode} onChange={value => field("postalCode", value)}/><Field label="Website" type="url" value={form.websiteUrl} onChange={value => field("websiteUrl", value)} placeholder="https://"/></div><Footer busy={busy} onBack={() => setStep(0)} onNext={() => void saveAndGo(2)}/></StepShell> : null}
-        {step === 2 ? <StepShell icon={<BriefcaseBusiness/>} kicker="Step 3 of 6" title="Control brand contact" description="Choose who receives business enquiries. These details stay private until a brand has access."><div className="claim-segment"><button className={form.managementType === "self_managed" ? "active" : ""} onClick={() => field("managementType", "self_managed")}>I manage myself</button><button className={form.managementType === "talent_managed" ? "active" : ""} onClick={() => field("managementType", "talent_managed")}>I have a manager</button></div><div className="claim-form-grid"><Field label="Business email" type="email" value={form.businessEmail} onChange={value => field("businessEmail", value)} placeholder="business@example.com"/><Field label="WhatsApp" type="tel" value={form.whatsapp} onChange={value => field("whatsapp", value)} placeholder="+91…"/>{form.managementType === "talent_managed" ? <><Field label="Manager name" value={form.managerName} onChange={value => field("managerName", value)}/><Field label="Manager email" type="email" value={form.managerEmail} onChange={value => field("managerEmail", value)}/><Field label="Manager WhatsApp" type="tel" value={form.managerWhatsapp} onChange={value => field("managerWhatsapp", value)}/></> : null}<label className="wide"><span>Who can brands contact?</span><select value={form.contactPreference} onChange={event => field("contactPreference", event.target.value)}><option value="direct">Contact me directly</option><option value="manager_only">Contact my manager only</option><option value="not_contactable">Do not allow brand contact</option></select></label></div><Footer busy={busy} onBack={() => setStep(1)} onNext={() => void saveAndGo(3)}/></StepShell> : null}
+        {step === 2 ? <StepShell icon={<BriefcaseBusiness/>} kicker="Step 3 of 6" title="Control brand contact" description="Choose who receives business enquiries. These details stay private until a brand has access."><div className="claim-segment"><button className={form.managementType === "self_managed" ? "active" : ""} onClick={() => field("managementType", "self_managed")}>I manage myself</button><button className={form.managementType === "talent_managed" ? "active" : ""} onClick={() => field("managementType", "talent_managed")}>I have a manager</button></div><div className="claim-form-grid"><Field label="Business email" type="email" value={form.businessEmail} onChange={value => field("businessEmail", value)} placeholder="business@example.com"/><Field label="WhatsApp" type="tel" value={form.whatsapp} onChange={value => field("whatsapp", value)} placeholder="+91…"/>{form.managementType === "talent_managed" ? <><Field label="Manager name" value={form.managerName} onChange={value => field("managerName", value)}/><Field label="Manager email" type="email" value={form.managerEmail} onChange={value => field("managerEmail", value)}/><Field label="Manager WhatsApp" type="tel" value={form.managerWhatsapp} onChange={value => field("managerWhatsapp", value)}/></> : null}<label className="wide"><span>Who can brands contact?</span><select value={form.contactPreference} onChange={event => field("contactPreference", event.target.value as CreatorContactPreference)}><option value="direct">Contact me directly</option><option value="manager_only">Contact my manager only</option><option value="not_contactable">Do not allow brand contact</option></select></label></div><Footer busy={busy} onBack={() => setStep(1)} onNext={() => void saveAndGo(3)}/></StepShell> : null}
         {step === 3 ? <StepShell icon={<WalletCards/>} kicker="Step 4 of 6" title="Package your commercial profile" description="Indicative rates help brands qualify opportunities. You can mark every rate negotiable."><div className="claim-rates">{rates.map((rate, index) => <div className="claim-rate" key={rate.deliverableType}><strong>{rate.deliverableType}</strong><input aria-label={`${rate.deliverableType} minimum rate`} type="number" min="0" placeholder="Minimum ₹" value={rate.minimum ?? ""} onChange={event => setRates(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, minimum: event.target.value ? Number(event.target.value) : undefined } : item))}/><input aria-label={`${rate.deliverableType} maximum rate`} type="number" min="0" placeholder="Maximum ₹" value={rate.maximum ?? ""} onChange={event => setRates(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, maximum: event.target.value ? Number(event.target.value) : undefined } : item))}/><label><input type="checkbox" checked={rate.negotiable} onChange={event => setRates(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, negotiable: event.target.checked } : item))}/> Negotiable</label></div>)}</div><div className="claim-upload-grid"><UploadCard icon={<FileText/>} title="Media kit" detail="One PDF, up to 20 MB" accept="application/pdf" disabled={busy} onChange={event => void upload(event, "media_kit")}/><UploadCard icon={<FileImage/>} title="Audience screenshots" detail="JPG, PNG or WebP, up to 8 MB" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => void upload(event, "audience_screenshot")}/></div>{claim.assets.length ? <ul className="claim-assets">{claim.assets.map(asset => <li key={asset._id}><span>{asset.kind === "media_kit" ? <FileText/> : <FileImage/>}<span><strong>{asset.fileName}</strong><small>{Math.ceil(asset.byteSize / 1024)} KB</small></span></span><button aria-label={`Remove ${asset.fileName}`} onClick={() => void removeAsset(asset._id)}><Trash2 size={16}/></button></li>)}</ul> : null}<div className="claim-future"><strong>Later connections</strong><span>Shopify</span><span>Affiliate accounts</span><small>These are not connected in this version.</small></div><Footer busy={busy} onBack={() => setStep(2)} onNext={() => void saveAndGo(4)}/></StepShell> : null}
         {step === 4 ? <StepShell icon={<ShieldCheck/>} kicker="Step 5 of 6" title="Prove profile ownership" description="Choose one proof. Instagram bio codes are checked automatically; other methods are assertions for admin review.">
           <div className="verification-options">

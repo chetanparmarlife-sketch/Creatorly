@@ -1,5 +1,6 @@
 import { ArrowUpRight, AtSign, BadgeCheck, Camera, PlaySquare } from "lucide-react";
 import { formatFollowers } from "../lib/format";
+import { metricProvenanceLabel } from "../lib/metricProvenance";
 import type { CreatorSearchResult } from "../types";
 import { CreatorPortrait } from "./CreatorPortrait";
 
@@ -35,7 +36,7 @@ export function CreatorResult({
           {creator.handle}
         </span>
         {performance.length ? <span className="creator-engagement">{performance.join(" · ")}</span> : null}
-        <span className="creator-provenance">{creator.sourceLabel ?? "Creatorly database"} · {updatedLabel} · {creator.metricProvenance === "live" ? "Live metrics" : "Supplied metrics"}</span>
+        <span className="creator-provenance">{creator.sourceLabel ?? "Creatorly database"} · {updatedLabel} · {metricProvenanceLabel(creator.metricProvenance)}</span>
       </span>
       <span className="creator-metric">
         <strong>{creator.followerCount > 0 ? formatFollowers(creator.followerCount) : "—"}</strong>

@@ -15,6 +15,7 @@ describe("creator claim write boundaries", () => {
   it("keeps enrichment on the claim row and never patches the canonical creator", () => {
     const applyEnrichment = exportedHandlerBody("applyEnrichment", "saveProfile");
     expect(applyEnrichment).toContain("enrichedFollowerCount: result.followerCount");
+    expect(applyEnrichment).toContain("enrichedBusinessCategoryName: result.businessCategoryName");
     expect(applyEnrichment).not.toContain("claim.creatorId");
     expect(applyEnrichment).not.toContain('db.patch(creator');
   });
@@ -24,10 +25,21 @@ describe("creator claim write boundaries", () => {
     expect(review).toContain("await requireAdmin(ctx)");
     expect(review).toContain('db.insert("creators"');
     expect(review).toContain("db.patch(creator._id, canonical)");
+    expect(review).toContain('metricProvenance: "apify"');
+    expect(review).toContain("businessCategoryName: claim.enrichedBusinessCategoryName");
+    expect(review).toContain("!args.contactVerified");
+    expect(review).toContain('verificationStatus: "verified"');
     expect(creatorClaimsSource.match(/db\.insert\("creators"/g)).toHaveLength(1);
     expect(creatorClaimsSource.match(/db\.patch\(creator\._id, canonical\)/g)).toHaveLength(1);
     expect(seedSource).toContain("export const run = internalMutation");
     expect(seedSource).not.toContain("export const run = mutation");
+  });
+
+  it("keeps published-profile repair internal and records its audit event", () => {
+    const maintenance = exportedHandlerBody("republishFromEnrichment", "");
+    expect(maintenance).toContain("internalMutation");
+    expect(maintenance).toContain("published_profile_refreshed_from_apify");
+    expect(maintenance).toContain('verificationStatus: "verified"');
   });
 
   it("uses truthful ownership state and audit names", () => {

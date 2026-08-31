@@ -1,6 +1,7 @@
 export type ClaimEnrichmentResult = {
   displayName?: string;
   biography?: string;
+  businessCategoryName?: string;
   categories?: string[];
   country?: string;
   city?: string;
@@ -60,6 +61,7 @@ export function mapApifyClaimProfile(payload: unknown, expectedHandle: string): 
   return {
     displayName: text(profile.fullName),
     biography: text(profile.biography),
+    businessCategoryName: category,
     categories: category ? [category] : undefined,
     country: text(profile.about?.country),
     city: text(profile.locationName),

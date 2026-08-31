@@ -7,6 +7,7 @@ import {
 import { useAppData } from "../data/AppData";
 import type { AppRoute } from "../hooks/useRoute";
 import { daysRemaining, formatFollowers } from "../lib/format";
+import { metricProvenanceLabel } from "../lib/metricProvenance";
 import { rankSimilarCreators, type SimilarCreatorMatch } from "../lib/similarCreators";
 import type { CreatorDetailData } from "../types";
 import { ContactCard } from "./ContactCard";
@@ -106,6 +107,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
   }
 
   const creator = detail.creator;
+  const provenanceLabel = metricProvenanceLabel(creator.metricProvenance);
   const freshnessLabel = creator.lastUpdatedAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(creator.lastUpdatedAt) : "Update date unavailable";
   const instagramMetrics = creator.instagramMetrics;
   const youtubeMetrics = creator.youtubeMetrics;
@@ -190,7 +192,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
             <div className="detail-labels"><span>{creator.platform}</span><span>{creator.sourceLabel ?? "Creatorly database"}</span>{creator.isDemo ? <span className="demo-chip">Demo data</span> : null}</div>
             <h1 id="creator-name">{creator.displayName} {creator.isVerified ? <BadgeCheck size={22} aria-label="Platform verified" /> : null}</h1>
             <p><MapPin size={16} /> {creator.location ?? "Location unavailable"}</p>
-            <p className="profile-freshness"><Clock3 size={16}/> Updated {freshnessLabel} · {creator.metricProvenance === "live" ? "Live metrics" : "Supplied metrics"}</p>
+            <p className="profile-freshness"><Clock3 size={16}/> Updated {freshnessLabel} · {provenanceLabel}</p>
           </div>
         </div>
         <div className="profile-rankings" aria-label="Creator highlights">
@@ -219,7 +221,7 @@ export function CreatorDetail({ creatorId, navigate, onBalanceChange }: {
           </section>
 
           {performanceMetrics.length ? <section className="profile-section creator-performance" aria-labelledby="performance-title">
-            <div className="profile-section-heading"><div><p className="eyebrow">{creator.platform === "youtube" ? "YouTube performance" : creator.platform === "facebook" ? "Facebook performance" : "Instagram performance"} · Supplied metrics</p><h2 id="performance-title">Audience and engagement</h2></div></div>
+            <div className="profile-section-heading"><div><p className="eyebrow">{creator.platform === "youtube" ? "YouTube performance" : creator.platform === "facebook" ? "Facebook performance" : "Instagram performance"} · {provenanceLabel}</p><h2 id="performance-title">Audience and engagement</h2></div></div>
             <div className="performance-metrics">{performanceMetrics.map(metric => <article key={metric.label}><small>{metric.label}</small><strong>{formatPerformanceMetric(metric.value!)}{metric.suffix}</strong><span>{metric.context}</span></article>)}</div>
             {youtubeMetrics?.audience?.length ? <div className="youtube-audience"><h3>Audience age and gender</h3><div>{youtubeMetrics.audience.map(item => <span key={`${item.ageGroup}-${item.gender}`}><strong>{item.percentage.toLocaleString("en-IN", { maximumFractionDigits: 1 })}%</strong><small>{item.ageGroup} · {item.gender}</small></span>)}</div></div> : null}
             {facebookMetrics?.audience?.length ? <div className="youtube-audience"><h3>Audience age and gender</h3><div>{facebookMetrics.audience.map(item => <span key={`${item.ageGroup}-${item.gender}`}><strong>{formatPerformanceMetric(item.value)}</strong><small>{item.ageGroup} · {item.gender}</small></span>)}</div></div> : null}
