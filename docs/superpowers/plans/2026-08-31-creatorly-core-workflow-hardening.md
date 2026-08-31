@@ -161,11 +161,11 @@
 **Interfaces:**
 - Produces: a three-step flow: workspace, goals, first action. Team invitations move to settings; planned channels disappear from onboarding.
 
-- [ ] Test completing onboarding in three steps for agency, brand, and talent workspaces.
-- [ ] Remove Team and Channels steps while retaining current workspace kind, role defaults, and goals.
-- [ ] Change the stored onboarding-step validator and migrate legacy step values safely.
-- [ ] Land on Discover, Campaigns, or Home according to the chosen first action.
-- [ ] Verify reload persistence and commit item 8.
+- [x] Test completing onboarding in three steps for agency, brand, and talent workspaces.
+- [x] Remove Team and Channels steps while retaining current workspace kind, role defaults, and goals.
+- [x] Change the stored onboarding-step validator and map legacy step values safely.
+- [x] Land on Discover or Campaigns according to the chosen first action; Home is added in Task 9.
+- [x] Verify reload persistence and commit item 8.
 
 ### Task 9: Build the operational Home dashboard
 

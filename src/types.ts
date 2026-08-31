@@ -216,7 +216,6 @@ export type WorkspaceOnboardingInput = {
   kind: WorkspaceKind;
   role: WorkspaceRole;
   goals: string[];
-  inviteEmail?: string;
 };
 export type CampaignStage = "discovered" | "shortlisted" | "contacted" | "replied" | "negotiating" | "contracted" | "creating" | "in_review" | "scheduled" | "live" | "paid";
 export type CampaignStatus = "draft" | "active" | "paused" | "completed" | "archived";

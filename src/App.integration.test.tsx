@@ -339,12 +339,12 @@ describe("Creatorly M1 user journey", () => {
     await user.click(screen.getByRole("button", { name: /^continue/i }));
     expect(await screen.findByRole("heading", { name: /what should creatorly help/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^continue/i }));
-    expect(await screen.findByRole("heading", { name: /set the first campaign owner/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem("creatorly.demo.user.v1") ?? "{}").onboardingStep).toBe(3);
 
     onboardingRender.unmount();
     renderDemo();
-    expect(await screen.findByRole("heading", { name: /set the first campaign owner/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
   });
 
   it("does not trap onboarding when progress syncing fails", async () => {
@@ -359,7 +359,7 @@ describe("Creatorly M1 user journey", () => {
       creditBalance: 25,
       subscriptionStatus: "active",
       onboardingCompleted: false,
-      onboardingStep: 4,
+      onboardingStep: 1,
       onboardingPlanTier: "free",
       isEmailVerified: true,
       notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
@@ -369,11 +369,43 @@ describe("Creatorly M1 user journey", () => {
     const user = userEvent.setup();
     renderDemo();
 
-    expect(await screen.findByRole("heading", { name: /connect data and outreach/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /who is running creator campaigns/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^continue/i }));
 
-    expect(await screen.findByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /what should creatorly help/i })).toBeInTheDocument();
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not sync, but you can keep going/i);
+  });
+
+  it("maps legacy onboarding steps to the final three-step screen", async () => {
+    window.localStorage.setItem("creatorly.demo.session.v1", "active");
+    window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({
+      id: "legacy-user", name: "Legacy User", email: "legacy@example.test", companyName: "Legacy Workspace", role: "user", currentPlanTier: "free", creditBalance: 25, subscriptionStatus: "active", onboardingCompleted: false, onboardingStep: 5, onboardingPlanTier: "free", isEmailVerified: true,
+      notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
+    }));
+    window.history.replaceState({}, "", "/onboarding");
+    renderDemo();
+    expect(await screen.findByText("Step 3 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /where should we take you first/i })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["agency", /^agency/i],
+    ["talent", /^talent team/i],
+  ] as const)("completes three-step onboarding for a %s workspace", async (kind, choiceName) => {
+    window.localStorage.setItem("creatorly.demo.session.v1", "active");
+    window.localStorage.setItem("creatorly.demo.user.v1", JSON.stringify({
+      id: `demo-${kind}`, name: "Aisha Shah", email: `${kind}@example.test`, companyName: "Creator Workspace", role: "user", currentPlanTier: "free", creditBalance: 25, subscriptionStatus: "active", onboardingCompleted: false, onboardingStep: 1, onboardingPlanTier: "free", isEmailVerified: true,
+      notificationPreferences: { requestFulfilled: true, lowBalance: true, expirationWarning: true, weeklySummary: false },
+    }));
+    window.history.replaceState({}, "", "/onboarding");
+    const user = userEvent.setup();
+    renderDemo();
+    await user.click(await screen.findByRole("button", { name: choiceName }));
+    await user.click(screen.getByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /^continue/i }));
+    await user.click(await screen.findByRole("button", { name: /open workspace/i }));
+    expect(await screen.findByRole("heading", { name: /discover creators/i })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("creatorly.workspace.v1") ?? "{}").kind).toBe(kind);
   });
 
   it("persists a brand workspace from onboarding without creating a duplicate", async () => {
@@ -402,8 +434,6 @@ describe("Creatorly M1 user journey", () => {
     await user.clear(workspaceName);
     await user.type(workspaceName, "Northstar Beauty");
     await user.click(screen.getByRole("button", { name: /^continue/i }));
-    await user.click(await screen.findByRole("button", { name: /^continue/i }));
-    await user.click(await screen.findByRole("button", { name: /^continue/i }));
     await user.click(await screen.findByRole("button", { name: /^continue/i }));
     await user.click(await screen.findByRole("button", { name: /open workspace/i }));
 

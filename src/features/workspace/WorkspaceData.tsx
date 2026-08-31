@@ -44,7 +44,6 @@ const WORKSPACE_KEY = "creatorly.workspace.v1";
 const SAVED_KEY = "creatorly.saved-creators.v1";
 const CAMPAIGN_KEY = "creatorly.campaigns.v1";
 const ACTIVITY_KEY = "creatorly.workspace-activity.v1";
-const INVITES_KEY = "creatorly.workspace-invites.v1";
 const GROUPS_KEY = "creatorly.workspace-groups.v1";
 const COLLABORATORS_KEY = "creatorly.group-collaborators.v1";
 
@@ -86,7 +85,6 @@ export function DemoWorkspaceDataProvider({ children }: { children: ReactNode })
         defaultCampaignRole: input.role,
       };
       write(WORKSPACE_KEY, workspace);
-      if (input.inviteEmail?.trim()) write(INVITES_KEY, [{ email: input.inviteEmail.trim().toLowerCase(), role: "contributor", status: "invited" }]);
       const viewer = await demoData.viewer();
       if (viewer) await demoData.updateProfile({ name: viewer.name, companyName: workspace.name });
       await demoData.completeOnboarding();

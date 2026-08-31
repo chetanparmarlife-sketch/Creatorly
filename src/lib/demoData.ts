@@ -302,9 +302,9 @@ export const demoData = {
   },
   async completeOnboarding() {
     const user = readUser();
-    if (user) saveUser({ ...user, onboardingCompleted: true, onboardingStep: 5 });
+    if (user) saveUser({ ...user, onboardingCompleted: true, onboardingStep: 3 });
   },
-  async updateOnboardingStep(step: 1 | 2 | 3 | 4 | 5) {
+  async updateOnboardingStep(step: 1 | 2 | 3) {
     const user = readUser();
     if (!user) throw new Error("Sign in to continue onboarding.");
     saveUser({ ...user, onboardingStep: step });

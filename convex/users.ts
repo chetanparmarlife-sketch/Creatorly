@@ -75,13 +75,13 @@ export const completeOnboarding = mutation({
   args: {},
   handler: async (ctx) => {
     const { userId } = await requireUser(ctx);
-    await ctx.db.patch(userId, { onboardingCompleted: true, onboardingStep: 5, updatedAt: Date.now() });
+    await ctx.db.patch(userId, { onboardingCompleted: true, onboardingStep: 3, updatedAt: Date.now() });
     return { status: "completed" as const };
   },
 });
 
 export const updateOnboardingStep = mutation({
-  args: { step: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4), v.literal(5)) },
+  args: { step: v.union(v.literal(1), v.literal(2), v.literal(3)) },
   handler: async (ctx, args) => {
     const { userId } = await requireUser(ctx);
     await ctx.db.patch(userId, { onboardingStep: args.step, updatedAt: Date.now() });

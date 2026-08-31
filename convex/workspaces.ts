@@ -30,7 +30,6 @@ export const completeSetup = mutation({
     kind,
     role,
     goals: v.array(v.string()),
-    inviteEmail: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -56,14 +55,7 @@ export const completeSetup = mutation({
       await ctx.db.patch(workspaceId!, { name, kind: args.kind, goals, defaultCampaignRole: args.role, updatedAt: now });
     }
 
-    const inviteEmail = args.inviteEmail?.trim().toLowerCase();
-    if (inviteEmail && inviteEmail !== user.email?.toLowerCase()) {
-      if (!inviteEmail.includes("@")) throw new ConvexError("Enter a valid teammate email address.");
-      const existingInvite = await ctx.db.query("workspaceMembers").withIndex("by_workspace_email", q => q.eq("workspaceId", workspaceId!).eq("email", inviteEmail)).unique();
-      if (!existingInvite) await ctx.db.insert("workspaceMembers", { workspaceId: workspaceId!, email: inviteEmail, role: "contributor", status: "invited", createdAt: now, updatedAt: now });
-    }
-
-    await ctx.db.patch(userId, { activeWorkspaceId: workspaceId, companyName: name, onboardingCompleted: true, onboardingStep: 5, updatedAt: now });
+    await ctx.db.patch(userId, { activeWorkspaceId: workspaceId, companyName: name, onboardingCompleted: true, onboardingStep: 3, updatedAt: now });
     return { id: workspaceId!, name, kind: args.kind, role: "owner" as const, goals, defaultCampaignRole: args.role };
   },
 });

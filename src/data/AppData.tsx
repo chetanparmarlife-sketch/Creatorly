@@ -55,7 +55,7 @@ type AppData = {
   updateProfile(input: { name: string; companyName: string; phone?: string }): Promise<void>;
   updateNotifications(input: NotificationPreferences): Promise<void>;
   completeOnboarding(): Promise<void>;
-  updateOnboardingStep(step: 1 | 2 | 3 | 4 | 5): Promise<void>;
+  updateOnboardingStep(step: 1 | 2 | 3): Promise<void>;
   updateOnboardingPlan(tier: PlanTier): Promise<void>;
   createCheckout(purchase: BillingPurchase): Promise<{ checkoutUrl: string }>;
   createCustomerPortal(): Promise<{ portalUrl: string }>;
@@ -168,7 +168,7 @@ const fulfillRequestRef = makeFunctionReference<"mutation">("admin:fulfillReques
 const updateProfileRef = makeFunctionReference<"mutation">("users:updateProfile") as FunctionReference<"mutation", "public", { name: string; companyName: string; phone?: string }, unknown>;
 const updateNotificationsRef = makeFunctionReference<"mutation">("users:updateNotifications") as FunctionReference<"mutation", "public", NotificationPreferences, unknown>;
 const completeOnboardingRef = makeFunctionReference<"mutation">("users:completeOnboarding") as FunctionReference<"mutation", "public", EmptyArgs, unknown>;
-const updateOnboardingStepRef = makeFunctionReference<"mutation">("users:updateOnboardingStep") as FunctionReference<"mutation", "public", { step: 1 | 2 | 3 | 4 | 5 }, unknown>;
+const updateOnboardingStepRef = makeFunctionReference<"mutation">("users:updateOnboardingStep") as FunctionReference<"mutation", "public", { step: 1 | 2 | 3 }, unknown>;
 const updateOnboardingPlanRef = makeFunctionReference<"mutation">("users:updateOnboardingPlan") as FunctionReference<"mutation", "public", { tier: PlanTier }, unknown>;
 const createCheckoutRef = makeFunctionReference<"action">("billing:createCheckout") as FunctionReference<"action", "public", { purchase: BillingPurchase }, { checkoutUrl: string }>;
 const createCustomerPortalRef = makeFunctionReference<"action">("billing:createCustomerPortal") as FunctionReference<"action", "public", EmptyArgs, { portalUrl: string }>;
