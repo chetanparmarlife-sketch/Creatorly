@@ -273,13 +273,20 @@ export const backfillPrimaryCategories = internalMutation({
 });
 
 export const backfillEngagementRateBatch = internalMutation({
-  args: { limit: v.optional(v.number()) },
+  args: { limit: v.optional(v.number()), continueInBackground: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
-    const creators = await ctx.db.query("creators").withIndex("by_engagement_backfilled", q => q.eq("engagementRateBackfilled", undefined)).take(Math.min(args.limit ?? 200, 500));
+    const limit = Math.min(args.limit ?? 200, 500);
+    const creators = await ctx.db.query("creators").withIndex("by_engagement_backfilled", q => q.eq("engagementRateBackfilled", undefined)).take(limit);
     await Promise.all(creators.map(creator => ctx.db.patch(creator._id, {
       engagementRatePercent: creatorEngagementRatePercent(creator),
       engagementRateBackfilled: true,
     })));
+    if (args.continueInBackground && creators.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.importCreators.backfillEngagementRateBatch, {
+        limit,
+        continueInBackground: true,
+      });
+    }
     return { updated: creators.length };
   },
 });
