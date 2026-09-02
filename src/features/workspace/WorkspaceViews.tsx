@@ -121,7 +121,7 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const [audienceMin, setAudienceMin] = useState(""); const [audienceMax, setAudienceMax] = useState("");
   const [engagementMin, setEngagementMin] = useState(""); const [engagementMax, setEngagementMax] = useState("");
   const [engagementBasis, setEngagementBasis] = useState<EngagementRateBasis>("followers");
-  const [countryInput, setCountryInput] = useState(""); const [country, setCountry] = useState(""); const [cityInput, setCityInput] = useState(""); const [city, setCity] = useState(""); const [postalCodeInput, setPostalCodeInput] = useState(""); const [postalCode, setPostalCode] = useState(""); const [locationFacets, setLocationFacets] = useState<CreatorLocationFacets>({ countries: [], cities: [], postalCodes: [] }); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
+  const [country, setCountry] = useState(""); const [city, setCity] = useState(""); const [postalCodeInput, setPostalCodeInput] = useState(""); const [postalCode, setPostalCode] = useState(""); const [locationFacets, setLocationFacets] = useState<CreatorLocationFacets>({ countries: [], cities: [], postalCodes: [] }); const [verifiedOnly, setVerifiedOnly] = useState(false); const [sort, setSort] = useState<CreatorSort>({ field: "audience", direction: "desc" });
   const [openFilters, setOpenFilters] = useState<Set<DiscoveryFilterSection>>(() => new Set(["platform"]));
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const countRequestRef = useRef(0);
@@ -185,12 +185,25 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
   const activeFilterCount = Number(platform !== "all") + Number(Boolean(category)) + Number(audienceActive) + Number(engagementActive) + Number(Boolean(country)) + Number(Boolean(city)) + Number(Boolean(postalCode)) + Number(verifiedOnly);
   const filtersActive = activeFilterCount > 0;
   const remainingCount = totalCount === null ? null : Math.max(0, totalCount - visibleResults.length);
-  function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setAudienceMin(""); setAudienceMax(""); setEngagementMin(""); setEngagementMax(""); setCountryInput(""); setCountry(""); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); setVerifiedOnly(false); }
-  function updateCountryInput(value: string) { const exact = locationFacets.countries.find(item => item.toLowerCase() === value.trim().toLowerCase()) ?? ""; setCountryInput(value); if (exact !== country) { setCountry(exact); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); } }
-  function updateCityInput(value: string) { const exact = cityOptions.find(item => item.city.toLowerCase() === value.trim().toLowerCase())?.city ?? ""; setCityInput(value); if (exact !== city) { setCity(exact); setPostalCodeInput(""); setPostalCode(""); } }
+  function clearTableFilters() { setPlatform("all"); setCategory(""); setAudience("all"); setAudienceMin(""); setAudienceMax(""); setEngagementMin(""); setEngagementMax(""); setCountry(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); setVerifiedOnly(false); }
+  function updateCountryInput(value: string) {
+    const exact = locationFacets.countries.find(item => item.toLowerCase() === value.trim().toLowerCase()) ?? "";
+    if (exact !== country) {
+      setCountry(exact);
+      setCity("");
+      setPostalCodeInput("");
+      setPostalCode("");
+    }
+  }
+  function updateCityInput(value: string) {
+    const exact = cityOptions.find(item => item.city.toLowerCase() === value.trim().toLowerCase())?.city ?? "";
+    if (exact !== city) {
+      setCity(exact);
+      setPostalCodeInput("");
+      setPostalCode("");
+    }
+  }
   function updatePostalCodeInput(value: string) { const exact = postalCodeOptions.find(item => item.postalCode.toLowerCase() === value.trim().toLowerCase())?.postalCode ?? ""; setPostalCodeInput(value); setPostalCode(exact); }
-  function applyCountryInput() { const value = countryInput.trim(); if (value !== country) { setCountry(value); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); } }
-  function applyCityInput() { const value = cityInput.trim(); if (value !== city) { setCity(value); setPostalCodeInput(""); setPostalCode(""); } }
   function applyPostalCodeInput() { setPostalCode(postalCodeInput.trim()); }
   function toggleFilter(section: DiscoveryFilterSection) { setOpenFilters(current => { const next = new Set(current); if (next.has(section)) next.delete(section); else next.add(section); return next; }); }
   function choosePlatform(nextPlatform: PlatformFilter) { setPlatform(nextPlatform); setSelectedIds(new Set()); setBulkMessage(""); }
@@ -237,8 +250,8 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
           {category ? <button type="button" onClick={() => setCategory("")} aria-label={`Remove ${category} category filter`}>{category}<X size={11}/></button> : null}
           {audienceActive ? <button type="button" onClick={() => chooseAudience("all")} aria-label="Remove audience filter">{audienceValueLabel(audience, audienceMin, audienceMax)}<X size={11}/></button> : null}
           {engagementActive ? <button type="button" onClick={() => { setEngagementMin(""); setEngagementMax(""); }} aria-label="Remove engagement filter">{engagementValueLabel(engagementMin, engagementMax)} of {engagementBasis}<X size={11}/></button> : null}
-          {country ? <button type="button" onClick={() => { setCountryInput(""); setCountry(""); setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${country} country filter`}>{country}<X size={11}/></button> : null}
-          {city ? <button type="button" onClick={() => { setCityInput(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${city} city filter`}>{city}<X size={11}/></button> : null}
+          {country ? <button type="button" onClick={() => { setCountry(""); setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${country} country filter`}>{country}<X size={11}/></button> : null}
+          {city ? <button type="button" onClick={() => { setCity(""); setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${city} city filter`}>{city}<X size={11}/></button> : null}
           {postalCode ? <button type="button" onClick={() => { setPostalCodeInput(""); setPostalCode(""); }} aria-label={`Remove ${postalCode} postal code filter`}>{postalCode}<X size={11}/></button> : null}
           {verifiedOnly ? <button type="button" onClick={() => setVerifiedOnly(false)} aria-label="Remove verified profiles filter">Verified<X size={11}/></button> : null}
         </div> : null}
@@ -274,8 +287,8 @@ export function DiscoveryWorkspace({ workspace, navigate }: { workspace: Workspa
               {engagementError ? <p className="discovery-filter-error" role="alert">{engagementError}</p> : null}
             </div>
           </DiscoveryFilterDisclosure>
-          <DiscoveryFilterDisclosure id="country" label="Country" value={country || "All countries"} icon={<MapPin size={17}/>} open={openFilters.has("country")} onToggle={() => toggleFilter("country")}><label className="discovery-filter-field"><span className="sr-only">Country</span><input list="creator-country-options" aria-label="Filter creator country" value={countryInput} onChange={event => updateCountryInput(event.target.value)} onBlur={applyCountryInput} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} placeholder="Type a country and press Enter" autoComplete="off"/><datalist id="creator-country-options">{locationFacets.countries.map(item => <option key={item} value={item}/>)}</datalist></label></DiscoveryFilterDisclosure>
-          <DiscoveryFilterDisclosure id="city" label="City" value={city || "All cities"} icon={<Building2 size={17}/>} open={openFilters.has("city")} onToggle={() => toggleFilter("city")}><label className="discovery-filter-field"><span className="sr-only">City</span><input list="creator-city-options" aria-label="Filter creator city" value={cityInput} onChange={event => updateCityInput(event.target.value)} onBlur={applyCityInput} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} placeholder={country ? `Type a city in ${country} and press Enter` : "Type a city and press Enter"} autoComplete="off"/><datalist id="creator-city-options">{cityOptions.map(item => <option key={`${item.city}:${item.country ?? ""}`} value={item.city}>{item.country && !country ? item.country : undefined}</option>)}</datalist></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="country" label="Country" value={country || "All countries"} icon={<MapPin size={17}/>} open={openFilters.has("country")} onToggle={() => toggleFilter("country")}><label className="discovery-filter-field"><span className="sr-only">Country</span><select aria-label="Filter creator country" value={country} onChange={event => updateCountryInput(event.target.value)}><option value="">All countries</option>{locationFacets.countries.map(item => <option key={item} value={item}>{item}</option>)}</select></label></DiscoveryFilterDisclosure>
+          <DiscoveryFilterDisclosure id="city" label="City" value={city || "All cities"} icon={<Building2 size={17}/>} open={openFilters.has("city")} onToggle={() => toggleFilter("city")}><label className="discovery-filter-field"><span className="sr-only">City</span><select aria-label="Filter creator city" value={city} onChange={event => updateCityInput(event.target.value)}><option value="">All cities</option>{cityOptions.map(item => <option key={`${item.city}:${item.country ?? ""}`} value={item.city}>{item.country && !country ? `${item.city}, ${item.country}` : item.city}</option>)}</select></label></DiscoveryFilterDisclosure>
           <DiscoveryFilterDisclosure id="postal" label="PIN / postal code" value={postalCode || "Any postal code"} icon={<MapPin size={17}/>} open={openFilters.has("postal")} onToggle={() => toggleFilter("postal")}><label className="discovery-filter-field"><span className="sr-only">PIN or postal code</span><input list="creator-postal-options" aria-label="Filter creator PIN or postal code" value={postalCodeInput} onChange={event => updatePostalCodeInput(event.target.value)} onBlur={applyPostalCodeInput} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} placeholder={city ? `Type a code in ${city} and press Enter` : "Type a PIN or postal code and press Enter"} inputMode="numeric" autoComplete="postal-code"/><datalist id="creator-postal-options">{postalCodeOptions.map(item => <option key={`${item.postalCode}:${item.city ?? ""}`} value={item.postalCode}>{[item.city, item.country].filter(Boolean).join(", ")}</option>)}</datalist></label></DiscoveryFilterDisclosure>
           <button type="button" className={`discovery-filter-toggle ${verifiedOnly ? "is-active" : ""}`} aria-pressed={verifiedOnly} onClick={() => setVerifiedOnly(value => !value)}><span className="discovery-filter-section-icon"><BadgeCheck size={17}/></span><span><strong>Verified profiles only</strong><small>{verifiedOnly ? "Enabled" : "Exclude unverified imports"}</small></span><span className="discovery-filter-check" aria-hidden="true">{verifiedOnly ? <Check size={13}/> : null}</span></button>
           <DiscoveryFilterDisclosure id="priority" label="Result priority" value={priorityLabel(sort)} icon={<SlidersHorizontal size={17}/>} open={openFilters.has("priority")} onToggle={() => toggleFilter("priority")}><label className="discovery-filter-field"><span className="sr-only">Result priority</span><select aria-label="Prioritize discovery results" value={`${sort.field}:${sort.direction}`} onChange={event => { const option = PRIORITY_OPTIONS.find(item => `${item.sort.field}:${item.sort.direction}` === event.target.value); if (option) setSort(option.sort); }}>{PRIORITY_OPTIONS.map(option => <option key={option.label} value={`${option.sort.field}:${option.sort.direction}`}>{option.label}</option>)}</select></label></DiscoveryFilterDisclosure>

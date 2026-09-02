@@ -481,9 +481,9 @@ describe("Creatorly M1 user journey", () => {
     await user.click(within(creatorFilters).getByRole("button", { name: /^Category/i }));
     expect(screen.getByLabelText("Filter category column")).toBeInTheDocument();
     await user.click(within(creatorFilters).getByRole("button", { name: /^Country/i }));
-    expect(screen.getByLabelText("Filter creator country")).toHaveAttribute("list", "creator-country-options");
+    expect(screen.getByRole("combobox", { name: "Filter creator country" })).toBeInTheDocument();
     await user.click(within(creatorFilters).getByRole("button", { name: /^City/i }));
-    expect(screen.getByLabelText("Filter creator city")).toHaveAttribute("list", "creator-city-options");
+    expect(screen.getByRole("combobox", { name: "Filter creator city" })).toBeInTheDocument();
     await user.click(within(creatorFilters).getByRole("button", { name: /^PIN \/ postal code/i }));
     expect(screen.getByLabelText("Filter creator PIN or postal code")).toHaveAttribute("list", "creator-postal-options");
     expect(screen.queryByLabelText("Filter contact column")).not.toBeInTheDocument();
@@ -850,11 +850,11 @@ describe("Creatorly M1 user journey", () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole("button", { name: /^Country/i }));
-    await waitFor(() => expect(document.querySelector('#creator-country-options option[value="India"]')).toBeInTheDocument());
-    await user.type(screen.getByLabelText("Filter creator country"), "India");
+    await waitFor(() => expect(screen.getByRole("option", { name: "India" })).toBeInTheDocument());
+    await user.selectOptions(screen.getByLabelText("Filter creator country"), "India");
     await user.click(screen.getByRole("button", { name: /^City/i }));
-    expect(document.querySelector('#creator-city-options option[value="Mumbai"]')).toBeInTheDocument();
-    await user.type(screen.getByLabelText("Filter creator city"), "Mumbai");
+    expect(within(screen.getByLabelText("Filter creator city")).getByRole("option", { name: "Mumbai" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Filter creator city"), "Mumbai");
     await user.click(screen.getByRole("button", { name: /^PIN \/ postal code/i }));
     expect(document.querySelector('#creator-postal-options option[value="400001"]')).toBeInTheDocument();
     await user.type(screen.getByLabelText("Filter creator PIN or postal code"), "400001");
