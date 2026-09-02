@@ -312,19 +312,8 @@ export function ConvexDataProvider({
     search: (query, filters = {}) => convex.query(searchRef, { query, ...filters }),
     browseCreators: async ({ cursor, numItems, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis, sortField, sortDirection }) => {
       const filters = { platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis, sortField, sortDirection };
-      if (!country && !city && !postalCode && minEngagementRate === undefined && maxEngagementRate === undefined) return convex.query(browseRef, { paginationOpts: { cursor, numItems }, ...filters });
-      let continueCursor = cursor;
-      const page: CreatorSearchResult[] = [];
-      for (let pageNumber = 0; pageNumber < 2_000; pageNumber += 1) {
-        const result = await convex.query(browseRef, { paginationOpts: { cursor: continueCursor, numItems }, ...filters });
-        page.push(...result.page);
-        if (result.isDone || page.length >= numItems) return { ...result, page, totalCount: cursor === null && result.isDone ? page.length : result.totalCount };
-        if (!result.continueCursor || result.continueCursor === continueCursor) {
-          return { ...result, page, totalCount: cursor === null ? page.length : result.totalCount, isDone: true };
-        }
-        continueCursor = result.continueCursor;
-      }
-      return { page, continueCursor: continueCursor ?? "", isDone: true, totalCount: cursor === null ? page.length : undefined };
+      const result = await convex.query(browseRef, { paginationOpts: { cursor, numItems }, ...filters });
+      return { ...result, continueCursor: result.continueCursor ?? "" };
     },
     countCreators: async ({ platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis }) => {
       let cursor: string | null = null;
