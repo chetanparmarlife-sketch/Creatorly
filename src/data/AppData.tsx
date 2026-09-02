@@ -319,10 +319,12 @@ export function ConvexDataProvider({
         const result = await convex.query(browseRef, { paginationOpts: { cursor: continueCursor, numItems }, ...filters });
         page.push(...result.page);
         if (result.isDone || page.length >= numItems) return { ...result, page, totalCount: cursor === null && result.isDone ? page.length : result.totalCount };
-        if (!result.continueCursor || result.continueCursor === continueCursor) throw new Error("Creator filtering stopped before completion.");
+        if (!result.continueCursor || result.continueCursor === continueCursor) {
+          return { ...result, page, totalCount: cursor === null ? page.length : result.totalCount, isDone: true };
+        }
         continueCursor = result.continueCursor;
       }
-      throw new Error("Creator filtering exceeded the safe page limit.");
+      return { page, continueCursor: continueCursor ?? "", isDone: true, totalCount: cursor === null ? page.length : undefined };
     },
     countCreators: async ({ platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis }) => {
       let cursor: string | null = null;
@@ -331,10 +333,10 @@ export function ConvexDataProvider({
         const result: CountPage = await convex.query(countRef, { paginationOpts: { cursor, numItems: 100 }, platform, category, location, country, city, postalCode, verifiedOnly, minFollowers, maxFollowers, minEngagementRate, maxEngagementRate, engagementRateBasis });
         total += result.count;
         if (result.isDone) return total;
-        if (!result.continueCursor || result.continueCursor === cursor) throw new Error("Creator counting stopped before completion.");
+        if (!result.continueCursor || result.continueCursor === cursor) return total;
         cursor = result.continueCursor;
       }
-      throw new Error("Creator counting exceeded the safe page limit.");
+      return total;
     },
     listCreatorLocations: () => convex.query(locationFacetsRef, {}),
     getDetail: (creatorId) => convex.query(detailRef, { creatorId }),
