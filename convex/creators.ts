@@ -38,8 +38,14 @@ function engagementFields(creator: Doc<"creators">) {
 
 function creatorLocationParts(creator: Pick<Doc<"creators">, "location" | "country" | "city" | "postalCode">) {
   const parts = creator.location?.split(",").map(part => part.trim()).filter(Boolean) ?? [];
+  const lastPart = parts.at(-1);
+  const inferredCountry = parts.length > 1
+    ? /^\d{4,}$/.test(lastPart ?? "")
+      ? (parts.length > 2 ? parts.at(-2) : undefined)
+      : lastPart
+    : undefined;
   return {
-    country: creator.country ?? (parts.length > 1 ? parts.at(-1) : parts[0]),
+    country: creator.country ?? inferredCountry ?? parts[0],
     city: creator.city ?? (parts.length > 1 ? parts[0] : undefined),
     postalCode: creator.postalCode,
   };
@@ -114,79 +120,98 @@ export const countPage = query({
     const maxFollowers = args.maxFollowers;
     const engagementActive = args.minEngagementRate !== undefined || args.maxEngagementRate !== undefined;
     const paginationOpts = { cursor: args.paginationOpts.cursor, numItems: Math.min(args.paginationOpts.numItems, 100) };
-    const locationSearch = args.postalCode?.trim() || args.city?.trim() || args.country?.trim() || args.location?.trim();
-    const result = locationSearch
-      ? await ctx.db.query("creators").withSearchIndex("search_location", q => {
-          if (args.platform && args.verifiedOnly) return q.search("location", locationSearch).eq("platform", args.platform).eq("isVerified", true);
-          if (args.platform) return q.search("location", locationSearch).eq("platform", args.platform);
-          if (args.verifiedOnly) return q.search("location", locationSearch).eq("isVerified", true);
-          return q.search("location", locationSearch);
-        }).paginate(paginationOpts)
-      : engagementActive && args.platform
-        ? await ctx.db.query("creators").withIndex("by_platform_engagement", q => args.minEngagementRate !== undefined
-            ? args.maxEngagementRate !== undefined
-              ? q.eq("platform", args.platform!).eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
-              : q.eq("platform", args.platform!).eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate)
-            : q.eq("platform", args.platform!).eq("engagementRateBasis", args.engagementRateBasis).lt("engagementRatePercent", args.maxEngagementRate!))
-          .filter(q => q.and(
-            q.eq(q.field("isDemo"), false),
-            ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
-            ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
-            q.gte(q.field("followerCount"), minFollowers),
-            ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
-          )).paginate(paginationOpts)
-        : engagementActive
-          ? await ctx.db.query("creators").withIndex("by_engagement", q => args.minEngagementRate !== undefined
-              ? args.maxEngagementRate !== undefined
-                ? q.eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
-                : q.eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate)
-              : q.eq("engagementRateBasis", args.engagementRateBasis).lt("engagementRatePercent", args.maxEngagementRate!))
-            .filter(q => q.and(
-              q.eq(q.field("isDemo"), false),
-              ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
-              ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
-              q.gte(q.field("followerCount"), minFollowers),
-              ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
-            )).paginate(paginationOpts)
-      : category && args.platform && args.verifiedOnly
-      ? await ctx.db.query("creators").withIndex("by_platform_category_verified_followers", q => maxFollowers === undefined
-          ? q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
-          : q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-        .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
-      : category && args.platform
-        ? await ctx.db.query("creators").withIndex("by_platform_category_followers", q => maxFollowers === undefined
-            ? q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers)
-            : q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-          .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts)
-        : category && args.verifiedOnly
-          ? await ctx.db.query("creators").withIndex("by_category_verified_followers", q => maxFollowers === undefined
-              ? q.eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
-              : q.eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-            .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
-          : category
-            ? await ctx.db.query("creators").withIndex("by_category_followers", q => maxFollowers === undefined
-                ? q.eq("primaryCategory", category).gte("followerCount", minFollowers)
-                : q.eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-              .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts)
-            : args.platform && args.verifiedOnly
-              ? await ctx.db.query("creators").withIndex("by_platform_verified_followers", q => maxFollowers === undefined
-                  ? q.eq("platform", args.platform!).eq("isVerified", true).gte("followerCount", minFollowers)
-                  : q.eq("platform", args.platform!).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-                .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
-              : args.platform
-                ? await ctx.db.query("creators").withIndex("by_platform_followers", q => maxFollowers === undefined
-                    ? q.eq("platform", args.platform!).gte("followerCount", minFollowers)
-                    : q.eq("platform", args.platform!).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-                  .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts)
-                : args.verifiedOnly
-                  ? await ctx.db.query("creators").withIndex("by_verified_followers", q => maxFollowers === undefined
-                      ? q.eq("isVerified", true).gte("followerCount", minFollowers)
-                      : q.eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-                    .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts)
-                  : await ctx.db.query("creators").withIndex("by_followers", q => maxFollowers === undefined
-                      ? q.gte("followerCount", minFollowers)
-                      : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
-                    .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts);
+    const countryFilter = args.country?.trim();
+    const cityFilter = args.city?.trim();
+    const postalFilter = args.postalCode?.trim();
+    const locationSearch = args.location?.trim();
+    const useLocationIndex = locationSearch && !countryFilter && !cityFilter && !postalFilter;
+    let result;
+    if (countryFilter || cityFilter || postalFilter) {
+      result = await ctx.db.query("creators")
+        .withIndex("by_followers", q => maxFollowers === undefined
+          ? q.gte("followerCount", minFollowers)
+          : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+        .filter(q => q.and(
+          q.eq(q.field("isDemo"), false),
+          ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+          ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+          ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+        )).paginate(paginationOpts);
+    } else if (useLocationIndex) {
+      result = await ctx.db.query("creators").withSearchIndex("search_location", q => {
+        if (args.platform && args.verifiedOnly) return q.search("location", locationSearch!).eq("platform", args.platform).eq("isVerified", true);
+        if (args.platform) return q.search("location", locationSearch!).eq("platform", args.platform);
+        if (args.verifiedOnly) return q.search("location", locationSearch!).eq("isVerified", true);
+        return q.search("location", locationSearch!);
+      }).paginate(paginationOpts);
+    } else if (engagementActive && args.platform) {
+      result = await ctx.db.query("creators").withIndex("by_platform_engagement", q => args.minEngagementRate !== undefined
+          ? args.maxEngagementRate !== undefined
+            ? q.eq("platform", args.platform!).eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
+            : q.eq("platform", args.platform!).eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate)
+          : q.eq("platform", args.platform!).eq("engagementRateBasis", args.engagementRateBasis).lt("engagementRatePercent", args.maxEngagementRate!))
+        .filter(q => q.and(
+          q.eq(q.field("isDemo"), false),
+          ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+          ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+          q.gte(q.field("followerCount"), minFollowers),
+          ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
+        )).paginate(paginationOpts);
+    } else if (engagementActive) {
+      result = await ctx.db.query("creators").withIndex("by_engagement", q => args.minEngagementRate !== undefined
+        ? args.maxEngagementRate !== undefined
+          ? q.eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate).lt("engagementRatePercent", args.maxEngagementRate)
+          : q.eq("engagementRateBasis", args.engagementRateBasis).gte("engagementRatePercent", args.minEngagementRate)
+        : q.eq("engagementRateBasis", args.engagementRateBasis).lt("engagementRatePercent", args.maxEngagementRate!))
+      .filter(q => q.and(
+        q.eq(q.field("isDemo"), false),
+        ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+        ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+        ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+        q.gte(q.field("followerCount"), minFollowers),
+        ...(maxFollowers === undefined ? [] : [q.lt(q.field("followerCount"), maxFollowers)]),
+      )).paginate(paginationOpts);
+    } else if (category && args.platform && args.verifiedOnly) {
+      result = await ctx.db.query("creators").withIndex("by_platform_category_verified_followers", q => maxFollowers === undefined
+        ? q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
+        : q.eq("platform", args.platform!).eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts);
+    } else if (category && args.platform) {
+      result = await ctx.db.query("creators").withIndex("by_platform_category_followers", q => maxFollowers === undefined
+        ? q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers)
+        : q.eq("platform", args.platform!).eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts);
+    } else if (category && args.verifiedOnly) {
+      result = await ctx.db.query("creators").withIndex("by_category_verified_followers", q => maxFollowers === undefined
+        ? q.eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers)
+        : q.eq("primaryCategory", category).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts);
+    } else if (category) {
+      result = await ctx.db.query("creators").withIndex("by_category_followers", q => maxFollowers === undefined
+        ? q.eq("primaryCategory", category).gte("followerCount", minFollowers)
+        : q.eq("primaryCategory", category).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts);
+    } else if (args.platform && args.verifiedOnly) {
+      result = await ctx.db.query("creators").withIndex("by_platform_verified_followers", q => maxFollowers === undefined
+        ? q.eq("platform", args.platform!).eq("isVerified", true).gte("followerCount", minFollowers)
+        : q.eq("platform", args.platform!).eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts);
+    } else if (args.platform) {
+      result = await ctx.db.query("creators").withIndex("by_platform_followers", q => maxFollowers === undefined
+        ? q.eq("platform", args.platform!).gte("followerCount", minFollowers)
+        : q.eq("platform", args.platform!).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.and(q.eq(q.field("isDemo"), false), ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []))).paginate(paginationOpts);
+    } else if (args.verifiedOnly) {
+      result = await ctx.db.query("creators").withIndex("by_verified_followers", q => maxFollowers === undefined
+        ? q.eq("isVerified", true).gte("followerCount", minFollowers)
+        : q.eq("isVerified", true).gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts);
+    } else {
+      result = await ctx.db.query("creators").withIndex("by_followers", q => maxFollowers === undefined
+        ? q.gte("followerCount", minFollowers)
+        : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+      .filter(q => q.eq(q.field("isDemo"), false)).paginate(paginationOpts);
+    }
 
     return {
       count: result.page.filter(creator => passesFilters(creator, args)).length,
@@ -236,19 +261,28 @@ export const browsePage = query({
       cursor: args.paginationOpts.cursor,
       numItems: Math.min(args.paginationOpts.numItems, 24),
     };
-    if (args.country?.trim() || args.city?.trim() || args.postalCode?.trim() || engagementActive) {
-      const locationSearch = args.postalCode?.trim() || args.city?.trim() || args.country?.trim();
+    const countryFilter = args.country?.trim();
+    const cityFilter = args.city?.trim();
+    const postalFilter = args.postalCode?.trim();
+    if (countryFilter || cityFilter || postalFilter || engagementActive) {
       let scanCursor = args.paginationOpts.cursor;
       let isDone = false;
       const matching: Doc<"creators">[] = [];
       for (let scan = 0; scan < 5 && matching.length < paginationOpts.numItems && !isDone; scan += 1) {
-        const candidates = locationSearch
-          ? await ctx.db.query("creators").withSearchIndex("search_location", q => {
-              if (args.platform && args.verifiedOnly) return q.search("location", locationSearch).eq("platform", args.platform).eq("isVerified", true);
-              if (args.platform) return q.search("location", locationSearch).eq("platform", args.platform);
-              if (args.verifiedOnly) return q.search("location", locationSearch).eq("isVerified", true);
-              return q.search("location", locationSearch);
-            }).paginate({ cursor: scanCursor, numItems: paginationOpts.numItems })
+        const candidates = countryFilter || cityFilter || postalFilter
+          ? await ctx.db
+              .query("creators")
+              .withIndex("by_followers", q => maxFollowers === undefined
+                ? q.gte("followerCount", minFollowers)
+                : q.gte("followerCount", minFollowers).lt("followerCount", maxFollowers))
+              .filter(q => q.and(
+                q.eq(q.field("isDemo"), false),
+                ...(args.platform ? [q.eq(q.field("platform"), args.platform)] : []),
+                ...(category ? [q.eq(q.field("primaryCategory"), category)] : []),
+                ...(args.verifiedOnly ? [q.eq(q.field("isVerified"), true)] : []),
+              ))
+              .order(sortField === "audience" ? sortDirection : "desc")
+              .paginate({ cursor: scanCursor, numItems: paginationOpts.numItems })
           : engagementActive && args.platform
             ? await ctx.db.query("creators").withIndex("by_platform_engagement", q => args.minEngagementRate !== undefined
                 ? args.maxEngagementRate !== undefined
